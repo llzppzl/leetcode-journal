@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>拆得完吗</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;gap:10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'拆得完吗', template:'prep', sub:'LeetCode 139 Word Break · 算法动画', key:'lc139vid', doc:'LeetCode 139 题', blurb:'从"切掉一个前缀，剩下的交给自己"讲起，看清返回值去哪了，再在 aaaab 的递归树上圈出重复的后缀，引出记忆化，最后变成从下往上的 dp。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：拆一个字符串','读题：能不能拆完','思路：切前缀，剩下的交给自己','返回值去哪了','为什么超时','长一点会爆炸','记忆化：一本答案本','代码：只多三行','记忆化走一遍','从上往下，到从下往上','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+const XCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.book{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .8em}
+.book h4{margin:0 .4em 0 0;font-size:.85em;color:var(--dim);font-weight:500}
+.book .k{font-family:var(--f-mono);font-size:.85em;padding:.05em .5em;border-radius:6px;border:1px solid var(--coral);color:var(--coral)}
+.book .k.s:not(.on){opacity:0}
+.dpr{display:grid;gap:5px;justify-content:center}
+.dpr>div{display:grid;place-items:center;height:2.3em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-mono)}
+.dpr>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-size:.78em}
+.dpr .ch{font-family:var(--f-display);font-size:1.25em}
+.dpr b{font-weight:600} .dpr b.t{color:var(--mint)} .dpr b.f{color:var(--coral)}
+.dpr b.s:not(.on){opacity:0}
+</style>`;
+// the plain recursion tree for s="aaaab", wordDict=["a","aa","aaa"]: 15 calls, "ab" solved 4 times
+const TREE = [
+  ['o','can("aaaab")'],
+  ['o','├ a   → can("aaab")'],
+  ['o','│ ├ a   → can("aab")'],
+  ['hl','│ │ ├ a   → can("ab")'],
+  ['e','│ │ │ └ a → can("b")  ✗'],
+  ['e','│ │ └ aa  → can("b")  ✗'],
+  ['hl','│ ├ aa  → can("ab")'],
+  ['e','│ │ └ a → can("b")  ✗'],
+  ['e','│ └ aaa → can("b")  ✗'],
+  ['o','├ aa  → can("aab")'],
+  ['hl','│ ├ a   → can("ab")'],
+  ['e','│ │ └ a → can("b")  ✗'],
+  ['e','│ └ aa  → can("b")  ✗'],
+  ['hl','└ aaa → can("ab")'],
+  ['e','  └ a → can("b")  ✗']];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'拆得完吗<br><em>LeetCode 139</em>', vis:
+  gloss(0,[['字符串','一串字符，比如 "leetcode"'],['前缀 / 后缀','开头的一段 / 剩下的一段。"leetcode" 切掉前缀 "leet"，后缀是 "code"'],['字典 wordDict','题目给的一组单词，可以重复使用']])
+  + flow([[1,'读题','能不能拆完'],[1,'递归','切前缀，剩下交给自己'],[2,'返回值','别扔掉'],[2,'超时','同一个后缀算很多遍'],[3,'记忆化','答案本'],[3,'dp','从下往上']]),
+  say:[
+  '这节课讲力扣 139 题，单词拆分。先认三个词：字符串就是一串字符。前缀是开头的一段，后缀是剩下的一段。字典是题目给的一组单词，可以重复使用。',
+  '路线是这样的：先用最自然的想法，切掉一个合法前缀，剩下的交给同一个函数。再看清递归的返回值去了哪里。',
+  '然后看它为什么超时：同一个后缀被算了很多遍。我们在一棵小小的递归树上，把重复的后缀圈出来。',
+  '最后用一本答案本，也就是记忆化，让每个后缀只算一次，再把它改写成从下往上的 dp。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'能不能<em>拆完</em>', vis:
+  gloss(0,[['拆完','把字符串从头到尾切成几段，每一段都在字典里，一个字符都不剩']])
+  + q(1,'下面三个例子，哪个能拆完？')
+  + tbl(['字符串','字典','能不能拆完'],[
+    [2,'"leetcode"','leet, code','能：leet | code'],
+    [3,'"applepenapple"','apple, pen','能：apple | pen | apple，单词可以重复用'],
+    [4,'"catsandog"','cats, dog, sand, and, cat','不能：cats | and 以后剩下 "og"，cat | sand 以后也剩 "og"']]),
+  say:[
+  '拆完的意思是：把字符串从头到尾切成几段，每一段都在字典里，一个字符都不剩。题目只问能不能，返回真或假。',
+  '这一幕要回答的是：下面三个例子，哪个能拆完？',
+  'leetcode 能，切成 leet 和 code，两个都在字典里。',
+  'applepenapple 也能，切成 apple、pen、apple。apple 用了两次，字典里的词可以重复用。',
+  'catsandog 不能。先切 cats 再切 and，剩下 og；先切 cat 再切 sand，也剩下 og。og 不在字典里，怎么切都差这一点。'
+]});
+
+/* ===== 2 思路 ===== */
+add({ch:2, title:'切掉一个前缀，<em>剩下的交给自己</em>', vis:
+  gloss(0,[['递归','函数自己调用自己：同一个问题，换一个更短的输入再问一遍'],['终点 base case','递归停下来的地方：剩下空串 ""，说明全部切完了']])
+  + q(1,'"leetcode" 用这个思路，一共要问几次"能不能拆完"？')
+  + flow([[2,'can("leetcode")','前缀 leet 在字典里'],[3,'can("code")','前缀 code 在字典里'],[4,'can("")','空串：切完了，返回 True']])
+  + cards([[4,'一共 3 次','每次切掉一个合法前缀，问题就变短一截','mint']]),
+  say:[
+  '递归，就是函数自己调用自己：同一个问题，换一个更短的输入再问一遍。终点是剩下空串，说明已经全部切完了。注意是空串，不是 None，字符串切到底就是空串。',
+  '这一幕要回答的是：leetcode 用这个思路，一共要问几次能不能拆完？',
+  '先问 leetcode：从头试前缀，l、le、lee 都不在字典里，leet 在。切掉它，剩下 code。',
+  '再问 code：前缀 code 在字典里，切掉，剩下空串。',
+  '再问空串：已经切完了，返回真。一共三次。每次切掉一个合法前缀，问题就变短一截，这就是递归的思路，笔记里一开始就想对了。'
+]});
+
+/* ===== 3 返回值去哪了 ===== */
+add({ch:3, title:'递归的结果，<em>去哪了</em>', vis:
+  gloss(0,[['返回值','函数算完交回来的结果；没人接，它就丢了']])
+  + q(1,'笔记里的 bug：can("code") 明明返回了 True，为什么 "leetcode" 最后还是 False？')
+  + term('bug 版本',[
+    [2,'o','if prefix in wordDict:'],
+    [2,'e','    self.wordBreak(s[i + 1:], wordDict)   # 算出 True，然后扔掉'],
+    [2,'o','return False']])
+  + term('修好的版本',[
+    [3,'o','if prefix in wordDict:'],
+    [3,'hl','    remaining_result = self.wordBreak(remaining, wordDict)'],
+    [3,'hl','    if remaining_result == True:'],
+    [3,'hl','        return True']])
+  + cards([[4,'先存进变量，再判断','返回值有了名字，就看得见它往哪去','mint']]),
+  say:[
+  '返回值，就是函数算完交回来的结果。没人接，它就丢了。',
+  '这一幕要回答的是：can code 明明返回了真，为什么 leetcode 最后还是假？',
+  '看 bug 版本：里面那次调用确实算出了真，可这一行没有人接住它。外层继续循环，试完所有前缀，走到最后一行，返回假。',
+  '修好的版本：先把结果存进一个有名字的变量 remaining result，再判断它是不是真；是真，外层也马上返回真。',
+  '这就是笔记里的那个习惯：先写成显式的变量，看清返回值往哪去，熟了再压缩成一行 if。'
+]});
+
+/* ===== 4 为什么超时 ===== */
+add({ch:4, title:'为什么超时：<em>画出递归树</em>', vis:
+  gloss(0,[['递归树','每一次调用画成一个点，它发起的调用画在它下面'],['✗','这个后缀拆不完，返回 False']])
+  + duo(term('s = "aaaab", wordDict = ["a","aa","aaa"]', TREE.map(([k,t])=>[2,k,t])),
+    q(1,'在这棵树里，can("ab") 被算了几次？')
+    + cards([[2,'can("ab") 算了 4 次','橙色四行：a+a+a、a+aa、aa+a、aaa，四条路都走到同一个 "ab"','amber'],
+             [3,'每次都从头算','每次都重新试 "a"，再问一遍 can("b")，每次都失败','coral'],
+             [4,'整棵树 15 次调用','真正不同的后缀只有 5 个：aaaab、aaab、aab、ab、b','sky']])),
+  say:[
+  '递归树，就是把每一次调用画成一个点，它发起的调用画在它下面。叉号表示这个后缀拆不完，返回假。',
+  '这一幕要回答的是：在这棵树里，can ab 被算了几次？',
+  '看橙色的四行：先切 a、a、a，剩下 ab；切 a、aa，剩下 ab；切 aa、a，剩下 ab；直接切 aaa，也剩下 ab。四条不同的路，走到了同一个后缀。',
+  '每一次，程序都从头算 ab：试前缀 a，再问一遍 can b，每次都失败。同样的活，干了四遍。',
+  '整棵树一共十五次调用，可真正不同的后缀只有五个：aaaab、aaab、aab、ab、b。剩下的全是重复。'
+]});
+
+/* ===== 5 长一点会爆炸 ===== */
+add({ch:5, title:'长一点，<em>就爆炸了</em>', vis:
+  gloss(0,[['指数级','长度每加 1，步数就翻一倍'],['n','字符串的长度']])
+  + q(1,'20 个 a 加一个 b，字典里是 a 到 20 个 a，这个递归要调用多少次？')
+  + big(2,'<span class="r">1,048,576</span> 次调用','20 个 a 加一个 b')
+  + big(3,'不同的后缀只有 <span class="m">21</span> 个','其余全是重复的路')
+  + cards([[4,'为什么这么多','每两个 a 之间切或不切，都是一条新路，路数是 2 的 n 次方这个量级','amber']]),
+  say:[
+  '指数级的意思是，长度每加一，步数就翻一倍。n 是字符串的长度。',
+  '这一幕要回答的是：20 个 a 加一个 b，字典里是 a 到 20 个 a，这个递归要调用多少次？',
+  '实际跑一下：一百零四万八千五百七十六次。',
+  '可是不同的后缀，从完整的字符串一直到最后的 b，只有二十一个。一百多万次调用，几乎全在重复。',
+  '为什么这么多？每两个 a 之间，切或者不切，都是一条新的路。路数是二的 n 次方这个量级，力扣上的 aaaa 到 b 那个例子，就是这样超时的。'
+]});
+
+/* ===== 6 记忆化 ===== */
+add({ch:6, title:'记忆化：<em>一本答案本</em>', vis:
+  gloss(0,[['记忆化 memoization','每个子问题第一次算出答案，就写下来；以后再遇到，直接查'],['memo','答案本：一个字典，键是后缀，值是能不能拆完']])
+  + q(1,'第一次算出 can("ab") 是 False 以后，就把它写下来。后面哪些调用可以跳过？')
+  + cards([[2,'后面三次 can("ab")','直接查本子得到 False，下面的 can("b") 都不用再走','mint'],
+           [3,'连带的子树也一起省掉','第二次 can("aab") 也是查本子，它下面整棵子树都不走了','mint'],
+           [4,'结论','每个后缀只真正算一次，一共只有 n + 1 个后缀','amber']]),
+  say:[
+  '记忆化，就是每个子问题第一次算出答案，就写下来；以后再遇到，直接查。memo 就是这本答案本，一个字典，键是后缀，值是能不能拆完。',
+  '这一幕要回答的是：笔记最后给自己留的那个问题。第一次算出 can ab 是假以后就写下来，后面哪些调用可以跳过？',
+  '后面三次 can ab 都可以跳过：查本子，直接得到假，下面的 can b 都不用再走。',
+  '而且不只是这一个点。第二次走到 can aab，也是查本子，它下面的整棵子树一起省掉了。',
+  '结论是：每个后缀只真正算一次。一个长度 n 的字符串，一共只有 n 加一个后缀，指数级的路，就压成了这么多个点。'
+]});
+
+/* ===== 7 代码 ===== */
+add({ch:7, title:'代码：<em>在原来的递归上只多三行</em>', vis:
+  gloss(0,[['set','Python 的集合，查"在不在里面"很快；列表要一个个比'],['memo[rest]','答案本里，后缀 rest 的那一条']])
+  + term('solution.py',[
+    [2,'o','def wordBreak(s, wordDict):'],
+    [2,'o','    words = set(wordDict)'],
+    [2,'hl','    memo = {}                              # 后缀 → 能不能拆完'],
+    [2,'o','    def can(rest):'],
+    [2,'o','        if rest == "":'],
+    [2,'o','            return True'],
+    [3,'hl','        if rest in memo:                   # 以前算过，直接查'],
+    [3,'hl','            return memo[rest]'],
+    [3,'o','        for i in range(len(rest)):'],
+    [3,'o','            prefix = rest[:i + 1]'],
+    [3,'o','            if prefix in words:'],
+    [3,'o','                remaining_result = can(rest[i + 1:])'],
+    [3,'o','                if remaining_result == True:'],
+    [4,'hl','                    memo[rest] = True'],
+    [3,'o','                    return True'],
+    [4,'hl','        memo[rest] = False                 # 所有前缀都试过了'],
+    [4,'o','        return False'],
+    [4,'o','    return can(s)']])
+  + q(1,'哪几行是新加的？哪一行最关键？'),
+  say:[
+  'set 是 Python 的集合，查一个词在不在里面很快；列表要一个个比。memo rest，就是答案本里后缀 rest 的那一条。',
+  '这一幕要回答的是：和笔记里那个正确但太慢的版本比，哪几行是新加的？哪一行最关键？',
+  '主体完全没变：空串返回真；一个个试前缀；前缀在字典里，就把剩下的交给自己，结果先存进 remaining result。新加的第一处，是开头的 memo 字典。',
+  '第二处，进函数先查本子：这个后缀算过，就直接返回本子上的答案。',
+  '第三处，算出答案时写进本子。最关键的是倒数第三行，memo rest 等于假。aaaab 那种例子全是失败，不记下失败，记忆化就等于没做。'
+]});
+
+/* ===== 8 记忆化走一遍 ===== */
+add({ch:8, title:'记忆化<em>走一遍</em>', vis:
+  gloss(0,[['查本子','这次调用直接读答案，下面不再展开']])
+  + duo(term('同一个输入，加了 memo',[
+    [2,'o','can("aaaab")'],
+    [2,'o','├ a   → can("aaab")'],
+    [2,'o','│ ├ a   → can("aab")'],
+    [2,'o','│ │ ├ a   → can("ab")'],
+    [2,'e','│ │ │ └ a → can("b")  ✗ 记下'],
+    [3,'n','│ │ └ aa  → can("b")  查本子 ✗'],
+    [3,'n','│ ├ aa  → can("ab")  查本子 ✗'],
+    [3,'n','│ └ aaa → can("b")  查本子 ✗'],
+    [4,'n','├ aa  → can("aab")  查本子 ✗'],
+    [4,'n','└ aaa → can("ab")  查本子 ✗']]),
+    q(1,'加了答案本以后，"aaaab" 一共调用几次？')
+    + XCSS + `<div class="book"><h4>memo</h4>${[['b',2],['ab',2],['aab',3],['aaab',3],['aaaab',4]].map(([k,s])=>`<span class="k s" data-s="${s}">${k}: False</span>`).join('')}</div>`
+    + cards([[5,'15 次 → 10 次','20 个 a 的例子：1,048,576 次 → 211 次','mint']])),
+  say:[
+  '查本子的意思是，这次调用直接读答案，下面不再展开。',
+  '这一幕要回答的是：加了答案本以后，aaaab 一共调用几次？',
+  '第一条路照常一路走到底：aaaab、aaab、aab、ab、b。b 没有合法前缀，记下 b 为假；回到 ab，也没有别的前缀可试，记下 ab 为假。',
+  '回到 aab，下一个前缀 aa，剩下 b，查本子，假。记下 aab 为假。回到 aaab，剩下 ab 和 b，都查本子。记下 aaab 为假。',
+  '回到最外层，剩下 aab 和 ab，也都查本子。最后记下 aaaab 为假，返回假。',
+  '一共十次调用，原来是十五次。例子越长差得越多：20 个 a 的那个例子，从一百多万次降到两百一十一次。'
+]});
+
+/* ===== 9 从上往下到从下往上 ===== */
+add({ch:9, title:'从上往下，<em>到从下往上</em>', vis:
+  gloss(0,[['自顶向下 top-down','从大问题开始递归，靠答案本避免重复：就是记忆化'],['自底向上 bottom-up','先填最小的问题，一路往大填：就是常见的 dp 表'],['dp[i]','从第 i 位开始的后缀 s[i:]，能不能拆完']])
+  + q(1,'把答案本换成一张表 dp[i]，该从哪一头开始填？')
+  + XCSS + `<div class="dpr" style="grid-template-columns:repeat(9,2.5em)">${[...Array(9).keys()].map(i=>`<div class="ix">${i}</div>`).join('')}${[...'leetcode'].map(c=>`<div class="ch">${c}</div>`).join('')}<div class="ch" style="color:var(--dim);font-size:.8em">空</div>${
+    [[0,'T',4],[1,'F',4],[2,'F',4],[3,'F',4],[4,'T',3],[5,'F',3],[6,'F',3],[7,'F',3],[8,'T',2]].map(([i,v,s])=>`<div><b class="s ${v==='T'?'t':'f'}" data-s="${s}">${v}</b></div>`).join('')}</div>`
+  + term('solution_dp.py',[
+    [2,'o','dp = [False] * (n + 1)'],
+    [2,'o','dp[n] = True                     # 空后缀'],
+    [3,'o','for i in range(n - 1, -1, -1):'],
+    [3,'o','    for j in range(i + 1, n + 1):'],
+    [3,'hl','        if s[i:j] in words and dp[j]:'],
+    [3,'o','            dp[i] = True'],
+    [3,'o','            break'],
+    [4,'o','return dp[0]']]),
+  say:[
+  '自顶向下，是从大问题开始递归，靠答案本避免重复，也就是刚才的记忆化。自底向上，是先填最小的问题，一路往大填，就是常见的 dp 表。dp i 表示从第 i 位开始的后缀，能不能拆完。',
+  '这一幕要回答的是：把答案本换成一张表，该从哪一头开始填？',
+  '从最右边开始。最小的问题是空后缀，dp n 等于真，对应递归里的空串返回真。',
+  '然后往左填：第 i 格，试每个切点 j，前缀 s i 到 j 在字典里，并且 dp j 是真，这一格就是真。leetcode 里，第 4 位开始的 code 是真，第 5 到 7 位都是假。',
+  '再往左，到第 0 位：leet 在字典里，dp 4 是真，所以 dp 0 是真，答案为真。这张表和答案本是同一件事：都是每个后缀算一次，只是填的方向反过来了。这和 91 题解码方法是同一个前缀加剩下的结构。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>五个坑</em>', vis:
+  gloss(0,[['O(n³)','后缀 n 个 × 每个最多切 n 刀 × 每刀切片和查表 O(n)']])
+  + q(1,'时间是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n³)，空间 O(n)','题目 n ≤ 300，足够快；只试长度 ≤ 最长单词（≤ 20）的前缀还能更快','sky'],
+           [3,'base case 写成 None','切到底是空串 ""，不是 None','coral'],
+           [3,'() 和 [] 混用','s(i + 1:) 是调用函数；切片要用 s[i + 1:]','coral'],
+           [4,'扔掉递归的返回值','先存进变量，再 if 判断','coral'],
+           [4,'没记下失败','memo[rest] = False 漏了，记忆化等于没做','coral']]),
+  say:[
+  'O n 的三次方，来自三件事相乘：后缀最多 n 个；每个后缀最多切 n 刀；每一刀切片和查表，要 O n。',
+  '这一幕要回答的是：时间是多少？最容易错在哪？',
+  '时间 O n 的三次方，空间 O n。题目规定字符串最长三百，完全够快。单词最长二十，只试长度不超过二十的前缀，还能更快。',
+  '坑一：终点写成 None，切到底是空串。坑二：圆括号和方括号混用，切片要用方括号。这两个笔记里都踩过。',
+  '坑三：扔掉递归的返回值，要先存进变量再判断。坑四：只记成功、不记失败，漏掉 memo rest 等于假，这道题的超时例子就一点没省。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："你的递归为什么需要 memo？"你怎么答？')
+  + flow([[2,'递归','切合法前缀，剩下交给自己'],[3,'重复','很多切法落到同一个后缀'],[4,'memo','每个后缀只算一次'],[4,'dp','从右往左填表'],[4,'复杂度','O(n³)，n ≤ 300']])
+  + chips(4,['prefix + rest','overlapping subproblems','memoization','top-down DP','bottom-up DP','O(n³)']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，你的递归为什么需要 memo？',
+  '先讲思路：从头试每个前缀，前缀在字典里，就递归判断剩下的后缀。',
+  '再讲问题：很多不同的切法，会落到同一个后缀上，比如 aaaab 里，ab 被走到四次，路数是指数级的。这叫重叠子问题。',
+  '所以我用 memo，把每个后缀的结果记下来，成功失败都记，每个后缀只算一次。也可以改成从右往左填的 dp 表。复杂度 O n 的三次方。英文关键词是 overlapping subproblems 和 memoization。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'递归','切前缀，剩下交给自己'],[0,'返回值','存进变量再判断'],[0,'重复','同一个后缀算很多遍'],[0,'memo','每个后缀一次'],[0,'dp','从右往左']])
+  + cards([[1,'① 切掉一个合法前缀，剩下的交给自己','终点是空串 ""，返回值一定要接住','amber'],
+           [2,'② 超时是因为同一个后缀被算了很多遍','aaaab 里 "ab" 算了 4 次；后缀只有 n + 1 个','sky'],
+           [3,'③ memo 记下每个后缀的答案，失败也要记','等价于从右往左填 dp[i]','mint']]),
+  say:[
+  '回顾一遍主线：切掉一个合法前缀，剩下的交给自己；返回值存进变量再判断；超时是因为同一个后缀算了很多遍；memo 让每个后缀只算一次；也可以从右往左填 dp 表。',
+  '第一句：切掉一个合法前缀，剩下的交给自己。终点是空串，返回值一定要接住。',
+  '第二句：超时是因为同一个后缀被算了很多遍。aaaab 里 ab 算了四次，而后缀一共只有 n 加一个。',
+  '第三句：memo 记下每个后缀的答案，失败也要记，它和从右往左填 dp 是同一件事。笔记停在了记忆化前面，现在可以回去，把这三行加上了。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/bf1f149f3308.mp3", "0-1": "a/16694db0de5c.mp3", "0-2": "a/ceeda2a189e0.mp3", "0-3": "a/04904372fa3e.mp3", "1-0": "a/b3c53e2b6403.mp3", "1-1": "a/97f812be74d0.mp3", "1-2": "a/8370c16263b8.mp3", "1-3": "a/4cf7feadb8f4.mp3", "1-4": "a/fadae83995f3.mp3", "2-0": "a/6d5fb7e18878.mp3", "2-1": "a/a091327d233b.mp3", "2-2": "a/36ede4a5206f.mp3", "2-3": "a/18e78a2c735a.mp3", "2-4": "a/01f27f98a56b.mp3", "3-0": "a/ff24b087ec39.mp3", "3-1": "a/4196ada14904.mp3", "3-2": "a/d54dea718d27.mp3", "3-3": "a/8f451a412f24.mp3", "3-4": "a/f3e4800fdc25.mp3", "4-0": "a/7f3047a71a76.mp3", "4-1": "a/c32354df21bb.mp3", "4-2": "a/3dc410aa7396.mp3", "4-3": "a/a25884d1ace3.mp3", "4-4": "a/1f4a33cbdc7f.mp3", "5-0": "a/a43f24bf5aec.mp3", "5-1": "a/f018c28f351d.mp3", "5-2": "a/48133735d4c9.mp3", "5-3": "a/36a92e93cf4a.mp3", "5-4": "a/1b3d4b0d5b71.mp3", "6-0": "a/0be61bf108fa.mp3", "6-1": "a/880183c69a5c.mp3", "6-2": "a/168dfbe1a074.mp3", "6-3": "a/0476b2c0c28f.mp3", "6-4": "a/8e1482d32cbe.mp3", "7-0": "a/7475232092d6.mp3", "7-1": "a/25842dc737ef.mp3", "7-2": "a/b159a35ea51a.mp3", "7-3": "a/267579143edd.mp3", "7-4": "a/88c172134c71.mp3", "8-0": "a/3efa75118c02.mp3", "8-1": "a/234e39ac423f.mp3", "8-2": "a/0c2b43acbdb2.mp3", "8-3": "a/c3b8bec9c231.mp3", "8-4": "a/36299784d8fe.mp3", "8-5": "a/1b11244536e8.mp3", "9-0": "a/1e5a930aab33.mp3", "9-1": "a/0be4ac6b1b24.mp3", "9-2": "a/bc360b4b5928.mp3", "9-3": "a/78223b455fd2.mp3", "9-4": "a/18de08be9a57.mp3", "10-0": "a/548aacb9d538.mp3", "10-1": "a/fee4b6b5030a.mp3", "10-2": "a/f1567246bdfa.mp3", "10-3": "a/663eecf272a3.mp3", "10-4": "a/6afd8e6e5811.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/6cac87a2d8ca.mp3", "11-2": "a/9cd4c562d3b8.mp3", "11-3": "a/5da4c2131a20.mp3", "11-4": "a/011908e62d87.mp3", "12-0": "a/89da81a239e0.mp3", "12-1": "a/f8e899e36dd2.mp3", "12-2": "a/15b01132a0cb.mp3", "12-3": "a/24937c7da241.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+}
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

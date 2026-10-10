@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Can It Be Split</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;gap:10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Can It Be Split', template:'prep', lang:'en', sub:'LeetCode 139 Word Break · animated walkthrough', key:'lc139envid', doc:'LeetCode 139', blurb:'Start from "cut off one prefix and hand the rest back to yourself", see where the return value goes, circle the repeated suffixes in the recursion tree for aaaab, bring in memoization, and finish with a bottom-up dp.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: splitting a string','The problem: can it be split all the way','The idea: cut a prefix, hand the rest to yourself','Where did the return value go','Why it times out','A little longer and it explodes','Memoization: an answer book','The code: only three more lines','Memoization, step by step','From top-down to bottom-up','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+const XCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.book{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .8em}
+.book h4{margin:0 .4em 0 0;font-size:.85em;color:var(--dim);font-weight:500}
+.book .k{font-family:var(--f-mono);font-size:.85em;padding:.05em .5em;border-radius:6px;border:1px solid var(--coral);color:var(--coral)}
+.book .k.s:not(.on){opacity:0}
+.dpr{display:grid;gap:5px;justify-content:center}
+.dpr>div{display:grid;place-items:center;height:2.3em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-mono)}
+.dpr>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-size:.78em}
+.dpr .ch{font-family:var(--f-display);font-size:1.25em}
+.dpr b{font-weight:600} .dpr b.t{color:var(--mint)} .dpr b.f{color:var(--coral)}
+.dpr b.s:not(.on){opacity:0}
+</style>`;
+// the plain recursion tree for s="aaaab", wordDict=["a","aa","aaa"]: 15 calls, "ab" solved 4 times
+const TREE = [
+  ['o','can("aaaab")'],
+  ['o','├ a   → can("aaab")'],
+  ['o','│ ├ a   → can("aab")'],
+  ['hl','│ │ ├ a   → can("ab")'],
+  ['e','│ │ │ └ a → can("b")  ✗'],
+  ['e','│ │ └ aa  → can("b")  ✗'],
+  ['hl','│ ├ aa  → can("ab")'],
+  ['e','│ │ └ a → can("b")  ✗'],
+  ['e','│ └ aaa → can("b")  ✗'],
+  ['o','├ aa  → can("aab")'],
+  ['hl','│ ├ a   → can("ab")'],
+  ['e','│ │ └ a → can("b")  ✗'],
+  ['e','│ └ aa  → can("b")  ✗'],
+  ['hl','└ aaa → can("ab")'],
+  ['e','  └ a → can("b")  ✗']];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Can It Be Split<br><em>LeetCode 139</em>', vis:
+  gloss(0,[['string','A sequence of characters, for example "leetcode"'],['prefix / suffix','The piece at the start / the piece that is left. Cut the prefix "leet" off "leetcode" and the suffix is "code"'],['wordDict','The list of words the problem gives you; each word can be used more than once']])
+  + flow([[1,'Read','can it be split'],[1,'Recursion','cut a prefix, hand off the rest'],[2,'Return value','do not throw it away'],[2,'Timeout','same suffix, many times'],[3,'Memoization','answer book'],[3,'dp','bottom-up']]),
+  say:[
+  'This lesson covers LeetCode 139, Word Break. First, three words. A string is a sequence of characters. A prefix is the piece at the start, and a suffix is the piece that is left. The dictionary is the list of words the problem gives you, and each word can be used more than once.',
+  'Here is the plan. We start with the most natural idea: cut off a valid prefix and hand the rest to the same function. Then we look closely at where the recursion\'s return value goes.',
+  'Then we see why it times out: the same suffix gets solved over and over. On a small recursion tree, we circle the repeated suffixes.',
+  'Finally, we use an answer book, which is memoization, so each suffix is solved only once, and then we rewrite it as a bottom-up dp.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'Can it be <em>split all the way</em>', vis:
+  gloss(0,[['split all the way','Cut the string from start to end into pieces, where every piece is in the dictionary and no character is left over']])
+  + q(1,'Which of these three examples can be split all the way?')
+  + tbl(['String','Dictionary','Can it be split?'],[
+    [2,'"leetcode"','leet, code','Yes: leet | code'],
+    [3,'"applepenapple"','apple, pen','Yes: apple | pen | apple, and words can repeat'],
+    [4,'"catsandog"','cats, dog, sand, and, cat','No: after cats | and, "og" is left; after cat | sand, "og" is left too']]),
+  say:[
+  'Split all the way means cutting the string from start to end into pieces, where every piece is in the dictionary and no character is left over. The problem only asks whether it can be done, so it returns True or False.',
+  'The question for this scene: which of these three examples can be split all the way?',
+  'leetcode can. Cut it into leet and code, and both are in the dictionary.',
+  'applepenapple can too. Cut it into apple, pen, and apple. apple is used twice, because words in the dictionary can repeat.',
+  'catsandog cannot. Cut cats, then and, and og is left. Cut cat, then sand, and og is left again. og is not in the dictionary, so every way of cutting comes up just short.'
+]});
+
+/* ===== 2 The idea ===== */
+add({ch:2, title:'Cut off a prefix, <em>hand the rest to yourself</em>', vis:
+  gloss(0,[['recursion','A function calling itself: the same question asked again on a shorter input'],['base case','Where the recursion stops: the empty string "" is left, which means everything has been cut']])
+  + q(1,'With this idea, how many times do we ask "can it be split" for "leetcode"?')
+  + flow([[2,'can("leetcode")','prefix leet is in the dictionary'],[3,'can("code")','prefix code is in the dictionary'],[4,'can("")','empty string: done, return True']])
+  + cards([[4,'3 times in total','Each time we cut off a valid prefix, the problem gets shorter','mint']]),
+  say:[
+  'Recursion means a function calling itself: the same question asked again on a shorter input. The base case is when the empty string is left, which means everything has been cut. Note that it is the empty string, not None. Slice a string all the way down and you get the empty string.',
+  'The question for this scene: with this idea, how many times do we ask whether leetcode can be split?',
+  'First we ask about leetcode. We try prefixes from the start: l, le, and lee are not in the dictionary, but leet is. Cut it off, and code is left.',
+  'Next we ask about code. The prefix code is in the dictionary, so we cut it off, and the empty string is left.',
+  'Then we ask about the empty string. Everything is cut, so it returns True. That is three times in total. Each time we cut off a valid prefix, the problem gets shorter. That is the recursive idea, and the journal note had it right from the start.'
+]});
+
+/* ===== 3 Where did the return value go ===== */
+add({ch:3, title:'The recursion\'s result: <em>where did it go</em>', vis:
+  gloss(0,[['return value','The result a function hands back when it finishes; if nobody catches it, it is lost']])
+  + q(1,'The bug in the journal note: can("code") clearly returns True, so why does "leetcode" still end up False?')
+  + term('buggy version',[
+    [2,'o','if prefix in wordDict:'],
+    [2,'e','    self.wordBreak(s[i + 1:], wordDict)   # computes True, then throws it away'],
+    [2,'o','return False']])
+  + term('fixed version',[
+    [3,'o','if prefix in wordDict:'],
+    [3,'hl','    remaining_result = self.wordBreak(remaining, wordDict)'],
+    [3,'hl','    if remaining_result == True:'],
+    [3,'hl','        return True']])
+  + cards([[4,'Store it in a variable, then check it','Once the return value has a name, you can see where it goes','mint']]),
+  say:[
+  'A return value is the result a function hands back when it finishes. If nobody catches it, it is lost.',
+  'The question for this scene: can of code clearly returns True, so why does leetcode still end up False?',
+  'Look at the buggy version. The inner call does compute True, but nothing on that line catches it. The outer loop keeps going, tries every prefix, reaches the last line, and returns False.',
+  'The fixed version first stores the result in a named variable, remaining result, and then checks whether it is True. If it is, the outer call returns True right away.',
+  'This is the habit from my note: write it as an explicit variable first, so you can see where the return value goes, and squeeze it into a one-line if once you are comfortable.'
+]});
+
+/* ===== 4 Why it times out ===== */
+add({ch:4, title:'Why it times out: <em>draw the recursion tree</em>', vis:
+  gloss(0,[['recursion tree','Draw each call as a node, with the calls it makes drawn below it'],['✗','This suffix cannot be split, so it returns False']])
+  + duo(term('s = "aaaab", wordDict = ["a","aa","aaa"]', TREE.map(([k,t])=>[2,k,t])),
+    q(1,'In this tree, how many times is can("ab") solved?')
+    + cards([[2,'can("ab") is solved 4 times','The four orange rows: a+a+a, a+aa, aa+a, aaa; four paths all reach the same "ab"','amber'],
+             [3,'Solved from scratch every time','Each time it tries "a" again and asks can("b") again, and fails every time','coral'],
+             [4,'15 calls in the whole tree','There are only 5 distinct suffixes: aaaab, aaab, aab, ab, b','sky']])),
+  say:[
+  'A recursion tree draws each call as a node, with the calls it makes drawn below it. An X means this suffix cannot be split, so it returns False.',
+  'The question for this scene: in this tree, how many times is can of ab solved?',
+  'Look at the four orange rows. Cut a, a, a, and ab is left. Cut a, aa, and ab is left. Cut aa, a, and ab is left. Cut aaa directly, and ab is left too. Four different paths reach the same suffix.',
+  'Each time, the program solves ab from scratch. It tries the prefix a, asks can of b again, and fails every time. The same work, done four times.',
+  'The whole tree makes fifteen calls, but there are only five distinct suffixes: aaaab, aaab, aab, ab, and b. Everything else is repetition.'
+]});
+
+/* ===== 5 A little longer and it explodes ===== */
+add({ch:5, title:'A little longer, <em>and it explodes</em>', vis:
+  gloss(0,[['exponential','Each time the length grows by 1, the number of steps doubles'],['n','The length of the string']])
+  + q(1,'With 20 a\'s followed by a b, and a dictionary from "a" up to 20 a\'s, how many calls does this recursion make?')
+  + big(2,'<span class="r">1,048,576</span> calls','20 a\'s followed by a b')
+  + big(3,'Only <span class="m">21</span> distinct suffixes','every other path is a repeat')
+  + cards([[4,'Why so many','Between every two a\'s you either cut or you do not, and each choice is a new path, so the number of paths is on the order of 2 to the n','amber']]),
+  say:[
+  'Exponential means that each time the length grows by one, the number of steps doubles. n is the length of the string.',
+  'The question for this scene: with 20 a\'s followed by a b, and a dictionary from a up to 20 a\'s, how many calls does this recursion make?',
+  'Run it and you get one million, forty-eight thousand, five hundred seventy-six calls.',
+  'But from the full string all the way down to the final b, there are only twenty-one distinct suffixes. Over a million calls, and nearly all of them are repeats.',
+  'Why so many? Between every two a\'s, you either cut or you do not, and each choice is a new path. The number of paths is on the order of 2 to the n, and that is exactly how the LeetCode test with a long run of a\'s ending in b times out.'
+]});
+
+/* ===== 6 Memoization ===== */
+add({ch:6, title:'Memoization: <em>an answer book</em>', vis:
+  gloss(0,[['memoization','The first time you solve a subproblem, write the answer down; when it comes up again, look it up'],['memo','The answer book: a dictionary whose key is a suffix and whose value is whether it can be split']])
+  + q(1,'Once can("ab") is first found to be False, we write it down. Which later calls can be skipped?')
+  + cards([[2,'The next three can("ab") calls','They look it up and get False directly; none of the can("b") calls below them run','mint'],
+           [3,'Their subtrees are skipped too','The second can("aab") is also a lookup, so its whole subtree never runs','mint'],
+           [4,'Conclusion','Each suffix is truly solved only once, and there are only n + 1 suffixes','amber']]),
+  say:[
+  'Memoization means that the first time you solve a subproblem, you write the answer down, and when it comes up again, you look it up. memo is that answer book: a dictionary whose key is a suffix and whose value is whether it can be split.',
+  'The question for this scene is the one the journal note left for itself at the end. Once can of ab is first found to be False and written down, which later calls can be skipped?',
+  'The next three calls to can of ab can all be skipped. They look it up, get False directly, and none of the can of b calls below them run.',
+  'And it is not just that one node. The second time we reach can of aab, it is also a lookup, so its whole subtree is skipped too.',
+  'The conclusion is that each suffix is truly solved only once. A string of length n has only n plus one suffixes, so the exponential number of paths collapses to that many nodes.'
+]});
+
+/* ===== 7 The code ===== */
+add({ch:7, title:'The code: <em>only three more lines on top of the recursion</em>', vis:
+  gloss(0,[['set','A Python set, which checks "is this in here" quickly; a list has to compare one by one'],['memo[rest]','The entry in the answer book for the suffix rest']])
+  + term('solution.py',[
+    [2,'o','def wordBreak(s, wordDict):'],
+    [2,'o','    words = set(wordDict)'],
+    [2,'hl','    memo = {}                              # suffix → can it be split'],
+    [2,'o','    def can(rest):'],
+    [2,'o','        if rest == "":'],
+    [2,'o','            return True'],
+    [3,'hl','        if rest in memo:                   # solved before, look it up'],
+    [3,'hl','            return memo[rest]'],
+    [3,'o','        for i in range(len(rest)):'],
+    [3,'o','            prefix = rest[:i + 1]'],
+    [3,'o','            if prefix in words:'],
+    [3,'o','                remaining_result = can(rest[i + 1:])'],
+    [3,'o','                if remaining_result == True:'],
+    [4,'hl','                    memo[rest] = True'],
+    [3,'o','                    return True'],
+    [4,'hl','        memo[rest] = False                 # every prefix has been tried'],
+    [4,'o','        return False'],
+    [4,'o','    return can(s)']])
+  + q(1,'Which lines are new? Which line matters most?'),
+  say:[
+  'A set is a Python set, which checks whether a word is in it quickly. A list has to compare one by one. memo of rest is the entry in the answer book for the suffix rest.',
+  'The question for this scene: compared with the correct but too slow version in the journal note, which lines are new, and which line matters most?',
+  'The body is unchanged. The empty string returns True, we try prefixes one by one, and when a prefix is in the dictionary, we hand the rest to ourselves and store the result in remaining result first. The first new piece is the memo dictionary at the top.',
+  'The second new piece: on entering the function, check the book first. If this suffix has been solved, return the answer from the book.',
+  'The third new piece writes the answer into the book once it is known. The most important line is the third from the end: memo of rest equals False. Examples like aaaab are all failures, so if you do not record failures, the memoization does nothing.'
+]});
+
+/* ===== 8 Memoization, step by step ===== */
+add({ch:8, title:'Memoization, <em>step by step</em>', vis:
+  gloss(0,[['memo hit','This call reads the answer directly and expands nothing below it']])
+  + duo(term('same input, with memo',[
+    [2,'o','can("aaaab")'],
+    [2,'o','├ a   → can("aaab")'],
+    [2,'o','│ ├ a   → can("aab")'],
+    [2,'o','│ │ ├ a   → can("ab")'],
+    [2,'e','│ │ │ └ a → can("b")  ✗ saved'],
+    [3,'n','│ │ └ aa  → can("b")  memo hit ✗'],
+    [3,'n','│ ├ aa  → can("ab")  memo hit ✗'],
+    [3,'n','│ └ aaa → can("b")  memo hit ✗'],
+    [4,'n','├ aa  → can("aab")  memo hit ✗'],
+    [4,'n','└ aaa → can("ab")  memo hit ✗']]),
+    q(1,'With the answer book, how many calls does "aaaab" make?')
+    + XCSS + `<div class="book"><h4>memo</h4>${[['b',2],['ab',2],['aab',3],['aaab',3],['aaaab',4]].map(([k,s])=>`<span class="k s" data-s="${s}">${k}: False</span>`).join('')}</div>`
+    + cards([[5,'15 calls → 10 calls','The 20 a\'s example: 1,048,576 calls → 211 calls','mint']])),
+  say:[
+  'A memo hit means this call reads the answer directly and expands nothing below it.',
+  'The question for this scene: with the answer book, how many calls does aaaab make?',
+  'The first path runs all the way down as usual: aaaab, aaab, aab, ab, b. b has no valid prefix, so we save b as False. Back at ab, there is no other prefix to try, so we save ab as False.',
+  'Back at aab, the next prefix is aa, which leaves b. That is a memo hit, False. We save aab as False. Back at aaab, the leftovers are ab and b, and both are memo hits. We save aaab as False.',
+  'Back at the top level, the leftovers are aab and ab, and both are memo hits. Finally we save aaaab as False and return False.',
+  'That is ten calls in total, down from fifteen. The longer the input, the bigger the gap. In the example with 20 a\'s, it drops from over a million calls to two hundred eleven.'
+]});
+
+/* ===== 9 From top-down to bottom-up ===== */
+add({ch:9, title:'From top-down, <em>to bottom-up</em>', vis:
+  gloss(0,[['top-down','Start recursing from the big problem and use the answer book to avoid repeats: this is memoization'],['bottom-up','Fill in the smallest problems first and work up to bigger ones: this is the usual dp table'],['dp[i]','Whether the suffix s[i:], starting at position i, can be split']])
+  + q(1,'If we swap the answer book for a table dp[i], which end do we start filling from?')
+  + XCSS + `<div class="dpr" style="grid-template-columns:repeat(9,2.5em)">${[...Array(9).keys()].map(i=>`<div class="ix">${i}</div>`).join('')}${[...'leetcode'].map(c=>`<div class="ch">${c}</div>`).join('')}<div class="ch" style="color:var(--dim);font-size:.8em">empty</div>${
+    [[0,'T',4],[1,'F',4],[2,'F',4],[3,'F',4],[4,'T',3],[5,'F',3],[6,'F',3],[7,'F',3],[8,'T',2]].map(([i,v,s])=>`<div><b class="s ${v==='T'?'t':'f'}" data-s="${s}">${v}</b></div>`).join('')}</div>`
+  + term('solution_dp.py',[
+    [2,'o','dp = [False] * (n + 1)'],
+    [2,'o','dp[n] = True                     # empty suffix'],
+    [3,'o','for i in range(n - 1, -1, -1):'],
+    [3,'o','    for j in range(i + 1, n + 1):'],
+    [3,'hl','        if s[i:j] in words and dp[j]:'],
+    [3,'o','            dp[i] = True'],
+    [3,'o','            break'],
+    [4,'o','return dp[0]']]),
+  say:[
+  'Top-down means starting the recursion from the big problem and using the answer book to avoid repeats, which is the memoization we just did. Bottom-up means filling in the smallest problems first and working up to bigger ones, which is the usual dp table. dp of i tells whether the suffix starting at position i can be split.',
+  'The question for this scene: if we swap the answer book for a table, which end do we start filling from?',
+  'From the far right. The smallest problem is the empty suffix, so dp of n equals True. That matches the recursion returning True for the empty string.',
+  'Then fill leftward. For cell i, try every cut point j. If the prefix s from i to j is in the dictionary and dp of j is True, this cell is True. In leetcode, code starting at position 4 is True, and positions 5 through 7 are False.',
+  'Keep going left to position 0. leet is in the dictionary and dp of 4 is True, so dp of 0 is True, and the answer is True. This table and the answer book are the same thing: each suffix is solved once, just filled in the opposite direction. It is the same prefix plus rest structure as problem 91, Decode Ways.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>five pitfalls</em>', vis:
+  gloss(0,[['O(n³)','n suffixes × at most n cuts each × O(n) to slice and look up per cut']])
+  + q(1,'What is the time cost? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n³), space O(n)','The problem has n ≤ 300, which is fast enough; trying only prefixes no longer than the longest word (≤ 20) is faster still','sky'],
+           [3,'Base case written as None','Slicing all the way down gives the empty string "", not None','coral'],
+           [3,'Mixing up () and []','s(i + 1:) is a function call; slicing needs s[i + 1:]','coral'],
+           [4,'Throwing away the recursion\'s return value','Store it in a variable first, then check it with if','coral'],
+           [4,'Not recording failures','Leave out memo[rest] = False and the memoization does nothing','coral']]),
+  say:[
+  'Big O of n cubed comes from three things multiplied together. There are at most n suffixes. Each suffix has at most n cuts. And each cut takes big O of n to slice and look up.',
+  'The question for this scene: what is the time cost, and where is it easiest to go wrong?',
+  'Time is big O of n cubed, and space is big O of n. The problem caps the string at three hundred characters, so that is plenty fast. Words are at most twenty characters long, so trying only prefixes of length twenty or less is faster still.',
+  'Pitfall one: writing the base case as None, when slicing all the way down gives the empty string. Pitfall two: mixing up parentheses and square brackets, when slicing needs square brackets. The journal note ran into both of these.',
+  'Pitfall three: throwing away the recursion\'s return value, when you should store it in a variable and then check it. Pitfall four: recording only successes and not failures. Leave out memo of rest equals False, and this problem\'s timeout test saves nothing at all.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why does your recursion need a memo?" How do you answer?')
+  + flow([[2,'Recursion','cut a valid prefix, hand off the rest'],[3,'Repeats','many cuts land on the same suffix'],[4,'memo','each suffix solved once'],[4,'dp','fill the table right to left'],[4,'Complexity','O(n³), n ≤ 300']])
+  + chips(4,['prefix + rest','overlapping subproblems','memoization','top-down DP','bottom-up DP','O(n³)']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why does your recursion need a memo?',
+  'Start with the idea: try every prefix from the start, and when a prefix is in the dictionary, recursively check the remaining suffix.',
+  'Then name the problem: many different ways of cutting land on the same suffix. In aaaab, for example, ab is reached four times, and the number of paths is exponential. This is called overlapping subproblems.',
+  'So I use a memo to record the result for each suffix, both successes and failures, and each suffix is solved only once. It can also become a dp table filled from right to left. The complexity is big O of n cubed. The key English terms are overlapping subproblems and memoization.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Recursion','cut a prefix, hand off the rest'],[0,'Return value','store it, then check it'],[0,'Repeats','same suffix, many times'],[0,'memo','once per suffix'],[0,'dp','right to left']])
+  + cards([[1,'① Cut off a valid prefix, hand the rest to yourself','The base case is the empty string "", and always catch the return value','amber'],
+           [2,'② It times out because the same suffix is solved many times','In aaaab, "ab" is solved 4 times; there are only n + 1 suffixes','sky'],
+           [3,'③ memo records every suffix\'s answer, failures included','Equivalent to filling dp[i] from right to left','mint']]),
+  say:[
+  'Here is the main thread once more. Cut off a valid prefix and hand the rest to yourself. Store the return value in a variable, then check it. It times out because the same suffix is solved many times. memo solves each suffix only once. And you can also fill a dp table from right to left.',
+  'Number one: cut off a valid prefix and hand the rest to yourself. The base case is the empty string, and always catch the return value.',
+  'Number two: it times out because the same suffix is solved many times. In aaaab, ab is solved four times, yet there are only n plus one suffixes in total.',
+  'Number three: memo records every suffix\'s answer, failures included, and it is the same thing as filling the dp table from right to left. My note stopped just before memoization, so now you can go back and add those three lines.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/12a207d1b88a.mp3", "0-1": "a/0922ac7bb4a9.mp3", "0-2": "a/a069ab9b3227.mp3", "0-3": "a/d79b374b68b5.mp3", "1-0": "a/7985a00b7d7a.mp3", "1-1": "a/614caac01e2f.mp3", "1-2": "a/3285e491feab.mp3", "1-3": "a/f02cb8bd9ba8.mp3", "1-4": "a/cc788741bac3.mp3", "2-0": "a/db835a46534b.mp3", "2-1": "a/7db9f817ca41.mp3", "2-2": "a/43050b17a85f.mp3", "2-3": "a/cdeb9e56a742.mp3", "2-4": "a/dea5e7a5f6bc.mp3", "3-0": "a/dcc66df3b0a0.mp3", "3-1": "a/ae1c4ef80141.mp3", "3-2": "a/5c17feac79df.mp3", "3-3": "a/4b40fcba8d16.mp3", "3-4": "a/7eefbbb154d7.mp3", "4-0": "a/eaa17597a31e.mp3", "4-1": "a/076c2ac1c1de.mp3", "4-2": "a/6a7f5ae4cbc2.mp3", "4-3": "a/87bce53a2c60.mp3", "4-4": "a/27d911196da0.mp3", "5-0": "a/43f91d4413b9.mp3", "5-1": "a/fc56dec66924.mp3", "5-2": "a/714899fb83d6.mp3", "5-3": "a/8d5bb896647b.mp3", "5-4": "a/d6f99e0822af.mp3", "6-0": "a/c81c18c5eb4a.mp3", "6-1": "a/f2796e9938e9.mp3", "6-2": "a/c5b21370f993.mp3", "6-3": "a/e93c113e77eb.mp3", "6-4": "a/34d75f58628a.mp3", "7-0": "a/86e82a57e937.mp3", "7-1": "a/b9306ac2e4fd.mp3", "7-2": "a/f704f35ae84f.mp3", "7-3": "a/dc4fc45c0a8b.mp3", "7-4": "a/72f335aaea3e.mp3", "8-0": "a/3206e64468c5.mp3", "8-1": "a/92158c33eb97.mp3", "8-2": "a/bf1bc185350f.mp3", "8-3": "a/ad248a958252.mp3", "8-4": "a/b9d27d95a88b.mp3", "8-5": "a/8831f1b2c3b6.mp3", "9-0": "a/d118c79a1709.mp3", "9-1": "a/304c718695ef.mp3", "9-2": "a/a546adba43ea.mp3", "9-3": "a/a0f5b78b8e37.mp3", "9-4": "a/568b77039f85.mp3", "10-0": "a/3db415d6ad8f.mp3", "10-1": "a/7eefd6f3d9b8.mp3", "10-2": "a/7eef80369273.mp3", "10-3": "a/9a134111d985.mp3", "10-4": "a/832d449ac076.mp3", "11-0": "a/1a24693ed388.mp3", "11-1": "a/7558dbd02cd5.mp3", "11-2": "a/c72f4ac8a67b.mp3", "11-3": "a/322163c62abd.mp3", "11-4": "a/79a406611aad.mp3", "12-0": "a/49d8bcb723a5.mp3", "12-1": "a/a4aec462e668.mp3", "12-2": "a/0c53de7c3ac8.mp3", "12-3": "a/1217c93cc816.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+}
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

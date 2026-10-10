@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ways to Read Digits</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;gap:10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Ways to Read Digits', template:'prep', lang:'en', sub:'LeetCode 91 Decode Ways · animated walkthrough', key:'lc91envid', doc:'LeetCode 91', blurb:'Start from where the last piece comes from, see why each group is inherited rather than plus one, tame every 0 with two gates and one rule, then fill the table cell by cell and write the code.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a string of digits','The problem: how many ways to read 226','Where does the last piece come from','Inherit, not plus one','One extra cell: dp[0] = 1','Two gates tame every 0','Fill the table: 226','Fill the table: 2101','Three small examples with 0','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- dp table: columns k = 0..n, row of characters, row of dp values ---------- */
+const DCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.dpt{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.dpt>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.dpt>.lb{border:0;background:none;color:var(--dim);font-size:.78em;justify-items:end;padding-right:.3em}
+.dpt>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.dpt .chr{font-family:var(--f-display);font-size:1.35em}
+.dpt .emp{color:var(--dim);font-size:.8em}
+.dpt .val b{font-family:var(--f-display);font-weight:400;font-size:1.35em;color:var(--mint)}
+.dpt .val b.zero{color:var(--coral)}
+.dpt .val .s:not(.on){opacity:0}
+.dpt i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.dpt i.ring.s.now{opacity:1!important}
+.ways{display:flex;flex-direction:column;gap:6px}
+.ways .w{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ways .w span{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line);background:rgba(10,17,36,.8)}
+.ways .w span.last{border-color:var(--amber);color:var(--amber)}
+.ways .w em{font-style:normal;color:var(--dim);font-size:.85em}
+</style>`;
+// vals: [[k, value, step]], rings: [[step, [k...]]]  (k is the dp column; character s[k-1] sits in column k)
+function dpt(str, vals, rings=[]){
+  const n = str.length;
+  let h = DCSS + `<div class="dpt" style="grid-template-columns:4.6em repeat(${n+1},2.7em)">`;
+  h += `<div class="lb ix">k</div>` + [...Array(n+1).keys()].map(k=>`<div class="ix">${k}</div>`).join('');
+  h += `<div class="lb">char</div><div class="emp">empty</div>` + [...str].map((ch,i)=>`<div class="chr">${ch}${
+    rings.filter(([,ks])=>ks.includes(i+1)).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  h += `<div class="lb">dp[k]</div>` + [...Array(n+1).keys()].map(k=>`<div class="val">${
+    vals.filter(v=>v[0]===k).map(([,v,s])=>`<b class="s ${v===0?'zero':''}" data-s="${s}">${v}</b>`).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+const ways = rows => DCSS + `<div class="ways">${rows.map(([s,parts,note])=>`<div class="w s" data-s="${s}">${parts.map((p,i)=>`<span class="${i===parts.length-1?'last':''}">${p}</span>`).join('')}${note?`<em>${note}</em>`:''}</div>`).join('')}</div>`;
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Ways to Read Digits<br><em>LeetCode 91</em>', vis:
+  gloss(0,[['decode','Turn a string of digits back into letters: 1 is A, 2 is B, all the way to 26 is Z'],['prefix','A piece from the start of a string, for example the prefixes of "226" are "2", "22", "226"'],['dp','The dynamic programming table: record answers to small problems and combine them into the answer to the big one']])
+  + flow([[1,'Read','226 → 3 ways'],[1,'Last piece','one or two digits'],[2,'Inherit','not +1'],[2,'Two gates','tame every 0'],[3,'Fill the table','226, 2101'],[3,'Code','one loop']]),
+  say:[
+  'This lesson covers LeetCode 91, Decode Ways. First, three words: decoding means turning digits back into letters, where 1 is A and 26 is Z. A prefix is a piece from the start of a string. And dp is the dynamic programming table, which records answers to small problems and combines them into the answer to the big one.',
+  'Here is the plan. First we read the problem, then we ask one key question: where does the last piece come from? Then we see why each way of reading is inherited, not plus one.',
+  'The hard part is 0. With two gates and one rule, we handle 0, 10, 20, zero one, 30, and zero zero all at once, with no patch for each case.',
+  'Finally we fill the table cell by cell for 226 and 2101, write the code, and explain the complexity and how to present it in an interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'"226": <em>how many ways to read it</em>', vis:
+  gloss(0,[['one way to read','Cut the digit string into pieces, where every piece is a valid code from 1 to 26'],['a valid piece','A single digit 1 to 9, or two digits 10 to 26; it cannot start with 0']])
+  + duo(ways([[2,['2','2','6'],'B B F'],[2,['22','6'],'V F'],[2,['2','26'],'B Z']]),
+    q(1,'How many ways are there to read "226"?')
+    + cards([[3,'The answer is 3','The problem wants only the count, not a list of every way','mint'],
+             [4,'"06" is not allowed','A two-digit piece starting with 0 is invalid, and a lone 0 has no letter','coral']])),
+  say:[
+  'One way to read means cutting the digit string into pieces, where every piece is a valid code. A valid piece is a single digit from 1 to 9, or two digits from 10 to 26.',
+  'The question for this scene: how many ways are there to read 226?',
+  'There are three. Cut it into 2, 2, 6, and you get B B F. Cut it into 22 and 6, and you get V F. Cut it into 2 and 26, and you get B Z.',
+  'The answer is three. The problem wants only the count, not a list of every way, and that is exactly where dp comes in.',
+  'Now an invalid one: zero six. A two-digit number that starts with 0 is not a code, and a lone 0 has no matching letter. 0 is the source of every headache in this problem, and we handle it on its own later.'
+]});
+
+/* ===== 2 Where does the last piece come from ===== */
+add({ch:2, title:'Ask: <em>where does the last piece come from</em>', vis:
+  gloss(0,[['the last piece','In one way of reading, the final piece you cut: either one digit or two digits'],['Climbing Stairs, problem 70','The last step climbs either 1 stair or 2; same idea here, except every step must be valid']])
+  + duo(ways([[2,['2','2','6'],'ways for "22" + single 6'],[2,['22','6'],'ways for "22" + single 6'],[3,['2','26'],'ways for "2" + pair 26']]),
+    q(1,'Group the three ways to read "226" by their last piece. What are the two groups?')
+    + cards([[2,'Last piece is the single digit 6','As many ways as "22" has: 2 ways','sky'],
+             [3,'Last piece is the pair 26','As many ways as "2" has: 1 way','sky'],
+             [4,'The groups never overlap, so add them','2 + 1 = 3','mint']])),
+  say:[
+  'The last piece is the final piece you cut in one way of reading, and it is either one digit or two digits. This is just like problem 70, Climbing Stairs: the last step climbs either one stair or two.',
+  'The question for this scene: group the three ways to read 226 by their last piece. What are the two groups?',
+  'Group one: the last piece is the single digit 6. Remove the 6, and 22 is left in front. However many ways 22 has, this group has that many: two.',
+  'Group two: the last piece is the pair 26. Remove it, and 2 is left in front. 2 has only one way to read, so this group has one.',
+  'The two groups never overlap, because the last piece cannot be both one digit and two digits. Two plus one is three, exactly the answer.'
+]});
+
+/* ===== 3 Inherit, not plus one ===== */
+add({ch:3, title:'Each group is <em>inherited</em>, not +1', vis:
+  gloss(0,[['inherit','However many ways the earlier prefix has, attaching one valid piece carries all of them forward unchanged'],['path','One way of cutting from the start all the way to here']])
+  + q(1,'The bug in the journal note: for "12" it wrote dp + 2 and got 3, but the correct answer is 2. What went wrong?')
+  + cards([[2,'+2 counts "choices"','"There are two new choices here", so add 2','coral'],
+           [3,'What to count is "paths"','"1" has 1 way, plus the single 2: 1 way; the empty prefix has 1 way, plus the pair 12: 1 way','sky'],
+           [4,'The rule','One valid choice extends every earlier path once, so you add "how many paths came before"','mint']]),
+  say:[
+  'Inherit means this: however many ways the earlier prefix has, attaching one valid piece carries all of them forward unchanged. A path is one way of cutting from the start all the way to here.',
+  'The question for this scene: for 12, the note wrote dp plus 2 and got three, but the correct answer is two. What went wrong?',
+  'Plus 2 counts choices: here you can go single or go as a pair, two new choices, so add two. But the problem does not ask for the number of choices.',
+  'It asks for the number of paths. The single group: 1 has one way, and attaching the single 2 keeps it at one. The pair group: the empty prefix counts as one way, and attaching the pair 12 is also one. One plus one is two.',
+  'The rule is: one valid choice extends every earlier path once. So you add how many paths came before, not a fixed number.'
+]});
+
+/* ===== 4 One extra cell ===== */
+add({ch:4, title:'One extra cell: <em>dp[0] = 1</em>', vis:
+  gloss(0,[['dp[k]','How many ways to read the first k characters. k counts from 0'],['empty prefix','No characters at all: dp[0]']])
+  + duo(dpt('12',[[0,1,2],[1,1,3],[2,2,3]]),
+    q(1,'Why keep one extra cell dp[0], and why is it 1, not 0?')
+    + cards([[2,'dp[0] = 1','The empty string has exactly one way to read: cut nothing','mint'],
+             [3,'It is the start of the "pair" group','When "12" goes as a pair, the empty string is left in front, and it inherits dp[0] = 1','sky'],
+             [4,'It also removes two bugs','No separate setup for dp[1], and no slicing s[-1:1] into an empty string','amber']])),
+  say:[
+  'Here is a different way to write it: dp of k is how many ways to read the first k characters, and k counts from zero. dp of 0 is the empty prefix, with no characters at all.',
+  'The question for this scene: why keep one extra cell, dp of 0, and why is it one, not zero?',
+  'The empty string has exactly one way to read: cut nothing. It sounds odd, but it is the starting point for counting, like the number one in multiplication.',
+  'Look at 12 from the last scene. In the pair group, after you cut off 12, the empty string is left in front, so it inherits dp of 0. If dp of 0 were zero, this group would vanish, and the answer would be one short.',
+  'Keeping this extra cell also removes two bugs from the note. There is no separate setup for dp of 1, where the index was once sliced wrong. And there is no slicing s from minus 1 to 1 at the start, which gives an empty string and makes int crash.'
+]});
+
+/* ===== 5 Two gates ===== */
+add({ch:5, title:'Two gates <em>tame every 0</em>', vis:
+  gloss(0,[['the single gate','Can the current digit be a piece on its own: it is not 0'],['the pair gate','Can the last two digits form one piece: 10 ≤ two-digit number ≤ 26']])
+  + q(1,'No more patch after patch: is there one rule that handles 0, 10, 20, 01, 30, and 00 at once?')
+  + tbl(['Last two digits','Single gate (digit ≠ 0)','Pair gate (10 to 26)','Result'],[
+    [2,'…10','closed: 0 cannot go alone','open: 10','inherit only dp[k−2]'],
+    [3,'…20','closed','open: 20','inherit only dp[k−2]'],
+    [3,'…01','open: 1','closed: 01 is below 10','inherit only dp[k−1]'],
+    [4,'…30','closed','closed: 30 is above 26','both closed → 0'],
+    [4,'…00','closed','closed: 00 is below 10','both closed → 0']])
+  + cards([[5,'The rule is just two lines','single gate open → add dp[k−1]; pair gate open → add dp[k−2]','mint']]),
+  say:[
+  'Two gates. The single gate asks whether the current digit can be a piece on its own, and the condition is that it is not zero. The pair gate asks whether the last two digits can form one piece, and the condition is that the two-digit number is from 10 to 26.',
+  'The question for this scene: is there one rule that handles 0, 10, 20, zero one, 30, and zero zero at once, with no more patch after patch?',
+  'Take an ending of 10. 0 cannot go alone, so the single gate is closed. 10 is in range, so the pair gate is open. So you inherit only dp of k minus 2.',
+  'An ending of 20 works the same way. Now an ending of zero one: 1 can go alone, so that gate is open. But zero one is below 10, so the pair gate is closed. The note only checked below 27, so zero one slipped through.',
+  'An ending of 30 or zero zero: both gates are closed, there is no way to read it here, dp is zero, and nothing after it can connect either.',
+  'So the rule is just two lines: if the single gate is open, add dp of k minus 1; if the pair gate is open, add dp of k minus 2. Every case of 0 is handled by these two gates automatically.'
+]});
+
+/* ===== 6 Fill the table 226 ===== */
+add({ch:6, title:'Fill the table: <em>"226"</em>', vis:
+  gloss(0,[['orange box','The digit or two digits being checked in this step']])
+  + duo(dpt('226',[[0,1,2],[1,1,3],[2,2,4],[3,3,5]],[[3,[1]],[4,[1,2]],[5,[2,3]]]),
+    q(1,'Following the two-gate rule, fill dp from left to right. What is the last cell?')
+    + term('fill log',[
+      [2,'o','dp[0] = 1                    empty prefix'],
+      [3,'o','k=1 "2"  single ok +dp[0]=1  → 1'],
+      [4,'o','k=2 "2"  single ok +dp[1]=1'],
+      [4,'o','    "22" pair ok   +dp[0]=1  → 2'],
+      [5,'o','k=3 "6"  single ok +dp[2]=2'],
+      [5,'hl','    "26" pair ok   +dp[1]=1  → 3']])),
+  say:[
+  'The orange box marks the digit, or the two digits, being checked in this step.',
+  'The question for this scene: following the two-gate rule, fill dp from left to right. What is the last cell?',
+  'First, dp of 0 is one, the empty prefix.',
+  'At k equals 1, look only at the first digit, 2. It is not zero, so the single gate is open: add dp of 0, which gives one. There is only one digit here, so no pair is possible.',
+  'At k equals 2, the second digit 2 opens the single gate: add dp of 1, which is one. The last two digits, 22, are from 10 to 26, so the pair gate is open: add dp of 0, which is one. The total is two.',
+  'At k equals 3, the 6 opens the single gate: add dp of 2, which is two. 26 opens the pair gate: add dp of 1, which is one. The total is three, the same as our count by hand.'
+]});
+
+/* ===== 7 Fill the table 2101 ===== */
+add({ch:7, title:'Fill the table: <em>"2101"</em>, a 0 in the middle', vis:
+  gloss(0,[['a red 0','This cell has no way to read at all']])
+  + duo(dpt('2101',[[0,1,2],[1,1,2],[2,2,3],[3,1,4],[4,1,5]],[[3,[1,2]],[4,[2,3]],[5,[3,4]]]),
+    q(1,'In the journal note, "2101" first came out as 3, then as 2, but the correct answer is 1. Fill it with the two gates: where does the last 1 inherit from?')
+    + term('fill log',[
+      [2,'o','dp[0]=1  k=1 "2" single ok        → 1'],
+      [3,'o','k=2 "1"  single ok +dp[1]=1'],
+      [3,'o','    "21" pair ok   +dp[0]=1       → 2'],
+      [4,'o','k=3 "0"  single no'],
+      [4,'o','    "10" pair ok   +dp[1]=1       → 1'],
+      [5,'o','k=4 "1"  single ok +dp[3]=1'],
+      [5,'hl','    "01" pair no                   → 1']])),
+  say:[
+  'If a red zero shows up here, it means this cell has no way to read at all.',
+  'The question for this scene: the correct answer for 2101 is one. Fill it with the two gates: where does the last 1 inherit from?',
+  'The first two steps are routine: dp of 0 is one, and dp of 1 is one.',
+  'At k equals 2: 1 opens the single gate, add dp of 1; 21 opens the pair gate, add dp of 0. The total is two, namely 2, 1 and 21.',
+  'At k equals 3, it is the 0: the single gate is closed, since 0 cannot be a piece on its own. 10 opens the pair gate, add dp of 1, which gives one. So 210 has only one way to read: 2, 10.',
+  'At k equals 4: the last 1 opens the single gate, add dp of 3, which is one. Zero one is below 10, so the pair gate is closed. The total is one. So the last 1 inherits from dp of 3, the single way to read 210, and the answer is one.'
+]});
+
+/* ===== 8 Three small examples with 0 ===== */
+add({ch:8, title:'Three small <em>examples with 0</em>', vis:
+  gloss(0,[['contagion','Once a cell is 0, any later cell that inherits from it becomes 0 too']])
+  + q(1,'How many ways are there to read "10", "30", and "00"?')
+  + `<div class="grid two">`
+  + `<div class="s" data-s="2">${dpt('10',[[0,1,2],[1,1,2],[2,1,2]])}</div>`
+  + `<div class="s" data-s="3">${dpt('30',[[0,1,3],[1,1,3],[2,0,3]])}</div>`
+  + `<div class="s" data-s="4">${dpt('00',[[0,1,4],[1,0,4],[2,0,4]])}</div>`
+  + `</div>`
+  + cards([[5,'No special cases','No if "0" in s, and no separate handling for a leading 0','mint']]),
+  say:[
+  'First, one effect called contagion: once a cell is zero, any later cell that inherits from it becomes zero too.',
+  'The question for this scene: how many ways are there to read 10, 30, and zero zero?',
+  '10: the 0 closes the single gate, 10 opens the pair gate and inherits dp of 0, so the answer is one. The note first wrote return 0 if there is any 0, and this example got wrongly killed.',
+  '30: the 0 closes the single gate, and 30 is above 26, so the pair gate is closed too. Both gates are closed, so the answer is zero.',
+  'Zero zero: the first 0 closes the single gate, and there is no earlier digit to pair with, so dp of 1 is zero. The second digit also has both gates closed, so the answer is zero.',
+  'None of the three examples needs a special case. No check for whether there is a 0, and no separate handling for a leading 0. The two gates cover it all.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>two gates are two ifs</em>', vis:
+  gloss(0,[['slice s[a:b]','Take from position a up to just before position b; the result is still a string'],['int()','Turn a string like "26" into the number 26']])
+  + term('solution.py',[
+    [2,'o','def numDecodings(s):'],
+    [2,'o','    n = len(s)'],
+    [2,'o','    dp = [0] * (n + 1)'],
+    [2,'o','    dp[0] = 1                        # empty prefix: one way'],
+    [3,'o','    for k in range(1, n + 1):'],
+    [3,'hl','        if s[k - 1] != "0":          # the single gate'],
+    [3,'o','            dp[k] += dp[k - 1]'],
+    [4,'hl','        if k >= 2 and 10 <= int(s[k - 2:k]) <= 26:   # the pair gate'],
+    [4,'o','            dp[k] += dp[k - 2]'],
+    [5,'o','    return dp[n]']])
+  + q(1,'Is += "adding itself to itself"? And why does the pair gate line check k >= 2 first?'),
+  say:[
+  'The slice s from a to b takes from position a up to just before position b, and the result is still a string. int turns a string like 26 into the number 26. The first bug in the note was multiplying the string by ten directly, which gives ten 2s in a row.',
+  'The question for this scene: is plus equals adding itself to itself? And why does the pair gate line check k greater than or equal to 2 first?',
+  'At the start, build a table of length n plus 1, all zeros, then set dp of 0 to one.',
+  'Inside the loop, dp of k starts at zero. The single gate: if the k-th character is not zero, add dp of k minus 1. Plus equals is not adding itself to itself. It puts one more group of valid ways into this cell\'s running total.',
+  'The pair gate: first check that k is at least 2, and only then slice the last two digits. If the first part is false, the second part never runs, so the error from int of an empty string never happens. If the two-digit number is from 10 to 26, add dp of k minus 2.',
+  'Finally, return dp of n, the number of ways to read the whole string. Two gates are just two ifs.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>four pitfalls</em>', vis:
+  gloss(0,[['O(n)','The number of steps grows in proportion to the string length']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(n)','Each digit is checked once; dp uses only the previous two cells, so it can shrink to two variables, space O(1)','sky'],
+           [3,'+1 / +2','Add the earlier path counts dp[k−1] and dp[k−2], not a constant','coral'],
+           [3,'Pair checks only < 27','"01" slips through; write 10 ≤ two-digit number ≤ 26','coral'],
+           [4,'Return 0 on seeing a 0','"10" gets wrongly killed; let the two gates handle 0','coral'],
+           [4,'Doing math on a string','"2" * 10 repeats it ten times; slice first, then int','coral']]),
+  say:[
+  'Big O of n means the number of steps grows in proportion to the string length.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Each digit is checked once, so time is big O of n. The table has n plus 1 cells, so space is big O of n. In fact each step uses only the previous two cells, so just like Climbing Stairs it can shrink to two variables, and space becomes big O of 1.',
+  'Pitfall one: adding one or two, when you should add the earlier path counts. Pitfall two: the pair gate checks only below 27, so zero one slips through; write 10 to 26.',
+  'Pitfall three: returning zero as soon as you see a 0, which wrongly kills 10. Pitfall four: doing math on a string; slice first, then int. The note fell into each of these four pitfalls once.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "How do you handle 0?" What do you say?')
+  + flow([[2,'State','dp[k] = ways for the first k chars'],[3,'Last piece','one or two digits'],[3,'Two gates','≠ 0; 10 to 26'],[4,'Inherit','add dp[k−1], dp[k−2]'],[4,'Complexity','O(n), can shrink to O(1)']])
+  + chips(4,['decode ways','dp[k] = ways for first k chars','dp[0] = 1','single digit ≠ 0','10 ≤ pair ≤ 26','O(n)']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, how do you handle 0?',
+  'Start with the state: dp of k is the number of ways to read the first k characters, and dp of 0 is one. Then split into two groups by the last piece: the last piece is either one digit or two digits.',
+  'Then say: I do not special-case 0, I leave it to two gates. A single digit must not be zero, and a two-digit number must be from 10 to 26. When a gate is open, inherit dp of k minus 1 or dp of k minus 2.',
+  'Finally, give the complexity: time is big O of n, and space can shrink to big O of 1. The key phrases are single digit not zero, and pair between 10 and 26.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Last piece','one or two digits'],[0,'Inherit','add path counts'],[0,'dp[0] = 1','empty prefix'],[0,'Two gates','≠ 0; 10 to 26'],[0,'O(n)','one pass']])
+  + cards([[1,'① Split into two groups by the last piece; each group is inherited','Add dp[k−1] and dp[k−2], not +1 or +2','amber'],
+           [2,'② Two gates tame every 0','Single: this digit ≠ 0; pair: 10 ≤ two-digit number ≤ 26','sky'],
+           [3,'③ Keep one extra cell, dp[0] = 1','The empty prefix has one way, which makes indexing and setup simpler','mint']]),
+  say:[
+  'One more pass through the main line: ask where the last piece comes from, one digit or two; each group\'s count is inherited; keep one extra cell, dp of 0 equals one; two gates tame the zeros; one pass, big O of n.',
+  'Point one: split into two groups by the last piece, and each group is inherited. You add dp of k minus 1 and dp of k minus 2, not one or two.',
+  'Point two: two gates tame every zero. Single: this digit is not zero. Pair: the two-digit number is from 10 to 26.',
+  'Point three: keep one extra cell, dp of 0 equals one. The empty prefix counts as one way to read, which makes indexing and setup simpler. My note stopped right at this two-gate rule, so now I can go back and fill in those two placeholder conditions.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/efa7848035d7.mp3", "0-1": "a/f74515ab8bf2.mp3", "0-2": "a/0ee54e59cb4c.mp3", "0-3": "a/ffcadb6cd61e.mp3", "1-0": "a/c0d5b7c3b026.mp3", "1-1": "a/3b4ce6a9cb90.mp3", "1-2": "a/62c75ac989b4.mp3", "1-3": "a/e76d561539e5.mp3", "1-4": "a/48889d005410.mp3", "2-0": "a/84afb3362564.mp3", "2-1": "a/b22718e053c1.mp3", "2-2": "a/0499596bf631.mp3", "2-3": "a/c87a656cdf77.mp3", "2-4": "a/8074a04eae07.mp3", "3-0": "a/fc6e5d481c02.mp3", "3-1": "a/07f1e6e9140d.mp3", "3-2": "a/7545bfefeb32.mp3", "3-3": "a/6cccc4f0c87a.mp3", "3-4": "a/5546f0e29ff4.mp3", "4-0": "a/a332b205aa79.mp3", "4-1": "a/fb8cef21b61d.mp3", "4-2": "a/4d47b9aaddf8.mp3", "4-3": "a/38f1da0c770b.mp3", "4-4": "a/7068060befb8.mp3", "5-0": "a/7e4ae5b93e2f.mp3", "5-1": "a/70b0e9716d50.mp3", "5-2": "a/ca416c616135.mp3", "5-3": "a/f8d392da7d33.mp3", "5-4": "a/2ce8e01507e3.mp3", "5-5": "a/493cd238c6b1.mp3", "6-0": "a/bef6aa127ee9.mp3", "6-1": "a/c11cd2a73b37.mp3", "6-2": "a/c40dcca692ac.mp3", "6-3": "a/02a3fe9d5d29.mp3", "6-4": "a/857453b6a9bf.mp3", "6-5": "a/a6685645c4b2.mp3", "7-0": "a/e3785aaf875b.mp3", "7-1": "a/ecc16fcd7077.mp3", "7-2": "a/ac6b16e4a306.mp3", "7-3": "a/6e2db4856baa.mp3", "7-4": "a/a1ac781c8124.mp3", "7-5": "a/8111731b45d4.mp3", "8-0": "a/50e61353099d.mp3", "8-1": "a/2af14bc5e354.mp3", "8-2": "a/99e303ee242a.mp3", "8-3": "a/598503fcac13.mp3", "8-4": "a/c114c9ff8c60.mp3", "8-5": "a/929ce0c4a80a.mp3", "9-0": "a/d8f08b6a7f4b.mp3", "9-1": "a/c9ccb3d3e6bc.mp3", "9-2": "a/2c0a9b19e3a4.mp3", "9-3": "a/a46b7e18edb9.mp3", "9-4": "a/17cdc8724838.mp3", "9-5": "a/c9e41123e38b.mp3", "10-0": "a/dfef15aebc13.mp3", "10-1": "a/7c35137176fb.mp3", "10-2": "a/17efb3b72e75.mp3", "10-3": "a/c877fa467422.mp3", "10-4": "a/af3b85d317ba.mp3", "11-0": "a/d485550e7ba0.mp3", "11-1": "a/6b9a275001bb.mp3", "11-2": "a/5853e675b584.mp3", "11-3": "a/84e516e7c485.mp3", "11-4": "a/8a4b6a393138.mp3", "12-0": "a/f47442954b25.mp3", "12-1": "a/8630544d613e.mp3", "12-2": "a/59394f776d1a.mp3", "12-3": "a/beb9cf469689.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+}
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>
