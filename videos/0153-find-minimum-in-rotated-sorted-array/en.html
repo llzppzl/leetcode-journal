@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rotated Sorted Array</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;gap:10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Rotated Sorted Array', template:'prep', lang:'en', sub:'LeetCode 153 Find Minimum in Rotated Sorted Array · animated walkthrough', key:'lc153envid', doc:'LeetCode 153', blurb:'Start from the idea that the minimum is the number right after the break, use one invariant to explain why left = mid + 1 and right = mid are not symmetric, see how left = mid loops forever and why a special case should be deleted, then walk through the binary search step by step.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: an array turned around','The problem: the minimum is after the break','Need O(log n): binary search','How to compute mid','The invariant: the minimum stays in range','Two cases, two updates','Why left = mid loops forever','Walk through the binary search','Early return, and the deleted special case','Write the code','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip with L / M / R markers per step; cells outside the range dim out ---------- */
+const BCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.bs{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.bs>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.bs>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.bs>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.35em}
+.bs>.v.min{border-color:var(--mint)}
+.bs .dim.s{position:absolute;inset:0;border-radius:8px;background:rgba(10,17,36,.82);transform:none}
+.bs .dim.s:not(.on){opacity:0}
+.bs .ans.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--mint);transform:none}
+.bs .ans.s:not(.on){opacity:0}
+.bs>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.bs .mk span.s{position:absolute;opacity:0!important;transform:none}
+.bs .mk span.s.now{opacity:1!important}
+.bs .mk .L{color:var(--sky)} .bs .mk .R{color:var(--coral)} .bs .mk .M{color:var(--amber)}
+</style>`;
+// st: [[step, left, right, mid|null]]; ans: [step, k]
+function bs(nums, st=[], ans=null){
+  const n = nums.length;
+  let h = BCSS + `<div class="bs" style="grid-template-columns:repeat(${n},2.7em)">`;
+  h += nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += nums.map((v,k)=>{
+    const firstOut = st.find(([,l,r])=>k<l||k>r);
+    return `<div class="v ${ans&&ans[1]===k?'min':''}">${v}${firstOut?`<i class="dim s" data-s="${firstOut[0]}"></i>`:''}${ans&&ans[1]===k?`<i class="ans s" data-s="${ans[0]}"></i>`:''}</div>`;
+  }).join('');
+  h += nums.map((_,k)=>`<div class="mk">${st.map(([s,l,r,m])=>{
+    const t = [k===l?'<span class="L">L</span>':'', k===m?'<span class="M">M</span>':'', k===r?'<span class="R">R</span>':''].filter(Boolean).join('');
+    return t?`<span class="s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'An array turned around<br><em>LeetCode 153</em>', vis:
+  gloss(0,[['sorted array','An array arranged from smallest to largest'],['rotation','Move a chunk from the front to the end as a block, for example [0,1,2,4,5,6,7] becomes [4,5,6,7,0,1,2]'],['binary search','Look at the middle each time and throw away half the range, so the range keeps shrinking']])
+  + flow([[1,'Read','find the minimum'],[1,'The break','where the order breaks'],[2,'Invariant','the minimum stays in range'],[2,'Not symmetric','mid + 1 and mid'],[3,'Infinite loop','left = mid'],[3,'Code','O(log n)']]),
+  say:[
+  'This lesson covers LeetCode 153, Find Minimum in Rotated Sorted Array. First, three words: a sorted array is arranged from smallest to largest. A rotation moves a chunk from the front to the end as a block. And binary search looks at the middle each time and throws away half the range.',
+  'First, say in our own words what we are looking for: the minimum sits right after the spot where the order breaks. We call that spot the break.',
+  'Then we use one invariant to explain why one update adds 1 and the other does not, and see why left equals mid loops forever.',
+  'Finally we look at a small early-return optimization, and a special case that should be deleted instead of patched, and then write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The minimum is <em>after the break</em>', vis:
+  gloss(0,[['the break','Where, of two adjacent numbers, the first is bigger than the second; a rotated array has only one'],['adjacent','Two positions next to each other, i − 1 and i']])
+  + duo(bs([4,5,6,7,0,1,2],[],[0,4]),
+    q(1,'In [4, 5, 6, 7, 0, 1, 2], why is 0 the special one? Is 1 not smaller than 7 too?')
+    + cards([[2,'"Smaller than the max" is not the point','1 and 2 are also smaller than 7, but they come after 0 and 1, so the order does not break','coral'],
+             [3,'The point is where the order breaks','nums[i − 1] > nums[i] happens only at 7 → 0','sky'],
+             [4,'Minimum = the number after the break','A left-to-right scan finds it, but that is O(n)','amber']])),
+  say:[
+  'The break is where, of two adjacent numbers, the first is bigger than the second. A rotated sorted array has only one such spot.',
+  'The question for this scene: in 4, 5, 6, 7, 0, 1, 2, why is 0 the special one? Is 1 not smaller than 7 too?',
+  'Being smaller than the biggest number is not the point. 1 and 2 are also smaller than 7, but the numbers right before them are 0 and 1, so the order does not break.',
+  'The point is that the order of two adjacent numbers breaks: the first is bigger than the second. That happens only once, from 7 to 0.',
+  'So the minimum is the number right after the break. One scan from left to right finds it, but that is big O of n, and the problem asks for big O of log n.'
+]});
+
+/* ===== 2 Need O(log n) ===== */
+add({ch:2, title:'Need O(log n): <em>throw away half each time</em>', vis:
+  gloss(0,[['O(log n)','Double the length and it takes only one more step; 1000 numbers take about 10 steps'],['left, right','The range still being considered: from index left to index right'],['mid','The index in the middle of the range']])
+  + q(1,'Looking at just the middle number each time, how do we know whether the break is in the left half or the right half?')
+  + cards([[2,'Compare nums[mid] with nums[right]','The right end is the reference point for this range','sky'],
+           [3,'nums[mid] > nums[right]','Going from mid to right, the numbers got smaller: the break must be to the right of mid','amber'],
+           [4,'Otherwise nums[mid] < nums[right]','The stretch from mid to right is sorted, so the break is not in it','mint']]),
+  say:[
+  'Big O of log n means that if the length doubles, it takes only one more step, so a thousand numbers take about ten steps. left and right are the range still being considered, and mid is the index in the middle of the range.',
+  'The question for this scene: looking at just the middle number each time, how do we know whether the break is in the left half or the right half?',
+  'The trick is to compare nums of mid with nums of right. The right end is the reference point for this range.',
+  'If nums of mid is greater than nums of right, the numbers got smaller going from mid to right. So it must have broken somewhere in between, and the break is to the right of mid.',
+  'Otherwise nums of mid is less than nums of right. The stretch from mid to right is sorted, the break is not in it, and the minimum is at mid or to the left of mid.'
+]});
+
+/* ===== 3 How to compute mid ===== */
+add({ch:3, title:'mid: <em>a position in the range, not a length</em>', vis:
+  gloss(0,[['//','Integer division, drop the fractional part: 7 // 2 = 3']])
+  + q(1,'The bug from the journal note: mid = (right − left) // 2. When the range is [4, 7], what does this give?')
+  + term('Two ways to write it',[
+    [2,'e','mid = (right - left) // 2          # [4, 7] → 1, not even in the range'],
+    [3,'hl','mid = left + (right - left) // 2   # [4, 7] → 4 + 1 = 5']])
+  + cards([[4,'(right − left) // 2 is just half the length','Add the start, left, to get a position in the range; only when left = 0 do the two happen to match','mint']]),
+  say:[
+  'The double slash is integer division, which drops the fractional part. 7 integer division 2 is 3.',
+  'The question for this scene: if mid is written as right minus left, integer division 2, what does it give when the range is 4 to 7?',
+  '7 minus 4 is 3, and 3 integer division 2 is 1. But index 1 is not even in the range 4 to 7.',
+  'The correct version is left plus right minus left, integer division 2. That is 4 plus 1, which is 5, right in the middle of the range.',
+  'Right minus left, integer division 2, is just half the length. Add the start, left, to get a position in the range. Only when left equals 0 do the two versions happen to match, which is why the bug is hard to spot at first.'
+]});
+
+/* ===== 4 The invariant ===== */
+add({ch:4, title:'The invariant: <em>the minimum stays in [left, right]</em>', vis:
+  gloss(0,[['invariant','A statement that is true at the start of every loop iteration; every change to the range must keep it true']])
+  + q(1,'The journal note keeps asking: why does left end up on the minimum, and not on the maximum?')
+  + cards([[2,'True at the start','[0, n − 1] is the whole array, so of course the minimum is in it','sky'],
+           [3,'Keep it every iteration','Only throw away positions that cannot be the minimum','sky'],
+           [4,'At the end left == right','Only one position is left, and the minimum was always in range, so this is it','mint']]),
+  say:[
+  'An invariant is a statement that is true at the start of every loop iteration. Every change to the range must keep it true.',
+  'The question for this scene: why does left end up on the minimum, and not on the maximum?',
+  'We give this loop one invariant: the minimum is always in the range from left to right. At the start, the range is the whole array, so of course it holds.',
+  'In every iteration, we only throw away positions that cannot be the minimum, so the statement stays true.',
+  'When the loop ends, left equals right, and only one position is left. The minimum was always in the range, so the one that remains is it. left does not land there by luck; the invariant forces it there.'
+]});
+
+/* ===== 5 Two updates ===== */
+add({ch:5, title:'One adds 1, <em>one does not</em>', vis:
+  gloss(0,[['rule out','Throw this position out of the range; only allowed when we are sure it is not the minimum']])
+  + q(1,'Why does one side write left = mid + 1, while the other writes right = mid, and not mid − 1?')
+  + tbl(['Case','What it tells us','Update','Why exactly this'],[
+    [2,'nums[mid] > nums[right]','The break is right of mid','left = mid + 1','mid is bigger than some number to its right, so it cannot be the minimum and can go'],
+    [3,'Otherwise','mid to right is sorted','right = mid','mid might be the minimum, so keep it; mid − 1 would throw the answer away']])
+  + cards([[4,'How to decide','Ask: "could mid still be the answer?" If not, add 1 and throw it away; if so, keep it','mint']]),
+  say:[
+  'To rule out a position means to throw it out of the range. We can only do that when we are sure it is not the minimum.',
+  'The question for this scene: why does one side write left equals mid plus 1, while the other writes right equals mid, and not mid minus 1?',
+  'Case one, nums of mid is greater than nums of right. mid is bigger than some number to its right, so it cannot be the minimum. So we throw mid away too, and left equals mid plus 1.',
+  'Case two, the stretch from mid to right is sorted. mid is the smallest in that stretch, so it might be the answer. So we keep it, and right equals mid. Writing mid minus 1 could throw the answer out and break the invariant.',
+  'So there is no need to memorize the plus 1 and the no plus 1. Just ask: could mid still be the answer? If not, add 1 and throw it away. If so, keep it.'
+]});
+
+/* ===== 6 Infinite loop ===== */
+add({ch:6, title:'left = mid: <em>why it loops forever</em>', vis:
+  gloss(0,[['infinite loop','The condition stays true, the range never changes, and the loop never stops'],['TLE','Time Limit Exceeded: the program ran too long and is marked wrong']])
+  + duo(bs([2,1],[[2,0,1,0],[3,0,1,0],[4,1,1,null]],[4,1]),
+    q(1,'[2, 1]: with only two numbers left, what happens if we write left = mid?')
+    + cards([[2,'mid == left','left = 0, right = 1, mid = 0 + 1 // 2 = 0','amber'],
+             [3,'left = mid changes nothing','left is still 0, the next iteration is identical: time limit exceeded','coral'],
+             [4,'left = mid + 1','left becomes 1, the range shrinks to one number, the loop ends, answer 1','mint']])),
+  say:[
+  'An infinite loop is when the condition stays true, the range never changes, and the loop never stops. On LeetCode it shows up as Time Limit Exceeded.',
+  'The question for this scene: the array is 2, 1. With only two numbers left, what happens if we write left equals mid?',
+  'left is 0, right is 1, and mid is 0 plus 1, integer division 2, which is 0. With two numbers, mid always equals left.',
+  'nums of mid is 2, which is greater than nums of right, 1, so we take left equals mid. But mid is 0, so left is still 0. The next iteration is identical, and it never gets out.',
+  'Write left equals mid plus 1 instead: left becomes 1, the range shrinks to one number, the loop ends, and the answer is 1. The rule is that every iteration must make the range smaller. After writing a binary search, check it on a two-number example first.'
+]});
+
+/* ===== 7 Walk through ===== */
+add({ch:7, title:'Walk through <em>the binary search</em>', vis:
+  gloss(0,[['L, M, R','The three indexes left, mid and right; dimmed cells have already been thrown out of the range']])
+  + duo(bs([5,6,7,0,1,2,3,4],[[2,0,7,3],[3,0,3,1],[4,2,3,2],[5,3,3,null]],[5,3]),
+    q(1,'[5, 6, 7, 0, 1, 2, 3, 4]: how many iterations to find the minimum?')
+    + term('Each iteration',[
+      [2,'o','L=0 R=7 M=3  nums[3]=0 ≤ 4  → right = 3'],
+      [3,'o','L=0 R=3 M=1  nums[1]=6 > 0  → left = 2'],
+      [4,'o','L=2 R=3 M=2  nums[2]=7 > 0  → left = 3'],
+      [5,'hl','L=R=3  answer nums[3] = 0']])),
+  say:[
+  'L, M and R are the three indexes left, mid and right. Dimmed cells have already been thrown out of the range.',
+  'The question for this scene: in 5, 6, 7, 0, 1, 2, 3, 4, how many iterations does it take to find the minimum?',
+  'Iteration one: the range is 0 to 7 and mid is 3. nums of 3 is 0, which is not greater than 4 at the right end. mid to right is sorted, mid might be the answer, so right equals mid, and the four cells on the right are thrown away.',
+  'Iteration two: the range is 0 to 3 and mid is 1. nums of 1 is 6, which is greater than 0 at the right end. The break is to the right, 6 cannot be the minimum, so left equals 2.',
+  'Iteration three: the range is 2 to 3 and mid is 2. 7 is greater than 0, so left equals 3.',
+  'Now left equals right equals 3, and the loop ends. Three iterations, and the answer is nums of 3, which is 0. Every iteration made the range strictly smaller, and the minimum always stayed in range.'
+]});
+
+/* ===== 8 Early return and the special case ===== */
+add({ch:8, title:'Early return, and <em>the deleted special case</em>', vis:
+  gloss(0,[['special case','An if written just for one particular situation'],['hidden assumption','Something you silently assume is true while coding, but never wrote down']])
+  + q(1,'[11, 13, 15, 17] is not rotated at all. Why is the special case added in the journal note, "with two numbers left, return nums[right]", wrong?')
+  + term('The wrong special case',[
+    [2,'e','if right == left + 1:'],
+    [2,'e','    return nums[right]       # [11, 13] → 13 ✗']])
+  + cards([[3,'Hidden assumption','"The last two numbers always straddle the break": not true when the array is not rotated','coral'],
+           [4,'The right fix: delete it','The invariant and the + 1 already handle the two-number case','mint'],
+           [5,'An optimization found on my own','nums[left] < nums[right]: this stretch is already sorted, return nums[left]; [11, 13, 15, 17] returns 11 in one step','amber']]),
+  say:[
+  'A special case is an if written just for one particular situation. A hidden assumption is something you silently assume is true while coding, but never wrote down.',
+  'The question for this scene: 11, 13, 15, 17 is not rotated at all. Why is the special case that returns nums of right when two numbers are left wrong?',
+  'Walk through it: when the range shrinks to the two numbers 11 and 13, the special case returns 13 on the right. But the minimum is 11.',
+  'The hidden assumption behind it is that the last two numbers always straddle the break. When the array is not rotated, that is not true.',
+  'The right fix is not another patch; it is to delete it. The invariant and the plus 1 already handle the two-number case.',
+  'In my note I also found an optimization on my own: if nums of left is less than nums of right, this stretch is already sorted, so the leftmost number is the minimum, and we return it right away. 11, 13, 15, 17 returns 11 in one step.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'The code: <em>all three ideas are in it</em>', vis:
+  gloss(0,[['while left < right','As long as the range holds two or more numbers, keep shrinking']])
+  + term('solution.py',[
+    [2,'o','def findMin(nums):'],
+    [2,'o','    left, right = 0, len(nums) - 1'],
+    [2,'o','    while left < right:'],
+    [3,'hl','        if nums[left] < nums[right]:      # already sorted: leftmost is the minimum'],
+    [3,'o','            return nums[left]'],
+    [4,'o','        mid = left + (right - left) // 2'],
+    [4,'o','        if nums[mid] > nums[right]:       # break is right of mid, mid is not the answer'],
+    [4,'hl','            left = mid + 1'],
+    [4,'o','        else:                             # mid to right is sorted, mid might be the answer'],
+    [4,'hl','            right = mid'],
+    [5,'o','    return nums[left]']])
+  + q(1,'The invariant, "could mid still be the answer?", and "the range shrinks every iteration": which lines does each one live in?'),
+  say:[
+  'while left is less than right means: as long as the range holds two or more numbers, keep shrinking.',
+  'The question for this scene: which lines does each of the three ideas from before live in?',
+  'At the start, the range is the whole array, so the invariant holds. The loop condition is left less than right, so it stops when one number is left.',
+  'Inside the loop, check first: if this stretch is already sorted, return the leftmost number.',
+  'Then compute mid, and remember to add left. If nums of mid is greater than nums of right, mid cannot be the answer, so left equals mid plus 1. Otherwise mid might be the answer, so right equals mid. Both updates make the range strictly smaller.',
+  'Finally return nums of left. Time is big O of log n, and space is big O of 1.'
+]});
+
+/* ===== 10 Interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, then write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why does one side add 1 and the other does not?" How do you answer?')
+  + flow([[2,'Invariant','the minimum stays in range'],[3,'mid > right','break on the right, mid + 1'],[3,'Otherwise','mid might be the answer, right = mid'],[4,'Sorted','return left right away'],[4,'Complexity','O(log n)']])
+  + chips(4,['rotated sorted array','loop invariant','left = mid + 1','right = mid','range must shrink','O(log n)']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why does one side add 1 and the other does not?',
+  'Start with the invariant: I guarantee the minimum is always between left and right.',
+  'If nums of mid is greater than nums of right, the break is to the right of mid. mid is bigger than some number to its right, so it cannot be the minimum, and left equals mid plus 1. Otherwise mid to right is sorted, and mid might be the minimum, so we keep it, and right equals mid.',
+  'Every iteration makes the range strictly smaller, so it is big O of log n. When the range is already sorted, return the leftmost number right away. The key phrases are loop invariant, and the range must shrink every iteration.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'The break','the minimum is after it'],[0,'Invariant','the minimum is in range'],[0,'Not symmetric','mid + 1 / mid'],[0,'Shrink','every iteration']])
+  + cards([[1,'① Write the invariant first: the minimum is always in [left, right]','left ends on the minimum because the invariant forces it there','amber'],
+           [2,'② Ask "could mid still be the answer?"','No → left = mid + 1; yes → right = mid','sky'],
+           [3,'③ The range must shrink every iteration','Check with a two-number example; before adding a special case, write down its assumption and try to break it','mint']]),
+  say:[
+  'A quick recap of the main line: the minimum is after the break; we keep one invariant; one update adds 1 and the other does not; and every iteration shrinks the range.',
+  'One: write the invariant first, the minimum is always between left and right. left finally lands on the minimum because this statement forces it there.',
+  'Two: ask whether mid could still be the answer. If not, left equals mid plus 1. If so, right equals mid.',
+  'Three: the range must shrink every iteration, so check it with a two-number example. When you want to add a special case, first write down the assumption it depends on, and try to break it. Next up, problems 33 and 154 use the same template.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/8d70372967e0.mp3", "0-1": "a/60efd13a88c4.mp3", "0-2": "a/21bcdf5ff9d2.mp3", "0-3": "a/a10d19fb4ac6.mp3", "1-0": "a/50e7863f1872.mp3", "1-1": "a/753173154137.mp3", "1-2": "a/2d94861a06bb.mp3", "1-3": "a/5ff8966d9be6.mp3", "1-4": "a/32dcad65ce82.mp3", "2-0": "a/c308b8b3ba36.mp3", "2-1": "a/eed46a58c361.mp3", "2-2": "a/6af32dda1bf9.mp3", "2-3": "a/abe9b7b0f0b2.mp3", "2-4": "a/1f19d705e32b.mp3", "3-0": "a/54398711240a.mp3", "3-1": "a/95474796c6d4.mp3", "3-2": "a/4ebdf5267159.mp3", "3-3": "a/fab55ea55113.mp3", "3-4": "a/97b539b40905.mp3", "4-0": "a/2d5e4b29898d.mp3", "4-1": "a/42eab0e54c0d.mp3", "4-2": "a/f8aebf82b705.mp3", "4-3": "a/d41dc9595b8b.mp3", "4-4": "a/07efd0806372.mp3", "5-0": "a/34a16387118e.mp3", "5-1": "a/255b5711e26b.mp3", "5-2": "a/f7d42ff1b08f.mp3", "5-3": "a/3b6eac983c07.mp3", "5-4": "a/d2741026b23f.mp3", "6-0": "a/b8682f3f7c28.mp3", "6-1": "a/2c9ec74ab0a5.mp3", "6-2": "a/ae552a5f5498.mp3", "6-3": "a/470e532f6f9b.mp3", "6-4": "a/2639fbf4c0db.mp3", "7-0": "a/05ee960c792a.mp3", "7-1": "a/5d8e9d66b189.mp3", "7-2": "a/2edfb9811106.mp3", "7-3": "a/663f80d9fe6f.mp3", "7-4": "a/91eb1b602ca4.mp3", "7-5": "a/0b0d773d0ed8.mp3", "8-0": "a/8948ab406b56.mp3", "8-1": "a/e8bfa39601e0.mp3", "8-2": "a/d2974642a010.mp3", "8-3": "a/c1da7e659eff.mp3", "8-4": "a/ed58ae10faf1.mp3", "8-5": "a/953621c068fe.mp3", "9-0": "a/7adb33588476.mp3", "9-1": "a/e44afdfafa53.mp3", "9-2": "a/4bd53112c8c9.mp3", "9-3": "a/d730486f6b29.mp3", "9-4": "a/84376ac9e5a7.mp3", "9-5": "a/6ccd4ad26967.mp3", "10-0": "a/d485550e7ba0.mp3", "10-1": "a/6fac9f13c216.mp3", "10-2": "a/30314c4637c5.mp3", "10-3": "a/187667249232.mp3", "10-4": "a/e647bd14ad09.mp3", "11-0": "a/8ada67d6e4b2.mp3", "11-1": "a/3e0cff3dc0e1.mp3", "11-2": "a/e3b143e221b3.mp3", "11-3": "a/c2c9901709c2.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+}
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

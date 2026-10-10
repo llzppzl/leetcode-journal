@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LeetCode Journal Videos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* One column: title, short intro, then one card per problem with its two language links and the journal note. Same night-blueprint look as the videos. */
+:root{--ink:#101a33;--stage:#16244a;--term:#0a1124;--paper:#eef1fb;--dim:#9aa6c8;--line:#2c3d70;--amber:#ffb84d;--mint:#62e0b4;--sky:#7fb4ff;
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC",system-ui,sans-serif;--f-body:"Noto Sans SC","PingFang SC",system-ui,sans-serif;--f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding:28px 16px 56px}
+.wrap{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--f-display);font-weight:400;color:var(--amber);font-size:2rem;margin:0}
+.lead{color:var(--dim);margin:0;max-width:62ch}
+.lead a{color:var(--sky)}
+.list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.item{display:grid;grid-template-columns:3.4em minmax(0,1fr) auto;gap:4px 14px;align-items:center;background:var(--stage);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.no{font-family:var(--f-mono);color:var(--amber);font-weight:600;font-size:1.1rem}
+.t{font-weight:700}
+.t small{display:block;font-weight:400;color:var(--dim);font-size:.85rem;line-height:1.45}
+.go{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.go a{display:inline-flex;align-items:center;padding:.35em .8em;border-radius:9px;border:1px solid var(--line);background:var(--term);color:var(--paper);text-decoration:none;font-size:.9rem;white-space:nowrap}
+.go a.zh{border-color:var(--amber)} .go a.en{border-color:var(--sky)}
+.go a:hover{background:rgba(255,184,77,.12)}
+.go a.note{color:var(--dim)}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+@media (max-width:600px){.item{grid-template-columns:3em minmax(0,1fr)}.go{grid-column:1/-1;justify-content:flex-start}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>LeetCode Journal · Videos</h1>
+  <p class="lead">Animated, narrated walkthroughs of the problems in my <a href="https://github.com/llzppzl/leetcode-journal">journal</a>. Each one picks up where my note got stuck. Every video comes in Chinese and English; press ▶ and it plays scene by scene.</p>
+  <ul class="list" id="list"></ul>
+</div>
+<script>
+const NOTE = 'https://github.com/llzppzl/leetcode-journal/blob/main/';
+const V = [
+  ['55','0055-jump-game','Jump Game','farthest is a boundary, not a position; prove i is reachable before extending from it; >= for landing exactly on the end'],
+  ['91','0091-decode-ways','Decode Ways','each group inherits dp[k-1] / dp[k-2]; one rule for every zero: the single gate and the pair gate; dp[0] = 1'],
+  ['139','0139-word-break','Word Break','where the recursive result goes; the "aaaab" tree solves "ab" 4 times; memoization (save failures too) and bottom-up dp[i]'],
+  ['153','0153-find-minimum-in-rotated-sorted-array','Find Minimum in Rotated Sorted Array','the invariant "the min stays in [left, right]"; why mid + 1 vs mid; why left = mid loops forever; the special case to delete'],
+  ['300','0300-longest-increasing-subsequence','Longest Increasing Subsequence','dp[i] must end at nums[i], so the answer is max(dp); subsequence means every earlier j; the max line is king of the hill']
+];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+document.getElementById('list').innerHTML = V.map(([n, dir, name, what]) => `<li class="item">
+  <span class="no">${n}</span>
+  <span class="t">${esc(name)}<small>${esc(what)}</small></span>
+  <span class="go"><a class="zh" href="videos/${dir}/zh.html">中文</a><a class="en" href="videos/${dir}/en.html">English</a><a class="note" href="${NOTE}${dir}.md">note</a></span>
+</li>`).join('');
+</script>
+</body>
+</html>

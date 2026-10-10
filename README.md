@@ -16,11 +16,14 @@ Not a solutions dump. Each note records how I actually got to the answer: my fir
 
 ## Videos
 
-Animated, narrated walkthroughs for the problems I got stuck on. Each one picks up where the journal note paused. Every video comes in Chinese (`zh.html`) and English (`en.html`).
+Animated, narrated walkthroughs, each picking up where the journal note got stuck. Every video comes in Chinese and English. **Watch them on the [video page](https://llzppzl.github.io/leetcode-journal/)**, or use the links below.
 
 | # | Problem | What the video covers | Watch |
 |---|---|---|---|
-| 91 | Decode Ways | Group the decodings by their last piece; each group *inherits* `dp[k-1]` / `dp[k-2]`; one rule for every zero: the single gate (`digit != "0"`) and the pair gate (`10 <= pair <= 26`); `dp[0] = 1`; table traces of `226`, `2101`, `10`, `30`, `00` | [中文](videos/0091-decode-ways/zh.html) · [English](videos/0091-decode-ways/en.html) |
-| 139 | Word Break | Prefix + rest recursion and where the return value goes; the `"aaaab"` recursion tree (`"ab"` solved 4 times); memoization (three extra lines, including saving failures); the same idea as a bottom-up `dp[i]` | [中文](videos/0139-word-break/zh.html) · [English](videos/0139-word-break/en.html) |
+| 55 | Jump Game | `farthest` is a boundary, not a position; prove `i` is reachable *before* extending from it; `>=` because landing exactly on the end counts; traces of `[2,3,1,1,4]` and `[3,2,1,0,4]` | [中文](https://llzppzl.github.io/leetcode-journal/videos/0055-jump-game/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0055-jump-game/en.html) |
+| 91 | Decode Ways | Group the decodings by their last piece; each group *inherits* `dp[k-1]` / `dp[k-2]`; one rule for every zero: the single gate (`digit != "0"`) and the pair gate (`10 <= pair <= 26`); `dp[0] = 1`; table traces of `226`, `2101`, `10`, `30`, `00` | [中文](https://llzppzl.github.io/leetcode-journal/videos/0091-decode-ways/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0091-decode-ways/en.html) |
+| 139 | Word Break | Prefix + rest recursion and where the return value goes; the `"aaaab"` recursion tree (`"ab"` solved 4 times); memoization (three extra lines, including saving failures); the same idea as a bottom-up `dp[i]` | [中文](https://llzppzl.github.io/leetcode-journal/videos/0139-word-break/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0139-word-break/en.html) |
+| 153 | Find Minimum in Rotated Sorted Array | The invariant "the min is always in `[left, right]`" explains `left = mid + 1` vs `right = mid`; why `left = mid` loops forever on `[2, 1]`; why the two-element special case should be deleted; a step-by-step trace | [中文](https://llzppzl.github.io/leetcode-journal/videos/0153-find-minimum-in-rotated-sorted-array/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0153-find-minimum-in-rotated-sorted-array/en.html) |
+| 300 | Longest Increasing Subsequence | `dp[i]` must *end* at `nums[i]`, so the answer is `max(dp)`; subsequence means every earlier `j`; `dp[i] = max(dp[i], dp[j] + 1)` is "keep the best so far"; a preview of the O(n log n) `tails` idea | [中文](https://llzppzl.github.io/leetcode-journal/videos/0300-longest-increasing-subsequence/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0300-longest-increasing-subsequence/en.html) |
 
-GitHub shows HTML files as source, so to watch: clone or download the repo and open the `.html` file in a browser. The narration clips sit next to it in `a/`.
+The pages are static HTML served by GitHub Pages from `videos/`; the narration clips sit next to each page in `a/`.

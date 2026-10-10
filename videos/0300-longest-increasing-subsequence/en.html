@@ -1,0 +1,693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Must End Here</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;gap:10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Must End Here', template:'prep', lang:'en', sub:'LeetCode 300 Longest Increasing Subsequence · animated walkthrough', key:'lc300envid', doc:'LeetCode 300', blurb:'Start from what dp[i] really means, that it must end at nums[i], then see why a subsequence is not a subarray and why dp[i] sits on both sides of the max line, fill the table cell by cell, and preview the n log n idea.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a list of numbers','The problem: subsequence','What dp[i] means','Why the answer is max(dp)','Subsequence, not subarray','Attach to the best j','dp[i] on both sides','Fill the table: [1, 2, 4, 3, 5]','Write the code','Complexity and the faster idea','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip: index row, value row, optional extra rows, rings ---------- */
+const ACSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.arr{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.arr>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.arr>.lb{border:0;background:none;color:var(--dim);font-size:.78em;justify-items:end;padding-right:.3em}
+.arr>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.arr .v{font-family:var(--f-display);font-size:1.35em}
+.arr b{font-family:var(--f-display);font-weight:400;font-size:1.3em;color:var(--mint)}
+.arr b.s:not(.on){opacity:0}
+.arr i.ring.s{position:absolute;inset:-4px;border-radius:10px;opacity:0!important;transform:none}
+.arr i.ring.s.now{opacity:1!important}
+.arr i.ring.i{box-shadow:0 0 0 3px var(--amber)} .arr i.ring.j{box-shadow:0 0 0 3px var(--sky)}
+.arr .pick{background:rgba(98,224,180,.18);border-color:var(--mint)}
+.arr .skip{opacity:.35}
+</style>`;
+// rows: [[label, {k:[[text, step]]}]], rings: [[step, k, 'i'|'j']], cls: {k:'pick'|'skip'} on the value cells
+function arr(nums, rows=[], rings=[], cls={}){
+  const n = nums.length;
+  let h = ACSS + `<div class="arr" style="grid-template-columns:4.2em repeat(${n},2.7em)">`;
+  h += `<div class="lb ix">index</div>` + nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += `<div class="lb">nums</div>` + nums.map((v,k)=>`<div class="v ${cls[k]||''}">${v}${rings.filter(r=>r[1]===k).map(([s,,t])=>`<i class="ring s ${t}" data-s="${s}"></i>`).join('')}</div>`).join('');
+  rows.forEach(([lb,cells])=>{ h += `<div class="lb">${lb}</div>` + nums.map((_,k)=>`<div>${(cells[k]||[]).map(([t,s])=>`<b class="s" data-s="${s}">${t}</b>`).join('')}</div>`).join(''); });
+  return h + `</div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Must End Here<br><em>LeetCode 300</em>', vis:
+  gloss(0,[['subsequence','Pick some numbers out of the array, keeping their original order; they do not have to be next to each other'],['increasing','Each number is bigger than the one before it'],['dp[i]','The answer stored in cell i of a table; the most important thing in this video is saying exactly what it means']])
+  + flow([[1,'Read','longest increasing subsequence'],[1,'dp[i]','must end at nums[i]'],[2,'max(dp)','the answer can end anywhere'],[2,'Every j','a subsequence can skip'],[3,'Fill the table','[1, 2, 4, 3, 5]'],[3,'Faster','O(n log n)']]),
+  say:[
+  'This lesson covers LeetCode 300, Longest Increasing Subsequence. First, three words: a subsequence picks some numbers out of the array, keeping their original order, and they do not have to be next to each other. Increasing means each number is bigger than the one before. And dp of i is the answer stored in cell i of a table.',
+  'The hardest part of this problem is not the formula, it is what dp of i actually means. This video pins that meaning down first: the subsequence must end at nums of i.',
+  'Then we look at three related questions: why the answer is the max of dp; why we check every earlier j, not just the neighbor; and why dp of i shows up on both sides of the max line.',
+  'Finally we fill a table cell by cell, write the code, and preview the faster n log n approach.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'Longest <em>increasing subsequence</em>', vis:
+  gloss(0,[['length','How many numbers are in the subsequence']])
+  + duo(arr([10,9,2,5,3,7,101,18],[],[],{2:'pick',3:'pick',5:'pick',6:'pick'}),
+    q(1,'In [10, 9, 2, 5, 3, 7, 101, 18], how long is the longest increasing subsequence?')
+    + cards([[2,'Length 4','For example 2, 5, 7, 101: the order is unchanged, and each one is bigger','mint'],
+             [3,'You can skip in between','There is a 3 between 5 and 7, and that is fine; a subsequence does not need to be contiguous','sky'],
+             [4,'More than one','2, 3, 7, 18 also has length 4; the problem only wants the length','amber']])),
+  say:[
+  'Length just means how many numbers are in the subsequence.',
+  'The question for this scene: in 10, 9, 2, 5, 3, 7, 101, 18, how long is the longest increasing subsequence?',
+  'The answer is four. For example 2, 5, 7, 101, the four green cells: the order matches the original array, and each one is bigger than the last.',
+  'Notice there is a 3 between 5 and 7, and we simply skipped it. A subsequence does not need to be contiguous, and this point will later decide how we write the loop.',
+  'There is more than one subsequence of length four; 2, 3, 7, 18 works too. The problem only wants the length, not which sequence it is.'
+]});
+
+/* ===== 2 What dp[i] means ===== */
+add({ch:2, title:'dp[i]: <em>must end at nums[i]</em>', vis:
+  gloss(0,[['ends at nums[i]','The last number of this subsequence is required to be nums[i]']])
+  + duo(arr([2,5,3,7],[['dp',{3:[['3',4]]}]],[[2,3,'i']]),
+    q(1,'nums = [2, 5, 3, 7]. What is dp[3], and which subsequences does it count?')
+    + cards([[2,'It is not "the longest among the first i numbers"','It is: if the last number must be nums[i], how long can it get','coral'],
+             [3,'Increasing subsequences ending at 7','[7], [2, 7], [2, 5, 7], [2, 3, 7]','sky'],
+             [4,'dp[3] = 3','The longest are [2, 5, 7] and [2, 3, 7], length 3','mint']])),
+  say:[
+  'Ending at nums of i means the last number of this subsequence is required to be nums of i.',
+  'The question for this scene: nums is 2, 5, 3, 7. What is dp of 3, and which subsequences does it count?',
+  'First, what it is not: dp of i is not the longest increasing subsequence among the first i numbers. It is this: if the last number must be nums of i, how long can the sequence get?',
+  'Index 3 holds 7. There are four increasing subsequences ending at 7: just 7; 2, 7; 2, 5, 7; and 2, 3, 7.',
+  'The longest are 2, 5, 7 and 2, 3, 7, with length three, so dp of 3 equals three. Pinning down the ending is the key that lets this problem split into smaller problems.'
+]});
+
+/* ===== 3 Why the answer is max(dp) ===== */
+add({ch:3, title:'Why the answer is <em>max(dp)</em>', vis:
+  gloss(0,[['max(dp)','The largest cell in the whole table'],['dp[-1]','The last cell of the table, the answer for ending at the last number']])
+  + duo(arr([3,4,5,1],[['dp',{0:[['1',2]],1:[['2',2]],2:[['3',2]],3:[['1',2]]}]],[],{0:'pick',1:'pick',2:'pick'}),
+    q(1,'nums = [3, 4, 5, 1]. Why can we not just return the last cell, dp[3]?')
+    + cards([[2,'dp[3] = 1','It ends at 1, nothing before it is smaller, so it stands alone','coral'],
+             [3,'The longest is 3, 4, 5','It ends at 5, so the answer is in dp[2] = 3','mint'],
+             [4,'The longest sequence can end anywhere','So every cell is a candidate; take the largest','amber']])),
+  say:[
+  'The max of dp is the largest cell in the whole table. dp of negative one is the last cell, the answer for ending at the last number.',
+  'The question for this scene: nums is 3, 4, 5, 1. Why can we not just return the last cell?',
+  'The last cell ends at 1. Every number before it is bigger than 1, so nothing can come before it, and it stands alone. dp of 3 equals one.',
+  'But the longest increasing subsequence is 3, 4, 5, with length three. It ends at 5, so the answer sits in dp of 2.',
+  'The longest sequence can end at any position, so every cell is a candidate. That is the price of pinning down the ending: at the end, we take the max over all endings.'
+]});
+
+/* ===== 4 Subsequence, not subarray ===== */
+add({ch:4, title:'Subsequence, <em>not subarray</em>', vis:
+  gloss(0,[['subarray','Must be one contiguous block, with no skipping'],['j','Some index before i, j < i']])
+  + duo(arr([2,5,3,7],[],[[2,0,'j'],[2,2,'i'],[3,0,'j'],[3,2,'i']],{1:'skip'}),
+    q(1,'When computing dp[i], is it enough to check only the neighbor i − 1?')
+    + cards([[2,'Not enough','2 → 3 → 7 skips 5: 2 is at index 0, 3 is at index 2, not adjacent','coral'],
+             [3,'So j must cover 0 through i − 1','Every earlier number could be the previous one','sky'],
+             [4,'Check these two words first','Subsequence: the inner loop checks every j; subarray: only i − 1','amber']])),
+  say:[
+  'A subarray must be one contiguous block with no skipping; a subsequence can skip. j stands for some index before i.',
+  'The question for this scene: when computing dp of i, is it enough to check only the neighbor, i minus one?',
+  'Not enough. Look at 2, 3, 7: 2 is at index zero and 3 is at index two, with 5 in between. If we only check the neighbor, the number before 3 is 5, which is bigger than 3, so it cannot connect, and we would miss the step from 2 to 3.',
+  'So j has to go all the way from zero to i minus one. Every earlier number could be the previous one in the sequence.',
+  'When you read a problem, first check whether it says subsequence or subarray. That directly decides whether the inner loop checks every j, or only i minus one.'
+]});
+
+/* ===== 5 Attach to the best j ===== */
+add({ch:5, title:'Attach nums[i] <em>after the best j</em>', vis:
+  gloss(0,[['a valid j','j comes before i, and nums[j] < nums[i]: nums[i] can go right after it'],['transition','Use cells already computed to compute a new cell']])
+  + q(1,'To compute dp[i], which j do we choose from, and once chosen, how do we compute it?')
+  + cards([[2,'Only valid j','nums[j] < nums[i], so nums[i] can attach and keep it increasing','sky'],
+           [3,'Attaching adds 1 to the length','Take the longest sequence ending at nums[j], then add nums[i]: dp[j] + 1','sky'],
+           [4,'Pick the longest among all valid j','dp[i] = 1 + max(dp[j]); with no valid j at all, it is 1','mint']]),
+  say:[
+  'A valid j is a position before i where nums of j is less than nums of i, so nums of i can go right after it. A transition means using cells already computed to compute a new cell.',
+  'The question for this scene: to compute dp of i, which j do we choose from, and once chosen, how do we compute it?',
+  'First, filter: only look at j where nums of j is less than nums of i. That way, when nums of i attaches, the whole sequence stays increasing.',
+  'Then compute: the longest sequence ending at nums of j has length dp of j. Add nums of i after it, and you get dp of j plus one.',
+  'Finally, pick the longest among all valid j: dp of i equals one plus the largest dp of j. If there is no valid j at all, nums of i forms a sequence by itself, with length one.'
+]});
+
+/* ===== 6 dp[i] on both sides ===== */
+add({ch:6, title:'The max line has <em>dp[i] on both sides</em>', vis:
+  gloss(0,[['king of the hill','Hold the best so far, compare each new candidate against it, and keep the better one']])
+  + term('The core line',[[1,'hl','dp[i] = max(dp[i], dp[j] + 1)']])
+  + q(1,'Is the dp[i] on the right the same thing as the dp[i] on the left?')
+  + cards([[2,'Right side: the best before this comparison','What dp[i] already was before this comparison','sky'],
+           [3,'Left side: the best after this comparison','For example it was 2, this j offers 4, so it becomes 4','sky'],
+           [4,'Not a circular definition','x = max(x, candidate) is just "king of the hill, keep the better one"','mint'],
+           [4,'dp[j] is reused, not recomputed','j < i and we fill left to right, so dp[j] is already done; here we only read it','amber']]),
+  say:[
+  'King of the hill means you hold the best so far, compare each new candidate against it, and keep the better one.',
+  'The question for this scene: is the dp of i on the right side of this line the same thing as the dp of i on the left?',
+  'Not at the same moment. The dp of i on the right is the best value before this comparison.',
+  'The dp of i on the left is the best value after the comparison. For example, it was two, this j offers a candidate of four, and after comparing it becomes four.',
+  'So this is not a circular definition; it is just king of the hill. There is one more question from my journal note: does dp of j get recomputed over and over? No. j is less than i, and the table is filled left to right, so dp of j is already done. Here we only read it.'
+]});
+
+/* ===== 7 Fill the table ===== */
+add({ch:7, title:'Fill the table: <em>watch dp[4] grow</em>', vis:
+  gloss(0,[['blue ring','the j being compared'],['orange ring','the i being computed']])
+  + duo(arr([1,2,4,3,5],[['dp',{0:[['1',0]],1:[['2',0]],2:[['3',0]],3:[['3',0]],4:[['4',6]]}]],[[2,0,'j'],[2,4,'i'],[3,1,'j'],[3,4,'i'],[4,2,'j'],[4,4,'i'],[5,3,'j'],[5,4,'i']]),
+    q(1,'nums = [1, 2, 4, 3, 5], and the first four cells are filled. How many times does dp[4] update?')
+    + term('i = 4, nums[4] = 5',[
+      [2,'o','start      dp[4] = 1'],
+      [2,'o','j=0  1<5   candidate 1+1=2   dp[4] = 2'],
+      [3,'o','j=1  2<5   candidate 2+1=3   dp[4] = 3'],
+      [4,'o','j=2  4<5   candidate 3+1=4   dp[4] = 4'],
+      [5,'o','j=3  3<5   candidate 3+1=4   dp[4] = 4  no change'],
+      [6,'hl','max(dp) = 4']])),
+  say:[
+  'The blue ring is the j being compared, and the orange ring is the i being computed.',
+  'The question for this scene: nums is 1, 2, 4, 3, 5, and the first four cells are already filled with one, two, three, three. How many times does dp of 4 update?',
+  'dp of 4 starts at one. j equals zero: 1 is less than 5, so it is valid, and the candidate is dp of 0 plus one, which is two. The king of the hill is now two.',
+  'j equals one: 2 is less than 5, the candidate is two plus one, which is three. Keep three.',
+  'j equals two: 4 is less than 5, the candidate is three plus one, which is four. Keep four.',
+  'j equals three: 3 is less than 5, and the candidate is also four, the same as what we hold, so no change.',
+  'It updated three times in total and ended at four. That is the point of the max line: across different j, pick the longest one we can attach to. The largest value in the whole table is four, so the answer is four.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>two nested loops</em>', vis:
+  gloss(0,[['[1] * n','A table of length n with every cell starting at 1: each number alone is a sequence']])
+  + term('solution.py',[
+    [2,'o','def lengthOfLIS(nums):'],
+    [2,'hl','    dp = [1] * len(nums)            # dp[i]: longest length that must end at nums[i]'],
+    [3,'o','    for i in range(len(nums)):'],
+    [3,'hl','        for j in range(i):          # every earlier index, not just i - 1'],
+    [4,'o','            if nums[j] < nums[i]:   # nums[i] can go after nums[j]'],
+    [4,'o','                dp[i] = max(dp[i], dp[j] + 1)'],
+    [5,'hl','    return max(dp)                  # the longest sequence can end anywhere']])
+  + q(1,'Which earlier point does each line correspond to?'),
+  say:[
+  'The one times n syntax builds a table of length n with every cell starting at one, because each number alone is a sequence.',
+  'The question for this scene: which earlier point does each line of the code correspond to?',
+  'The first line builds the table with every cell set to one. The comment states what dp of i means: the longest length that must end at nums of i.',
+  'The outer loop walks every i. The inner loop runs j from zero to i minus one, checking every earlier index, because this is a subsequence, not a subarray.',
+  'If nums of j is less than nums of i, we play one round of king of the hill: dp of i becomes the larger of dp of i and dp of j plus one.',
+  'Finally we return the max of dp, not the last cell, because the longest sequence can end anywhere.'
+]});
+
+/* ===== 9 Complexity and the faster idea ===== */
+add({ch:9, title:'Complexity, and <em>the O(n log n) idea</em>', vis:
+  gloss(0,[['O(n²)','Two nested loops: n values of i, each checking up to n values of j'],['tails','A table: tails[k] is the smallest possible ending of an increasing subsequence of length k + 1']])
+  + q(1,'Is O(n²) good enough? What does the faster approach keep track of?')
+  + cards([[2,'Time O(n²), space O(n)','The problem has n ≤ 2500, so O(n²) passes','sky']])
+  + term('tails on [2, 5, 3, 7]',[
+    [3,'o','2  →  tails = [2]'],
+    [3,'o','5  →  tails = [2, 5]       bigger than the last one, append it'],
+    [4,'o','3  →  tails = [2, 3]       replace the first value ≥ 3: a smaller ending is easier to extend'],
+    [4,'hl','7  →  tails = [2, 3, 7]    length 3 is the answer']])
+  + cards([[5,'Find "the first position ≥ x" with binary search','Same binary search idea as problem 153, O(n log n) overall','amber']]),
+  say:[
+  'Big O of n squared comes from two nested loops: n values of i, each checking up to n values of j. tails is another table: tails of k records the smallest possible ending of an increasing subsequence of length k plus one.',
+  'The question for this scene: is big O of n squared good enough? And what does the faster approach keep track of?',
+  'Time is big O of n squared, and space is big O of n. The problem says n is at most two thousand five hundred, so this approach passes.',
+  'The faster approach asks a different question: for each length, what is the smallest possible ending? Walk through 2, 5, 3, 7. 2 comes in, and tails is 2. 5 is bigger than the last one, so append it.',
+  '3 comes in and replaces the first number greater than or equal to 3, which is 5. The sequence of length two now ends at 3 instead of 5, so it is easier to extend later. 7 is bigger than the last one, so append it, and the length three is the answer.',
+  'Finding the first position greater than or equal to x uses binary search, so the whole thing is n log n. This is the same binary search idea as problem 153, and my journal note already lists it as the next step.'
+]});
+
+/* ===== 10 How to explain it in an interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "What does dp[i] mean?" How do you answer?')
+  + flow([[2,'State','longest length ending at nums[i]'],[3,'Transition','max of dp[j] + 1 over valid j'],[3,'Every j','a subsequence can skip'],[4,'Answer','max(dp)'],[4,'Complexity','O(n²), faster O(n log n)']])
+  + chips(4,['subsequence vs subarray','dp[i] ends at nums[i]','max(dp)','O(n²)','patience sorting / tails','binary search']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, what does dp of i mean?',
+  'Answer: dp of i is the length of the longest increasing subsequence that must end at nums of i. Pinning down the ending is what lets earlier cells determine this one.',
+  'For each i, I check every earlier j, because a subsequence does not have to be contiguous. For any j where nums of j is less than nums of i, nums of i can attach, and I take the largest dp of j plus one.',
+  'The answer is the max of dp, because the longest sequence can end anywhere. Time is big O of n squared; to go faster, tails plus binary search gets n log n. The key phrases are ends at nums of i, and subsequence versus subarray.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'dp[i]','must end at nums[i]'],[0,'Every j','subsequence'],[0,'King of the hill','max(dp[i], dp[j] + 1)'],[0,'Answer','max(dp)']])
+  + cards([[1,'① dp[i] = longest length that must end at nums[i]','So the answer is max(dp), not dp[-1]','amber'],
+           [2,'② Subsequence: j checks every earlier index','nums[j] < nums[i] is required to attach','sky'],
+           [3,'③ dp[i] = max(dp[i], dp[j] + 1) is king of the hill','dp[j] is already done, just reused','mint']]),
+  say:[
+  'One more pass over the main line: dp of i is the longest length that must end at nums of i; j checks every earlier index; the max line is king of the hill; and the answer is the max of the whole table.',
+  'Number one: dp of i is the longest length that must end at nums of i, so the answer is the max of dp, not the last cell.',
+  'Number two: a subsequence does not have to be contiguous, so j checks every earlier index, and nums of j must be less than nums of i to attach.',
+  'Number three: dp of i becomes the larger of dp of i and dp of j plus one. That is king of the hill, not a circular definition; dp of j is already done and simply reused. Whenever an answer can end anywhere, try pinning down the ending first.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/9f15f09d833e.mp3", "0-1": "a/a3385b4e17af.mp3", "0-2": "a/f3371562f599.mp3", "0-3": "a/2c89cf15166c.mp3", "1-0": "a/fa96db236c91.mp3", "1-1": "a/8d024cf629b7.mp3", "1-2": "a/4921d3f7bd66.mp3", "1-3": "a/a0ce97775334.mp3", "1-4": "a/99187981dec6.mp3", "2-0": "a/893fa6712c87.mp3", "2-1": "a/6745ba53df52.mp3", "2-2": "a/bb8b9ebd5a88.mp3", "2-3": "a/1e8bc606090b.mp3", "2-4": "a/d86a7ddae476.mp3", "3-0": "a/1be1c47f89dc.mp3", "3-1": "a/dfd1dde793cf.mp3", "3-2": "a/baabe735aa23.mp3", "3-3": "a/081ab890d236.mp3", "3-4": "a/a81665c5630c.mp3", "4-0": "a/f33e33b5de7c.mp3", "4-1": "a/9aca446eb68a.mp3", "4-2": "a/3710dd82b379.mp3", "4-3": "a/777ee8a052b1.mp3", "4-4": "a/2f676936e092.mp3", "5-0": "a/f60c31de8308.mp3", "5-1": "a/52c19afee6d2.mp3", "5-2": "a/b3057e419619.mp3", "5-3": "a/aa67ae72b594.mp3", "5-4": "a/b8d4c7ef90c4.mp3", "6-0": "a/72e4a31144c7.mp3", "6-1": "a/d15a61816334.mp3", "6-2": "a/76407bb536a4.mp3", "6-3": "a/272336cba83f.mp3", "6-4": "a/21a6b831fb00.mp3", "7-0": "a/bbbcd269c4d0.mp3", "7-1": "a/fea90fd5e4ca.mp3", "7-2": "a/dca69a02a2e7.mp3", "7-3": "a/53de7b17e1f4.mp3", "7-4": "a/79714e08b708.mp3", "7-5": "a/b178b78a29e8.mp3", "7-6": "a/fa767b732b26.mp3", "8-0": "a/2f1cebc682d3.mp3", "8-1": "a/2dc4132d4413.mp3", "8-2": "a/a7735743c5e5.mp3", "8-3": "a/083366f0519d.mp3", "8-4": "a/d02f96490b45.mp3", "8-5": "a/0f5dc77eddae.mp3", "9-0": "a/ba081b3968b7.mp3", "9-1": "a/612de8633766.mp3", "9-2": "a/acd734397003.mp3", "9-3": "a/59bb73b2b081.mp3", "9-4": "a/3926495e0a98.mp3", "9-5": "a/745a7fa9a551.mp3", "10-0": "a/1a24693ed388.mp3", "10-1": "a/b5a92118dc84.mp3", "10-2": "a/7ab36ce21b0b.mp3", "10-3": "a/a31b0fadbfd2.mp3", "10-4": "a/e60568f5a342.mp3", "11-0": "a/71447a7313c7.mp3", "11-1": "a/b4aa5a98c950.mp3", "11-2": "a/1c6b49b5797b.mp3", "11-3": "a/3ccf7222a17c.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+}
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>
