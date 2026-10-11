@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Front, Back, Front</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Front, Back, Front', template:'prep', lang:'en', sub:'LeetCode 143 Reorder List · animated walkthrough', key:'lc143envid', doc:'LeetCode 143', blurb:'First solve it with an array and two pointers, then see that the in-place version is just three known moves glued together: find the middle with slow and fast pointers, reverse the second half, and merge the two halves one node at a time.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: reorder a list','What a linked list is','The problem: front, back, front, back','First idea: copy into an array','Key insight: three moves glued together','Move one: find the middle','Move two: reverse the second half','Move three: merge alternately','Check: even length','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- linked-list frames: each frame is a full picture shown at its own steps (.only + .now) ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ll{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.ll .s:not(.on){opacity:0}
+.ll .only.s{opacity:0!important} .ll .only.s.now{opacity:1!important}
+.ll rect{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.ll rect.back{fill:rgba(255,184,77,.25);stroke:var(--amber)}
+.ll rect.done{fill:rgba(98,224,180,.3);stroke:var(--mint)}
+.ll rect.cell{stroke:var(--line)}
+.ll path{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ll path.new{stroke:var(--mint);stroke-width:3}
+.ll path.bad{stroke:var(--coral);stroke-width:3.5}
+.ll text{fill:var(--paper);font-family:var(--f-display);font-size:19px;text-anchor:middle;dominant-baseline:central}
+.ll text.nil{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.ll text.ptr{font-family:var(--f-mono);font-size:12px;fill:var(--amber)}
+.ll text.ix{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.cap{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.cap .s{position:absolute;left:0;right:0}
+.cap .only.s{opacity:0!important} .cap .only.s.now{opacity:1!important}
+.cap b{color:var(--amber)} .cap em{font-style:normal;color:var(--mint)}
+</style>`;
+const NW = 34, NH = 32;
+let LLN = 0;
+const half = k => k[0]==='N' ? [17,9] : [NW/2, NH/2];
+function cut(u, v, [hw, hh]){ return Math.min(Math.abs(u)>1e-6?hw/Math.abs(u):1e9, Math.abs(v)>1e-6?hh/Math.abs(v):1e9); }
+function arrow(f, a, b, cls, bend, uid){
+  const [x1,y1]=f.n[a], [x2,y2]=f.n[b];
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const t1=cut(ux,uy,half(a))+2, t2=cut(ux,uy,half(b))+6;
+  const sx=x1+ux*t1, sy=y1+uy*t1, ex=x2-ux*t2, ey=y2-uy*t2;
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  return `<path class="${cls}" marker-end="url(#${uid}${cls?'-'+cls:''})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+// f = {s:[steps], n:{key:[x,y,cls]}, e:[[from,to,cls,bend]], p:[[label,key,'u'|'d']], t:[[x,y,text]], cap, keep}
+// keys starting with N are drawn as the text "None"; keep:true means the frame stays on from its step onward
+function frame(f, uid){
+  let g = '';
+  (f.e||[]).forEach(([a,b,cls,bend])=> g += arrow(f,a,b,cls||'',bend||0,uid));
+  Object.entries(f.n).forEach(([k,[x,y,cls]])=>{
+    if(k[0]==='N') g += `<text class="nil" x="${x}" y="${y}">None</text>`;
+    else g += `<rect class="${cls||''}" x="${x-NW/2}" y="${y-NH/2}" width="${NW}" height="${NH}" rx="${cls==='cell'?3:8}"/><text x="${x}" y="${y}">${k}</text>`;
+  });
+  const used = {};
+  (f.p||[]).forEach(([lab,k,side])=>{
+    const [x,y]=f.n[k], id=k+side, m=used[id]=(used[id]||0)+1, hh=half(k)[1];
+    const yy = side==='d' ? y+hh+11+(m-1)*14 : y-hh-10-(m-1)*14;
+    g += `<text class="ptr" x="${x}" y="${yy}">${lab}</text>`;
+  });
+  (f.t||[]).forEach(([x,y,txt])=> g += `<text class="ix" x="${x}" y="${y}">${txt}</text>`);
+  return g;
+}
+function ll(frames, h, label){
+  const uid = 'llm'+(LLN++);
+  const mk = (id, col) => `<marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--${col});stroke:none"/></marker>`;
+  let s = LCSS + `<svg class="ll" viewBox="0 0 340 ${h}" role="img" aria-label="${label||'linked list'}"><defs>${mk(uid,'sky')}${mk(uid+'-new','mint')}${mk(uid+'-bad','coral')}</defs>`;
+  let caps = '';
+  frames.forEach(f => f.s.forEach(st => {
+    s += `<g class="${f.keep?'':'only '}s" data-s="${st}">${frame(f,uid)}</g>`;
+    if(f.cap) caps += `<span class="only s bare" data-s="${st}">${f.cap}</span>`;
+  }));
+  return s + `</svg>` + (caps ? `<div class="cap">${caps}</div>` : '');
+}
+const rg = (a, b) => Array.from({length:b-a+1}, (_,i)=>a+i);
+// common layouts
+const X5 = [26,84,142,200,258];
+const row = (vals, y, cls={}) => { const n={}; vals.forEach((v,i)=>n[v]=[X5[i],y,cls[v]]); n.NE=[316,y]; return n; };
+const chain = (vals, cls={}) => vals.map((v,i)=>[v, vals[i+1]||'NE', cls[v]||'']);
+const ORIG = {n:row(['1','2','3','4','5'],50), e:chain(['1','2','3','4','5'])};
+const DONE = {n:row(['1','5','2','4','3'],50,{'5':'back','4':'back'}), e:chain(['1','5','2','4','3'])};
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Front, Back, Front<br><em>LeetCode 143</em>', vis:
+  gloss(0,[['linked list','a chain of nodes; each node points to the next one'],['.next','the arrow inside a node that points to the next node'],['slow and fast pointers','one moves 1 step at a time, the other moves 2'],['reverse','flip every arrow in a stretch of the list']])
+  + flow([[1,'Problem','front, back, front, back'],[1,'First idea','copy into an array'],[2,'Follow-up','O(1) space?'],[2,'Middle','slow and fast'],[3,'Reverse','flip the second half'],[3,'Merge','one from each']]),
+  say:[
+  'This lesson covers LeetCode 143, Reorder List. A linked list is a chain of nodes, and each node points to the next one with an arrow called next. Slow and fast pointers means one moves one step at a time and the other moves two. Reverse means flipping every arrow.',
+  'The problem wants the list in the order first, last, second, second to last, and so on. The most natural idea is to copy the nodes into an array and take them from both ends.',
+  'The interviewer will follow up: can you do it without the array? The answer is three known moves glued together.',
+  'We will animate all three moves on the list 1 to 5, check the list 1 to 4, and then write the code.'
+]});
+
+/* ===== 1 What a linked list is ===== */
+add({ch:1, title:'A linked list: <em>you can only follow the arrows</em>', vis:
+  gloss(0,[['node','a small box: one value, val, plus one arrow, next'],['head','the first node of the list; it is all we are given'],['None','the arrow points to nothing: the list ends here']])
+  + duo(ll([{...ORIG, s:rg(0,2), p:[['head','1','u']]},
+            {...ORIG, s:[3,4], p:[['head','1','u'],['cur','5','d']], cap:'cur starts at head and takes <b>4</b> steps to reach 5'}], 100),
+    q(1,'How is a linked list different from an array? Why can you not just grab the last node?')
+    + cards([[2,'You can only follow next from head','No index: you cannot say "give me node 5"','sky'],
+             [3,'Reaching the last node takes n − 1 steps','5 nodes, 4 steps','amber'],
+             [4,'Arrows only point forward','At node 5, want to go back to 4? There is no arrow back','coral']])),
+  say:[
+  'A node is a small box that holds one value, val, plus one arrow, next, pointing to the next node. head is the first node, and it is all the problem gives us. None means the arrow points to nothing, so the list ends.',
+  'The question for this scene: how is a linked list different from an array? Why can you not just grab the last node?',
+  'An array lets you jump to any cell by its index. A linked list has no index, so you start at head and follow next one node at a time.',
+  'To reach the last node, you walk from head step by step. Five nodes take four steps, and n nodes take n minus 1 steps.',
+  'Worse, the arrows only point forward. Once you reach 5, there is no arrow back to 4. That is exactly what makes this problem hard.'
+]});
+
+/* ===== 2 The problem ===== */
+add({ch:2, title:'The problem: <em>front, back, front, back</em>', vis:
+  gloss(0,[['reorder','reconnect the nodes in a new order'],['in place','create no new nodes; only change each node\'s next']])
+  + duo(ll([{...ORIG, s:rg(0,3), p:[['head','1','u']]},
+            {...DONE, s:[4,5], p:[['head','1','u']], cap:'<b>1 → 5 → 2 → 4 → 3</b>'}], 100),
+    q(1,'1 → 2 → 3 → 4 → 5: what should it become?')
+    + cards([[2,'Rule: first, last, second, second to last…','take from the front and the back in turn','sky'],
+             [3,'1, 5, 2, 4, and the middle 3 is left','closing in from both ends','amber'],
+             [5,'Do not change val; only change next','the function returns nothing; it edits the list itself','coral']])),
+  say:[
+  'Reorder means reconnecting the nodes in a new order. In place means we create no new nodes and only change each node\'s next arrow.',
+  'The question for this scene: the list 1, 2, 3, 4, 5, what should it become?',
+  'The rule is: first, last, second, second to last, taking from the front and the back in turn.',
+  'Let us take them: the head 1, then the tail 5; then 2, then 4; and the middle 3 is left over.',
+  'Linked together, that is 1, 5, 2, 4, 3. The orange 5 and 4 are the nodes taken from the back.',
+  'Two requirements: you may not change the values in the nodes, only next; and the function returns nothing, it fixes the original list.'
+]});
+
+/* ===== 3 First idea: copy into an array ===== */
+const AX = [50,110,170,230,290];
+const arr = (s, i, j, cap) => { const n={}; ['1','2','3','4','5'].forEach((v,k)=>n[v]=[AX[k],55,'cell']);
+  const p=[]; if(i!=null) p.push(['i',String(i+1),'u']); if(j!=null) p.push(['j',String(j+1),'u']);
+  return {s, n, p, t:AX.map((x,k)=>[x,88,k]), cap}; };
+add({ch:3, title:'First idea: <em>copy into an array, take from both ends</em>', vis:
+  gloss(0,[['array','a row of numbered cells; grab any cell by its index'],['two pointers','i walks left to right, j walks right to left']])
+  + duo(ll([arr([0,1]), arr([2],0,4,'nodes = [1, 2, 3, 4, 5]'), arr([3],1,3,'linked so far: <em>1 → 5 → 2</em>'),
+            arr([4],2,2,'linked so far: <em>1 → 5 → 2 → 4 → 3</em>'), arr([5,6],2,2,'nodes[2].next = <b>None</b>')], 105, 'array'),
+    q(1,'A linked list cannot reach from the back. What if we copy the nodes into an array first?')
+    + cards([[5,'It works: 1 → 5 → 2 → 4 → 3','when i and j meet, set that node\'s next to None','mint'],
+             [6,'Follow-up: O(n) extra space','Interviewer: "Can you use only O(1) extra space?"','coral']])),
+  say:[
+  'An array lets you grab any cell directly by its index. Two pointers means i walks from left to right, and j walks from right to left.',
+  'The question for this scene: a linked list cannot reach from the back, so what if we first copy all the nodes into an array?',
+  'Walk the list once and put the five nodes, in order, into an array called nodes. i points at index 0, and j points at index 4.',
+  'Round one: the next of nodes 0 points to nodes 4, so 1 links to 5, and i goes up by 1. Then 5 links to nodes 1, which is 2, and j goes down by 1.',
+  'Round two: 2 links to 4, and i goes up by 1; 4 links to 3, and j goes down by 1. Now i and j both equal 2, so they have met.',
+  'Finally, the node where they meet, nodes 2, which is 3, gets its next set to None to end the list. The result is 1, 5, 2, 4, 3. It works.',
+  'But the array costs n extra cells. Here comes the follow-up: can you use only big O of 1 extra space, meaning just a few variables?'
+]});
+
+/* ===== 4 Key insight ===== */
+add({ch:4, title:'Key insight: <em>three moves hide in the answer</em>', vis:
+  gloss(0,[['first half','1 → 2 → 3, appears in the answer in its original order'],['second half','4 → 5, appears in the answer backwards: 5 before 4']])
+  + duo(ll([{...DONE, s:rg(0,2), cap:'white <b>1 2 3</b> go forward, orange <b>5 4</b> go backward'},
+            {s:rg(3,5), n:{'1':[60,45],'2':[150,45],'3':[240,45],NA:[310,45],'5':[105,125,'back'],'4':[195,125,'back'],NB:[275,125]},
+             e:[['1','2'],['2','3'],['3','NA'],['5','4','new'],['4','NB','new']], cap:'flip the second half and you can <em>walk forward from 5</em>'}], 165),
+    q(1,'Without an array, how do we get the back-to-front order?')
+    + flow([[4,'1. Find middle','slow and fast'],[4,'2. Reverse half','flip arrows'],[4,'3. Merge','one from each']])
+    + cards([[5,'All three are known moves','middle is problem 876, reverse is problem 206','mint']])),
+  say:[
+  'Split the answer apart: the first half, 1, 2, 3, appears in its original order; the second half, 4, 5, appears backwards, 5 before 4.',
+  'The question for this scene: without an array, how do we get the back-to-front order?',
+  'Look at the picture: the white 1, 2, 3 keep moving forward, which a linked list is good at. The orange 5, 4 are taken from back to front, which a linked list cannot do.',
+  'So flip the second half so that 5 points to 4. Taking it backwards becomes walking it forward from its head.',
+  'So the in-place version is three moves: find the middle and split the list in two; reverse the second half; merge the two lists, taking one node from each in turn.',
+  'All three are known moves: finding the middle is LeetCode 876, and reversing a linked list is LeetCode 206.'
+]});
+
+/* ===== 5 Move one: find the middle ===== */
+const CUT5 = {n:{'1':[26,45],'2':[84,45],'3':[142,45],NA:[200,45],'4':[200,120],'5':[258,120],NB:[316,120]},
+  e:[['1','2'],['2','3'],['3','NA','new'],['4','5'],['5','NB']]};
+add({ch:5, title:'Move one: <em>slow and fast pointers find the middle</em>', vis:
+  gloss(0,[['slow pointer','moves 1 step at a time'],['fast pointer','moves 2 steps at a time'],['cut','set the next of the last node of the first half to None']])
+  + duo(ll([{...ORIG, s:[0,1,2], p:[['slow','1','u'],['fast','1','d']], cap:'start: slow = fast = head'},
+            {...ORIG, s:[3], p:[['slow','2','u'],['fast','3','d']], cap:'slow moves 1 step, fast moves 2'},
+            {...ORIG, s:[4,5], p:[['slow','3','u'],['fast','5','d']], cap:'fast.next is None → <b>stop</b>'},
+            {...CUT5, s:[6], p:[['slow','3','u'],['cur','4','u']], cap:'cur = slow.next, <b>slow.next = None</b>'}], 165),
+    q(1,'Without knowing the length, how do we reach the middle in one pass?')
+    + cards([[5,'When fast hits the end, slow is in the middle','fast always covers twice the distance of slow','sky'],
+             [6,'Cut: slow.next = None','first half 1 → 2 → 3, second half 4 → 5; without the cut you get a cycle','coral']])),
+  say:[
+  'slow moves one step at a time, and fast moves two. Cutting means setting the next of the last node in the first half to None.',
+  'The question for this scene: without knowing how long the list is, how do we reach the middle in one pass?',
+  'Both pointers start at head, which is 1. The rule: as long as fast still has two nodes after it, keep going.',
+  'First move: slow steps to 2, and fast jumps two steps to 3.',
+  'Second move: slow reaches 3, and fast reaches 5. fast dot next is None, so there are not two nodes after it. Stop.',
+  'Why is slow in the middle? fast always covers twice the distance of slow. When fast reaches the tail, slow has gone exactly halfway, and stops at 3.',
+  'Then cut: cur remembers slow dot next, which is 4, and slow dot next is set to None. The first half is 1, 2, 3, and the second half is 4, 5. Without the cut, 3 still points to 4, and you end up with a cycle.'
+]});
+
+/* ===== 6 Move two: reverse the second half ===== */
+const RV = (s, e, p, cap) => ({s, n:{NL:[40,70],'4':[130,70],'5':[220,70],NR:[305,70]}, e, p, cap});
+add({ch:6, title:'Move two: <em>reverse the second half</em>', vis:
+  gloss(0,[['prev','the first node of the part already flipped; starts as None'],['cur','the node being handled right now'],['nxt','save cur\'s old next before changing the arrow']])
+  + duo(ll([RV([0,1,2],[['4','5'],['5','NR']],[['prev','NL','u'],['cur','4','u']],'prev = None, cur = 4'),
+            RV([3],[['4','5'],['5','NR']],[['prev','NL','u'],['cur','4','u'],['nxt','5','d']],'<b>nxt = cur.next</b>: save 5 first'),
+            RV([4],[['4','NL','new'],['5','NR']],[['prev','NL','u'],['cur','4','u'],['nxt','5','d']],'<b>cur.next = prev</b>: 4 flips'),
+            RV([5],[['4','NL'],['5','NR']],[['prev','4','u'],['cur','5','u']],'prev = cur, cur = nxt: both step'),
+            RV([6,7],[['4','NL'],['5','4','new']],[['prev','5','u'],['cur','NR','u']],'5 flips too; cur is None, <em>done</em>')], 115),
+    q(1,'How does 4 → 5 become 5 → 4 without losing a single node?')
+    + cards([[3,'Save first, then change','change 4\'s arrow first and 5 is gone for good','amber'],
+             [7,'When it ends, prev is the new head','the second half is now 5 → 4 → None','mint']])),
+  say:[
+  'prev is the first node of the part that is already flipped, and it starts as None. cur is the node being handled right now. nxt saves cur\'s old next node.',
+  'The question for this scene: 4 points to 5. How does that become 5 points to 4, without losing a single node?',
+  'At the start, prev is None, and cur is 4, the head of the second half.',
+  'Step one: save cur dot next in nxt, which is 5. The next step changes 4\'s arrow, and after that, you could never find 5 again.',
+  'Step two: set cur dot next to prev. 4\'s arrow flips and points to None. 5 is not lost, because nxt still holds it.',
+  'Step three: prev moves to cur, and cur moves to nxt. Now prev is 4, and cur is 5.',
+  'Do it again for 5: save None, flip 5 to point to 4, move prev to 5, and cur becomes None. Done.',
+  'When the loop ends, prev is the new head, 5. The second half is now 5, 4, None.'
+]});
+
+/* ===== 7 Move three: merge alternately ===== */
+const MP = {'1':[40,45],'2':[150,45],'3':[260,45],NA:[315,45],'5':[95,135,'back'],'4':[205,135,'back'],NB:[265,135]};
+add({ch:7, title:'Move three: <em>merge, one from each</em>', vis:
+  gloss(0,[['first','the current node of the first half'],['second','the current node of the second half'],['n1, n2','save both old next nodes before changing arrows']])
+  + duo(ll([{s:[0,1,2], n:MP, e:[['1','2'],['2','3'],['3','NA'],['5','4'],['4','NB']], p:[['first','1','u'],['second','5','d']], cap:'first = head, second = prev'},
+            {s:[3], n:MP, e:[['1','2'],['2','3'],['3','NA'],['5','4'],['4','NB']], p:[['first','1','u'],['n1','2','u'],['second','5','d'],['n2','4','d']], cap:'<b>save first</b>: n1 = 2, n2 = 4'},
+            {s:[4], n:MP, e:[['1','5','new'],['5','2','new'],['2','3'],['3','NA'],['4','NB']], p:[['n1','2','u'],['n2','4','d']], cap:'1 links to 5, 5 links to 2'},
+            {s:[5], n:MP, e:[['1','5'],['5','2'],['2','3'],['3','NA'],['4','NB']], p:[['first','2','u'],['second','4','d']], cap:'first = n1, second = n2'},
+            {s:[6], n:MP, e:[['1','5'],['5','2'],['2','4','new'],['4','3','new'],['3','NA']], p:[['first','3','u'],['second','NB','d']], cap:'2 links to 4, 4 links to 3; second is None'},
+            {s:[7], n:row(['1','5','2','4','3'],70,{'5':'back','4':'back'}), e:chain(['1','5','2','4','3']), cap:'<em>1 → 5 → 2 → 4 → 3</em>'}], 175),
+    q(1,'1 → 2 → 3 and 5 → 4: how do we link them, one from each?')
+    + cards([[3,'Save first, then change, again','change 1\'s arrow and 2 is lost','amber'],
+             [7,'Stop when second runs out','3 already points to None, so it is the end','mint']])),
+  say:[
+  'first is the current node of the first half, and second is the current node of the second half. n1 and n2 save both of their old next nodes.',
+  'The question for this scene: the first half 1, 2, 3, and the second half 5, 4. How do we link them, taking one from each in turn?',
+  'At the start, first is head, 1, and second is the new head after reversing, 5.',
+  'Again, save first, then change: n1 saves 2, and n2 saves 4. Without saving, once 1\'s arrow changes, 2 is lost.',
+  'Now change two arrows: first dot next points to second, so 1 links to 5; second dot next points to n1, so 5 links to 2.',
+  'Both step forward: first becomes n1, which is 2; second becomes n2, which is 4.',
+  'Round two is the same: save, then 2 links to 4, and 4 links to 3. second moves to n2, which is None.',
+  'second is None, so the loop ends. 3 has pointed to None since the cut, so it is the end. The result is 1, 5, 2, 4, 3.'
+]});
+
+/* ===== 8 Check: even length ===== */
+const O4 = {n:{'1':[26,50],'2':[84,50],'3':[142,50],'4':[200,50],NE:[258,50]}, e:[['1','2'],['2','3'],['3','4'],['4','NE']]};
+const C4 = {'1':[26,45],'2':[84,45],NA:[142,45]};
+add({ch:8, title:'Check: <em>1 → 2 → 3 → 4</em>', vis:
+  gloss(0,[['even length','the list has 2, 4, 6… nodes, so there is no exact middle node']])
+  + duo(ll([{...O4, s:[0,1]},
+            {...O4, s:[2], p:[['slow','2','u'],['fast','3','d']], cap:'1. fast.next.next is None → stop, slow = 2'},
+            {s:[3], n:{...C4,'3':[142,125],'4':[200,125],NB:[258,125]}, e:[['1','2'],['2','NA','new'],['3','4'],['4','NB']], cap:'cut: 1 → 2 and 3 → 4'},
+            {s:[4], n:{...C4,'4':[142,125,'back'],'3':[200,125,'back'],NB:[258,125]}, e:[['1','2'],['2','NA'],['4','3','new'],['3','NB','new']], cap:'2. reverse: 4 → 3'},
+            {s:[5], n:{'1':[26,50],'4':[84,50,'back'],'2':[142,50],'3':[200,50,'back'],NE:[258,50]}, e:[['1','4','new'],['4','2','new'],['2','3','new'],['3','NE']], cap:'3. merge: <em>1 → 4 → 2 → 3</em>'}], 165),
+    q(1,'With 4 nodes, do the three moves give 1 → 4 → 2 → 3?')
+    + cards([[5,'Result 1 → 4 → 2 → 3, correct','first half 1 → 2, second half 4 → 3, one from each','mint']])),
+  say:[
+  'Even length means the list has two, four, six nodes and so on, so there is no exact middle node.',
+  'The question for this scene: with the four nodes 1, 2, 3, 4, do the three moves give 1, 4, 2, 3?',
+  'Move one, find the middle: slow goes to 2, fast goes to 3. fast has only one node after it, 4, not two, so stop. slow stops at 2.',
+  'Cut: cur remembers 3, and 2 dot next is set to None. The first half is 1, 2, and the second half is 3, 4.',
+  'Move two, reverse the second half: 3, 4 becomes 4, 3, and the new head is 4.',
+  'Move three, merge: 1 links to 4, 4 links to 2, 2 links to 3. second runs out, done. The result is 1, 4, 2, 3, matching the answer.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'The code: <em>three parts, three moves</em>', vis:
+  gloss(0,[['prev, cur = cur, nxt','Python tuple assignment: the right side is computed first, then assigned together']])
+  + term('solution.py',[
+    [2,'o','def reorderList(head):'],
+    [2,'o','    slow = fast = head                    # 1. find the middle'],
+    [2,'o','    while fast.next and fast.next.next:'],
+    [2,'o','        slow = slow.next'],
+    [2,'o','        fast = fast.next.next'],
+    [3,'o','    cur = slow.next                       # 2. cut, reverse half'],
+    [3,'hl','    slow.next = None'],
+    [3,'o','    prev = None'],
+    [3,'o','    while cur:'],
+    [3,'hl','        nxt = cur.next                    # save first'],
+    [3,'o','        cur.next = prev                   # then change'],
+    [3,'o','        prev, cur = cur, nxt'],
+    [4,'o','    first, second = head, prev            # 3. merge'],
+    [4,'o','    while second:'],
+    [4,'hl','        n1, n2 = first.next, second.next  # save first'],
+    [4,'o','        first.next = second'],
+    [4,'o','        second.next = n1'],
+    [4,'o','        first, second = n1, n2']])
+  + q(1,'Which move does each part of the code match?'),
+  say:[
+  'prev comma cur equals cur comma nxt is Python tuple assignment: the whole right side is computed first, then assigned to the left side together.',
+  'The question for this scene: which move does each part of the code match?',
+  'Part one finds the middle: as long as fast dot next and fast dot next dot next both exist, slow moves one step and fast moves two.',
+  'Part two cuts and reverses: cur remembers the head of the second half, and slow dot next is set to None. Each round saves nxt, points cur at prev, and moves both forward.',
+  'Part three merges: first starts at head and second at prev. Each round saves n1 and n2, then links two arrows. There is no return; the list is already fixed in place.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three traps</em>', vis:
+  gloss(0,[['O(1) extra space','only a few pointer variables, no matter how long the list is']])
+  + duo(ll([{keep:true, s:[3], n:{'1':[26,60],'5':[84,60],'2':[142,60],'4':[200,60],'3':[258,60]},
+             e:[['1','5'],['5','2'],['2','4'],['4','3','bad',30],['3','4','bad',30]]}], 120, 'cycle'),
+    q(1,'What are the time and space costs? Where is it easiest to slip?')
+    + cards([[2,'Time O(n), extra space O(1)','each move walks the list once, with only a few pointers','sky'],
+             [3,'Trap one: forget the cut → cycle','3 still points to 4, and 4 points to 3; printing never stops','coral'],
+             [4,'Trap two: change the arrow before saving next','the next node is lost; save first in both reverse and merge','coral'],
+             [5,'Trap three: loop on while first in the merge','with odd length the first half is longer, so second hits None first','coral']])),
+  say:[
+  'Big O of 1 extra space means we use only a few pointer variables, and no matter how long the list is, that number does not grow.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to slip?',
+  'Time is big O of n: finding the middle, reversing, and merging each walk the list once. Extra space is big O of 1, just a few pointers.',
+  'Trap one: forgetting slow dot next equals None. 3 still points to 4, and the merge links 4 to 3. Look at the red arrows: 3 and 4 point at each other, a cycle, and any walk of the list never stops.',
+  'Trap two: changing the arrow before saving next. The next node is lost. In both reverse and merge, save first, then change.',
+  'Trap three: the merge loop should check second, not first. With odd length the first half has one extra node, so second becomes None first, and reading its next crashes.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','explain the method out loud, and code once the interviewer agrees']])
+  + q(1,'Interviewer: "Without an array, how do you reach the nodes at the back?"')
+  + flow([[2,'Naive','array + two pointers, O(n) space'],[3,'Middle','slow and fast + cut'],[3,'Reverse','flip the second half'],[3,'Merge','one from each'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['linked list','fast and slow pointers','reverse linked list','merge in place','O(1) extra space','876','206']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and start coding once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, without an array, how do you reach the nodes at the back?',
+  'Start with the naive version: copy the nodes into an array and link them with two pointers from both ends. Time is big O of n, but extra space is also big O of n.',
+  'Then the key idea: in the answer, the second half appears backwards. So I find the middle with slow and fast pointers and cut there, reverse the second half, and merge the halves one node at a time. Before changing any arrow, I save the old next.',
+  'Finally, complexity: time big O of n, extra space big O of 1. The key phrase is fast and slow pointers.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Middle','slow and fast'],[0,'Cut','slow.next = None'],[0,'Reverse','flip the second half'],[0,'Merge','one from each']])
+  + cards([[1,'1. Answer = first half forward + second half backward, alternating','so in place it is: find the middle, reverse the half, merge','amber'],
+           [2,'2. Always cut after finding the middle','slow.next = None, or 3 and 4 point at each other in a cycle','coral'],
+           [3,'3. Save next before changing an arrow','reverse saves nxt, merge saves n1 and n2','mint']]),
+  say:[
+  'The main line once more: find the middle with slow and fast pointers, cut the list in two, reverse the second half, then merge them one node at a time.',
+  'One: the answer is the first half forward and the second half backward, taken in turn. So the in-place version is find the middle, reverse the second half, and merge.',
+  'Two: after finding the middle, always cut, setting slow dot next to None. Otherwise 3 and 4 point at each other in a cycle.',
+  'Three: before changing an arrow, save the old next. Reverse saves nxt, and merge saves n1 and n2.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/3e181342eee9.mp3", "0-1": "a/9d55f352e95f.mp3", "0-2": "a/cfa9a2561651.mp3", "0-3": "a/55331c240218.mp3", "1-0": "a/2eb2ec89c671.mp3", "1-1": "a/79f6a2bdba4c.mp3", "1-2": "a/a1aef7a938b8.mp3", "1-3": "a/43de0d691c6b.mp3", "1-4": "a/b39e9b7e9665.mp3", "2-0": "a/879e1eb8ff67.mp3", "2-1": "a/56b842042633.mp3", "2-2": "a/2d1f6425128c.mp3", "2-3": "a/2c807f91e001.mp3", "2-4": "a/9d0f0423bb6b.mp3", "2-5": "a/a1cc7d8977f5.mp3", "3-0": "a/af4b37d3d7ce.mp3", "3-1": "a/1228d55cd339.mp3", "3-2": "a/b92b6c64a277.mp3", "3-3": "a/2643ff67b0bf.mp3", "3-4": "a/ed123b306925.mp3", "3-5": "a/e095ccde66bf.mp3", "3-6": "a/53aba43d3dc0.mp3", "4-0": "a/f4d2ff5ec60a.mp3", "4-1": "a/814a32e6e066.mp3", "4-2": "a/1070cfe66b10.mp3", "4-3": "a/01ca45f2a1f1.mp3", "4-4": "a/ec1a9a7f178a.mp3", "4-5": "a/bfb52f36b375.mp3", "5-0": "a/0e7ea880ba32.mp3", "5-1": "a/b01597336dbd.mp3", "5-2": "a/2903202197f2.mp3", "5-3": "a/3d90c17965d2.mp3", "5-4": "a/a9d04f72e8b7.mp3", "5-5": "a/4c321558c553.mp3", "5-6": "a/3a7d6bdf52ed.mp3", "6-0": "a/0988223913c9.mp3", "6-1": "a/c67c286708ad.mp3", "6-2": "a/0673564e7f57.mp3", "6-3": "a/7fc52f67fa02.mp3", "6-4": "a/6cc7074c5849.mp3", "6-5": "a/88328cc0ab58.mp3", "6-6": "a/c1c1dbbd26aa.mp3", "6-7": "a/29e9a66ae221.mp3", "7-0": "a/b582c14643f8.mp3", "7-1": "a/ef018137392f.mp3", "7-2": "a/953716e525ea.mp3", "7-3": "a/1bed15815f69.mp3", "7-4": "a/9a9b04b5b6e1.mp3", "7-5": "a/0e12264448d7.mp3", "7-6": "a/015cf45f8cf7.mp3", "7-7": "a/baac2874429a.mp3", "8-0": "a/e65f3c35f52a.mp3", "8-1": "a/22dc29b4c1fe.mp3", "8-2": "a/16e5ad8f2630.mp3", "8-3": "a/468707cba3ab.mp3", "8-4": "a/218aec2a6eee.mp3", "8-5": "a/71f49dc730da.mp3", "9-0": "a/978756364788.mp3", "9-1": "a/6d8e177a82db.mp3", "9-2": "a/e113a4f6a8a1.mp3", "9-3": "a/4d53756d4ec7.mp3", "9-4": "a/1bfdca34263a.mp3", "10-0": "a/403573d505e7.mp3", "10-1": "a/681a557d92a6.mp3", "10-2": "a/02df173b5148.mp3", "10-3": "a/74fd35d4408c.mp3", "10-4": "a/1c75cfe15ec2.mp3", "10-5": "a/340ed9b02b62.mp3", "11-0": "a/dd4e4ee16c68.mp3", "11-1": "a/847da5bdf06e.mp3", "11-2": "a/f533943b083b.mp3", "11-3": "a/36376e88ea6f.mp3", "11-4": "a/f151d10a00c5.mp3", "12-0": "a/16a43744ff05.mp3", "12-1": "a/5a09ece76b88.mp3", "12-2": "a/393ba14a8f73.mp3", "12-3": "a/cfbc79f5cf3d.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

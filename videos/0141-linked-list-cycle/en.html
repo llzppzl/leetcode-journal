@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tortoise and Hare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Tortoise and Hare', template:'prep', lang:'en', sub:'LeetCode 141 Linked List Cycle · animated walkthrough', key:'lc141envid', doc:'LeetCode 141', blurb:'Start from what a linked list node and its next pointer are: first remember visited nodes in a set, then switch to slow and fast pointers, and use a running track to show why they must meet when there is a cycle.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a chain of nodes','From zero: nodes and next','The problem: what a cycle is','Instinct: remember visited nodes','Nodes, not values','A new idea: slow and fast pointers','Why they must meet: the track','Walk through: with a cycle','Walk through: no cycle','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- linked list picture: circles = nodes, arrows = next, dashed box = None; tags slow / fast sit above a node ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ll{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.ll .s:not(.on){opacity:0}
+.ll .only.s{opacity:0!important} .ll .only.s.now{opacity:1!important}
+.ll path{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ll path.trk{stroke:var(--line);stroke-width:10;opacity:.6}
+.ll circle.nd{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.ll circle.seen{fill:rgba(98,224,180,.35);stroke:var(--mint);stroke-width:3}
+.ll circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.ll circle.ring.bad{stroke:var(--coral)}
+.ll rect.none{fill:none;stroke:var(--dim);stroke-width:2;stroke-dasharray:4 3}
+.ll text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.ll text.lab{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.ll .tg text{font-family:var(--f-mono);font-size:12px}
+.ll .tg.sl rect{fill:rgba(98,224,180,.2);stroke:var(--mint);stroke-width:1.5} .ll .tg.sl text{fill:var(--mint)}
+.ll .tg.fa rect{fill:rgba(255,122,107,.2);stroke:var(--coral);stroke-width:1.5} .ll .tg.fa text{fill:var(--coral)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const R = 20, AR = `<defs><marker id="la" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sky);stroke:none"/></marker></defs>`;
+const tag = (x, y, t, cls) => `<g class="tg ${cls}"><rect x="${x-21}" y="${y-9}" width="42" height="18" rx="9"/><text x="${x}" y="${y}">${t}</text></g>`;
+const qrow = rows => rows ? `<div class="qrow">${rows.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>` : '';
+// o: {vals, back: idx|null, backStep, none, tags:[[step, slowIdx, fastIdx]] (idx = vals.length means None), seen:{i:step}, ring:[[step,i,bad]], rows:[[step,text]]}
+function ll(o){
+  const n = o.vals.length, m = n + (o.none?1:0), y = 80, h = o.back!=null ? 152 : 120;
+  const xs = Array.from({length:m},(_,k)=> m===1 ? 170 : 40 + k*260/(m-1));
+  let s = LCSS + `<svg class="ll" viewBox="0 0 340 ${h}" role="img" aria-label="linked list">` + AR;
+  for(let k=0;k<m-1;k++){ const end = (k+1===n) ? 26+6 : R+6; s += `<path marker-end="url(#la)" d="M${(xs[k]+R).toFixed(1)},${y} L${(xs[k+1]-end).toFixed(1)},${y}"/>`; }
+  if(o.back!=null){ const xl=xs[n-1], xt=xs[o.back];
+    const p = `<path marker-end="url(#la)" d="M${xl.toFixed(1)},${y+R} C${xl.toFixed(1)},${y+78} ${xt.toFixed(1)},${y+78} ${xt.toFixed(1)},${y+R+6}"/>`;
+    s += o.backStep!=null ? `<g class="s" data-s="${o.backStep}">${p}</g>` : p; }
+  o.vals.forEach((v,k)=>{
+    s += `<circle class="nd" cx="${xs[k]}" cy="${y}" r="${R}"/>`;
+    if(o.seen&&o.seen[k]!=null) s += `<g class="s" data-s="${o.seen[k]}"><circle class="seen" cx="${xs[k]}" cy="${y}" r="${R}"/></g>`;
+    s += `<text x="${xs[k]}" y="${y}">${v}</text>`;
+  });
+  if(o.none) s += `<rect class="none" x="${xs[n]-26}" y="${y-15}" width="52" height="30" rx="6"/><text class="lab" x="${xs[n]}" y="${y}">None</text>`;
+  if(o.back!==0) s += `<text class="lab" x="${xs[0]}" y="${y+R+14}">head</text>`;
+  (o.ring||[]).forEach(([st,k,bad])=> s += `<circle class="ring only s ${bad?'bad':''}" data-s="${st}" cx="${xs[k]}" cy="${y}" r="${R+6}"/>`);
+  (o.tags||[]).forEach(([st,a,b])=> s += `<g class="only s" data-s="${st}">${tag(xs[a],y-38,'slow','sl')}${tag(xs[b],y-62,'fast','fa')}</g>`);
+  return s + `</svg>` + qrow(o.rows);
+}
+// the cycle as a running track: nodes 2, 0, -4 on a circle, clockwise; slow tag outside, fast tag inside
+function track(o){
+  const cx=170, cy=118, r=70, ang=[-90,30,150], vals=[2,0,-4];
+  const pt=(a,rr)=>[cx+rr*Math.cos(a*Math.PI/180), cy+rr*Math.sin(a*Math.PI/180)];
+  let s = LCSS + `<svg class="ll" viewBox="0 0 340 228" role="img" aria-label="running track">` + AR + `<circle cx="${cx}" cy="${cy}" r="${r}" style="fill:none;stroke:var(--line);stroke-width:12;opacity:.5"/>`;
+  for(let k=0;k<3;k++){ const [x1,y1]=pt(ang[k]+19,r), [x2,y2]=pt(ang[(k+1)%3]-24,r);
+    s += `<path marker-end="url(#la)" d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}"/>`; }
+  vals.forEach((v,k)=>{ const [x,y]=pt(ang[k],r); s += `<circle class="nd" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${R-2}"/><text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${v}</text>`; });
+  (o.tags||[]).forEach(([st,a,b,meet])=>{ const [sx,sy]=pt(ang[a],r+38), [fx,fy]=pt(ang[b],r-38), [mx,my]=pt(ang[a],r);
+    s += `<g class="only s" data-s="${st}">${tag(sx,sy,'slow','sl')}${tag(fx,fy,'fast','fa')}${meet?`<circle class="ring" cx="${mx.toFixed(1)}" cy="${my.toFixed(1)}" r="${R+4}"/>`:''}</g>`; });
+  return s + `</svg>` + qrow(o.rows);
+}
+const EX1 = {vals:[3,2,0,-4], back:1};
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Tortoise and Hare<br><em>LeetCode 141</em>', vis:
+  gloss(0,[['linked list','A chain of nodes; each node only knows which one comes next'],['next pointer','The slot in a node that says where the next node is'],['cycle','The last node\'s next points back to an earlier node'],['slow and fast pointers','One moves 1 step, the other moves 2']])
+  + flow([[1,'From zero','nodes and next'],[1,'Read','what a cycle is'],[2,'Instinct','a set of visited nodes'],[2,'Follow-up','O(1) memory'],[3,'Two pointers','a chase on a track'],[3,'Code','while fast and fast.next']]),
+  say:[
+  'This lesson covers LeetCode 141, Linked List Cycle. Four words first. A linked list is a chain of nodes, and each one only knows which comes next. The next pointer says where the next node is. A cycle means the tail\'s next points back to an earlier node. Slow and fast pointers: one moves one step, the other moves two.',
+  'We start from zero: first see what a node and next look like, then what it means to have a cycle.',
+  'Then we solve it the most natural way: remember every node you have visited. That works, but it uses extra memory. The follow-up asks for constant memory.',
+  'Finally we switch to slow and fast pointers, and use the picture of runners on a track to show why they must meet.'
+]});
+
+/* ===== 1 From zero: nodes and next ===== */
+add({ch:1, title:'From zero: <em>nodes and next</em>', vis:
+  gloss(0,[['node','A small box: one value val, plus one next'],['None','Points to nothing: the list ends here'],['head','The first node; it is all the function gets']])
+  + duo(ll({vals:[3,2,0,-4], none:true}),
+    q(1,'What does the list 3 → 2 → 0 → -4 actually look like in a program?')
+    + cards([[2,'Each node only knows the next one','3\'s next is 2, 2\'s next is 0','sky'],
+             [3,'You can only walk from head, one by one','No indexes; you cannot jump to the 3rd node','amber'],
+             [4,'The last node\'s next is None','Reaching None means you are done','mint']])),
+  say:[
+  'A node is a small box that holds a value, called val, and a next. None means pointing to nothing: the list ends here. Head is the first node, and it is the only thing the function gets.',
+  'The question for this scene: what does the list 3, 2, 0, negative 4 actually look like in a program?',
+  'Each node only knows which one comes next: 3\'s next points to 2, and 2\'s next points to 0. Every arrow in the picture is one next.',
+  'A linked list has no indexes, so you cannot jump straight to the third node like in an array. You can only start at head and follow next, one node at a time.',
+  'The last node, negative 4, has None as its next. When you reach None, you have walked the whole list.'
+]});
+
+/* ===== 2 The problem: what a cycle is ===== */
+add({ch:2, title:'The problem: <em>what a cycle is</em>', vis:
+  gloss(0,[['cycle','Some node\'s next points back to a node you already passed'],['pos','Only describes the test data: which node the tail points back to; the function never sees it']])
+  + duo(ll({...EX1, backStep:2}) + `<div class="s" data-s="4">${ll({vals:[1,2], none:true})}</div>`,
+    q(1,'3 → 2 → 0 → -4, and -4\'s next points back to 2. Is there a cycle? What about 1 → 2 → None?')
+    + cards([[2,'-4\'s next is not None','It points back to node 2 at index 1: pos = 1','coral'],
+             [3,'Cycle → True','2 → 0 → -4 → 2 → ... never reaches None','coral'],
+             [4,'1 → 2 → None → False','Stop at None; no arrow goes back','mint'],
+             [5,'The function only gets head','pos is not passed in; you must find out yourself','sky']])),
+  say:[
+  'A cycle means some node\'s next points back to a node you already passed. pos only describes the test data, the index the tail points back to. The function never sees it.',
+  'The question for this scene: 3, 2, 0, negative 4, and negative 4\'s next points back to 2. Is there a cycle? What about 1, 2, None?',
+  'Look at the arrow that curves back underneath: negative 4\'s next is not None. It points back to node 2 at index 1, so pos equals 1.',
+  'That is a cycle. Starting from 2: 2, 0, negative 4, and back to 2, round and round, never reaching None. Return true.',
+  'In the second example, 1 points to 2, and 2 points to None. You stop at None, and no arrow goes back, so return false.',
+  'Note that the function only gets head; pos is not passed in. We have to find the cycle ourselves by following next.'
+]});
+
+/* ===== 3 Instinct: remember visited nodes ===== */
+add({ch:3, title:'Instinct: <em>remember visited nodes</em>', vis:
+  gloss(0,[['traverse','Start at head and follow next, one node at a time'],['set','A "seen it before?" list; each lookup is O(1)'],['green','Nodes already put in the set']])
+  + duo(ll({...EX1, seen:{0:3,1:4,2:4,3:5}, ring:[[3,0],[4,2],[5,3],[6,1,1]],
+      rows:[[3,'seen = <em>{3}</em>'],[4,'seen = <em>{3, 2, 0}</em>'],[5,'seen = <em>{3, 2, 0, -4}</em>'],[6,'next is <b>2</b>: already in seen']]}),
+    q(1,'You can only follow next. How do you know you are going in circles?')
+    + cards([[2,'Walk until None?','With a cycle you never reach None; the program never stops','coral'],
+             [3,'Put every node you reach into a set','Check first: seen it before?','sky'],
+             [6,'Hit a node you have seen → True','You came back around: that is a cycle','mint']])),
+  say:[
+  'To traverse means to start at head and follow next one node at a time. A set is a list of what you have seen, and each lookup is big O of 1. Green marks nodes already in the set.',
+  'The question for this scene: you can only follow next. How do you know you are going in circles?',
+  'The first idea is to just keep walking; reaching None means no cycle. But with a cycle you never reach None, and the program never stops.',
+  'So remember the nodes you walk past. At node 3, check the set: not seen, so add it.',
+  'Walk to 2: not seen, add it. Walk to 0: not seen either, add it.',
+  'Walk to negative 4: not seen, add it. Now the set holds four nodes.',
+  'The next one after negative 4 is 2. Check the set: 2 is already there, so we have come back around. Return true. This method works.'
+]});
+
+/* ===== 4 Nodes, not values ===== */
+add({ch:4, title:'Nodes, <em>not values</em>', vis:
+  gloss(0,[['the same node','The same box in memory; Python checks it with is'],['equal values','Two different boxes holding the same number']])
+  + q(1,'1 → 1 → 1 → None has no cycle, but all three values are 1. What goes in the set?')
+  + cards([[2,'Store node.val: wrong','The second 1 looks like a cycle','coral'],
+           [3,'Store the node itself: right','Three different boxes, reach None → False','mint'],
+           [5,'Cost: O(n) extra space','The set can hold all n nodes. Follow-up: only O(1) memory?','amber']])
+  + term('set_version.py',[
+    [4,'o','def hasCycle(head):'],
+    [4,'o','    seen = set()'],
+    [4,'o','    node = head'],
+    [4,'o','    while node:'],
+    [4,'hl','        if node in seen:      # the same node, a second time'],
+    [4,'o','            return True'],
+    [4,'o','        seen.add(node)        # store the node, not node.val'],
+    [4,'o','        node = node.next'],
+    [4,'o','    return False']]),
+  say:[
+  'The same node means the same box in memory, and Python checks that with is. Equal values just means two different boxes hold the same number.',
+  'The question for this scene: 1, 1, 1, None has no cycle, but all three values are 1. What goes in the set?',
+  'If you store values, then at the second 1 the set already has a 1, and you wrongly report a cycle.',
+  'A cycle means coming back to the same node, not meeting the same number. So store the node itself. The three 1s are three different boxes, you walk all the way to None, and return false.',
+  'The code is short: check as you walk, return true if seen, otherwise add to the set, and return false at None.',
+  'The cost is space: the set can hold all n nodes, which is big O of n extra space. The follow-up asks: can you use only big O of 1 memory? A set is not enough.'
+]});
+
+/* ===== 5 Slow and fast pointers ===== */
+add({ch:5, title:'A new idea: <em>slow and fast pointers</em>', vis:
+  gloss(0,[['pointer','A variable that points at some node'],['tortoise and hare','Floyd\'s cycle detection: tortoise slow walks, hare fast runs']])
+  + q(1,'No set, just two variables. How do you tell whether there is a cycle?')
+  + cards([[2,'slow moves 1 step, fast moves 2','Both start at head','sky'],
+           [3,'No cycle: fast reaches None first → False','The faster runner finishes first','mint'],
+           [4,'Cycle: both enter the loop and never leave','fast chases slow from behind','amber'],
+           [5,'Caught up: the same node → True','But fast takes 2 steps at a time. Could it jump over?','coral']]),
+  say:[
+  'A pointer is a variable that points at some node. This method is Floyd\'s cycle detection, also called tortoise and hare: the tortoise, slow, walks, and the hare, fast, runs.',
+  'The question for this scene: no set, just two variables. How do you tell whether there is a cycle?',
+  'Both pointers start at head. Each step, slow moves one node and fast moves two.',
+  'If there is no cycle, the list has an end, and the faster pointer always reaches None first. Return false.',
+  'If there is a cycle, both pointers eventually walk into the loop and can never get out. Fast is quicker, so it chases slow from behind around the loop.',
+  'When it catches up, both pointers point at the same node, so return true. But fast takes two steps at a time. Could it jump right over slow? The next scene answers that.'
+]});
+
+/* ===== 6 Why they must meet ===== */
+add({ch:6, title:'Why they must meet: <em>the track</em>', vis:
+  gloss(0,[['gap','How many steps fast still has to go forward to reach slow'],['track','The cycle is a loop of track: 2 → 0 → -4 → 2']])
+  + duo(track({tags:[[2,0,1],[3,1,0],[4,2,2,1],[5,2,2,1]],
+      rows:[[2,'gap = <b>2</b>'],[3,'gap = <b>1</b>'],[4,'gap = <em>0</em>: they meet'],[5,'gap = <em>0</em>: they meet']]}),
+    q(1,'fast takes 2 steps at a time. Could it jump right over slow?')
+    + cards([[3,'Each step, the gap shrinks by exactly 1','fast moves 2, slow moves 1: fast gains 1','sky'],
+             [4,'2 → 1 → 0','It only drops by 1, so it lands exactly on 0','mint'],
+             [5,'No jumping over','At gap 1, the next step puts both on the same node','amber']])),
+  say:[
+  'The gap is how many steps fast still has to go forward to reach slow. The cycle is a loop of track: here 2, 0, negative 4, and back to 2.',
+  'The question for this scene: fast takes two steps at a time. Could it jump right over slow?',
+  'Picture two people running laps on a track; the faster one always catches the slower one from behind. Right now slow is at 2 and fast is at 0. Fast needs two steps, through negative 4 to 2, to reach slow, so the gap is 2.',
+  'One step: slow moves one, fast moves two, so fast gains exactly one. Slow reaches 0, fast reaches 2, and the gap is 1.',
+  'One more step and the gap is 0: both are at negative 4, so they meet. The gap drops by exactly one each time, from 2 to 1 to 0, so it must land exactly on 0.',
+  'So fast cannot jump over: when the gap is 1, slow moves one ahead and fast moves two ahead, and they land on the same node.'
+]});
+
+/* ===== 7 Walk through: with a cycle ===== */
+add({ch:7, title:'Walk through: <em>3 → 2 → 0 → -4 → 2</em>', vis:
+  gloss(0,[['one step','slow moves 1, fast moves 2, then compare'],['amber ring','Both pointers point at the same node']])
+  + duo(ll({...EX1, tags:[[2,0,0],[3,1,2],[4,2,1],[5,3,3],[6,3,3]], ring:[[5,3],[6,3]],
+      rows:[[2,'start: slow = <b>3</b>, fast = <b>3</b>'],[3,'step 1: slow = <b>2</b>, fast = <b>0</b>'],[4,'step 2: slow = <b>0</b>, fast = <b>2</b>'],[5,'step 3: slow = <em>-4</em>, fast = <em>-4</em>'],[6,'slow is fast → <em>True</em>']]}),
+    q(1,'Step by step: at which step do they meet, and at which node?')
+    + cards([[6,'They meet at -4 after 3 steps → True','The meeting point is not necessarily the cycle entry, 2','mint']])),
+  say:[
+  'One step means slow moves one node, fast moves two, and then we check whether they are the same node. The amber ring means both pointers point at the same node.',
+  'The question for this scene: step by step, at which step do they meet, and at which node?',
+  'Start: both pointers are at head, which is node 3. We do not compare yet.',
+  'Step 1: slow moves to 2. Fast moves two from 3, through 2, to 0. Different.',
+  'Step 2: slow moves to 0. Fast moves two from 0, through negative 4, and follows the arrow back to 2. Still different.',
+  'Step 3: slow moves from 0 to negative 4. Fast moves two from 2, through 0, to negative 4. Both are at negative 4, the same node.',
+  'They meet at negative 4 after three steps, so return true. Note that the meeting point is negative 4, not the cycle entry, 2. Finding the entry is the next problem, 142.'
+]});
+
+/* ===== 8 Walk through: no cycle ===== */
+add({ch:8, title:'Walk through: <em>1 → 2 → None</em>', vis:
+  gloss(0,[['fast.next','The node right after fast'],['short-circuit','If the left side of and is false, the right side is never evaluated']])
+  + duo(ll({vals:[1,2], none:true, tags:[[2,0,0],[3,1,2],[4,1,2],[5,1,2],[6,1,2]],
+      rows:[[2,'fast = <b>1</b>, fast.next = <b>2</b>: keep going'],[3,'slow = <b>2</b>, fast = <b>None</b>'],[4,'fast is None: loop ends → <em>False</em>'],[5,'while fast and fast.next'],[6,'while fast and fast.next']]}),
+    q(1,'With no cycle, how does fast stop? Why does the loop condition have two parts?')
+    + term('loop condition',[[5,'hl','while fast and fast.next:']])
+    + cards([[5,'fast.next must be checked too','fast moves to fast.next.next; on 1 → 2 → 3, fast stops at 3, whose next is None','sky'],
+             [6,'The order matters','Check fast first: when fast is None, and short-circuits and never reads None.next','coral']])),
+  say:[
+  'fast dot next is the node right after fast. Short-circuit means that if the left side of and is already false, the right side is never evaluated.',
+  'The question for this scene: with no cycle, how does fast stop? Why does the loop condition have two parts?',
+  'Both pointers start at 1. Check: fast is 1, not None, and fast dot next is 2, also not None, so we can move.',
+  'Slow moves to 2. Fast moves two from 1: through 2, and after that comes None, so fast becomes None.',
+  'Check again: fast is None, so the loop ends and we return false. With no cycle, fast reached the end first.',
+  'Why also check fast dot next? Take 1, 2, 3: after one step fast stops at 3, whose next is None, and reading the next of None would crash.',
+  'The order matters too: write fast first, then fast dot next. When fast is None, and short-circuits, and the right side never runs.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>two pointers, one loop</em>', vis:
+  gloss(0,[['is','Checks whether two sides are the same object, not equal values']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def hasCycle(self, head: Optional[ListNode]) -> bool:'],
+    [2,'o','        slow = fast = head            # both start at head'],
+    [3,'hl','        while fast and fast.next:     # fast can still move 2'],
+    [4,'o','            slow = slow.next          # tortoise moves 1'],
+    [4,'o','            fast = fast.next.next     # hare moves 2'],
+    [5,'hl','            if slow is fast:          # same node: caught up'],
+    [5,'o','                return True'],
+    [6,'o','        return False                  # fast reached the end']])
+  + q(1,'Which step of the animation does each line of code match?'),
+  say:[
+  'is checks whether the two sides are the same object, not whether their values are equal.',
+  'The question for this scene: which step of the animation does each line of code match?',
+  'First line: slow and fast both start at head.',
+  'The loop condition: fast and fast dot next are both not None, so fast can move two steps.',
+  'Inside the loop: slow moves one step, to slow dot next. Fast moves two steps, to fast dot next dot next.',
+  'Compare after moving: if slow is fast, it is the same node, fast has caught up, so return true.',
+  'If the loop ends without catching up, fast reached the end, so return false. For an empty list, head is None, and we return false right away.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['n','The number of nodes in the list'],['O(1) space','Only two variables, no matter how long the list is']])
+  + q(1,'What are the time and space costs? Where do people slip up?')
+  + cards([[2,'Time O(n)','No cycle: fast reaches the end in half the steps; cycle: slow is caught within one lap','sky'],
+           [3,'Space O(1)','The set version is O(n); this is what the follow-up wants','mint'],
+           [4,'Comparing before moving','Both start at head, so it reports True right away','coral'],
+           [5,'Writing only while fast.next','On an empty list fast is None, and it crashes','coral'],
+           [5,'Comparing slow.val == fast.val','Equal values do not mean the same node; use is','coral']]),
+  say:[
+  'n is the number of nodes in the list. Big O of 1 space means only two variables, no matter how long the list is.',
+  'The question for this scene: what are the time and space costs? Where do people slip up?',
+  'Time is big O of n. With no cycle, fast reaches the end in about n over 2 steps. With a cycle, once slow enters the loop it is caught within one lap.',
+  'Space is big O of 1: just slow and fast. The set version is big O of n, so this is the answer the follow-up wants.',
+  'Pitfall one: comparing before moving. Both start at head, so they are equal right away and you report a cycle. Move first, then compare.',
+  'Pitfall two: writing only while fast dot next crashes on an empty list, where fast is None. Pitfall three: comparing values, slow dot val equals fast dot val. Equal values do not mean the same node, so use is.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "fast moves two steps at a time. Why can\'t it skip over slow?"')
+  + flow([[2,'Instinct first','a set of nodes, O(n) space'],[2,'Follow-up','O(1) memory'],[3,'Two pointers','1 step / 2 steps'],[3,'No cycle','fast reaches None'],[4,'Cycle','gap drops by 1, must meet']])
+  + chips(5,['Floyd\'s cycle detection','tortoise and hare','two pointers','O(1) space','node identity','142 Linked List Cycle II']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, fast moves two steps at a time, so why can\'t it skip over slow?',
+  'Start with the instinct: keep a set of visited nodes, and seeing one again means a cycle, with big O of n space. The follow-up wants big O of 1 memory, so I switch to slow and fast pointers.',
+  'Then the method: slow moves one step, fast moves two. With no cycle, fast reaches None first, so return false.',
+  'Then the why: with a cycle both pointers enter the loop, and fast gains exactly one step each time. The gap shrinks one by one to zero, it cannot jump over, so they must meet.',
+  'The key terms are Floyd\'s cycle detection and tortoise and hare. Time is big O of n, space is big O of 1. The next problem, 142, finds the cycle entry.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Node','val + next'],[0,'Instinct','a set of nodes'],[0,'Follow-up','slow and fast'],[0,'Code','while fast and fast.next']])
+  + cards([[1,'① A cycle is about the same node, not the same value','Store the node itself in the set; compare with is','amber'],
+           [2,'② slow moves 1, fast moves 2; fast reaching None means no cycle','Loop condition: while fast and fast.next','sky'],
+           [3,'③ With a cycle the gap drops by 1 each step, so they must meet','On a track, the faster runner always catches the slower one','mint']]),
+  say:[
+  'Let\'s review the main thread: a node holds a value and a next. The instinct is to remember visited nodes in a set. For constant memory, switch to slow and fast pointers.',
+  'Number one: a cycle means coming back to the same node, not meeting the same value. Store the node itself in the set, and compare with is.',
+  'Number two: slow moves one step, fast moves two. If fast reaches None, there is no cycle.',
+  'Number three: with a cycle, the gap drops by exactly one each step, so fast cannot jump over and they must meet. On a track, the faster runner always catches the slower one.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/ed2a5e77436b.mp3", "0-1": "a/eb0c91470f40.mp3", "0-2": "a/2dbd29f1232c.mp3", "0-3": "a/4c78af13f2c9.mp3", "1-0": "a/9b47eef70119.mp3", "1-1": "a/0eb916103393.mp3", "1-2": "a/ad5c5a84ac54.mp3", "1-3": "a/85776269e117.mp3", "1-4": "a/1e37c51628b8.mp3", "2-0": "a/4bc9810d6f45.mp3", "2-1": "a/cc8871d15c1c.mp3", "2-2": "a/c54f98541c6a.mp3", "2-3": "a/5de86e6347c4.mp3", "2-4": "a/d6b1032ceb5d.mp3", "2-5": "a/4a3e14df4d3b.mp3", "3-0": "a/fefb91e7b565.mp3", "3-1": "a/96cc3d5c9e3f.mp3", "3-2": "a/c03a38288ff8.mp3", "3-3": "a/0805aad7d1f4.mp3", "3-4": "a/23d4f423e2b7.mp3", "3-5": "a/695b0e236df3.mp3", "3-6": "a/1a06fdd75b37.mp3", "4-0": "a/7436833d4cba.mp3", "4-1": "a/09037e624c80.mp3", "4-2": "a/4c6e3cd4a816.mp3", "4-3": "a/914f13b412bc.mp3", "4-4": "a/e5f6270825f0.mp3", "4-5": "a/9b7b5e4de619.mp3", "5-0": "a/35eeefb7b97e.mp3", "5-1": "a/903746c250bb.mp3", "5-2": "a/2fa134725056.mp3", "5-3": "a/0e381e8c3c54.mp3", "5-4": "a/efdc7ced2438.mp3", "5-5": "a/6d5cdce27a70.mp3", "6-0": "a/bc3408354582.mp3", "6-1": "a/eb30ea612a33.mp3", "6-2": "a/dfdd9dee5625.mp3", "6-3": "a/cf959f4e4110.mp3", "6-4": "a/9636e11453d6.mp3", "6-5": "a/551a595155bd.mp3", "7-0": "a/3c77615adeec.mp3", "7-1": "a/81b452614c7a.mp3", "7-2": "a/cf6fceaef1be.mp3", "7-3": "a/5bb3984f14c2.mp3", "7-4": "a/3e0f17cfef0c.mp3", "7-5": "a/d8c8fc7ff791.mp3", "7-6": "a/5d7ebf370d66.mp3", "8-0": "a/16a31820f2e5.mp3", "8-1": "a/c2f6c92d9d1a.mp3", "8-2": "a/cbb5870482c7.mp3", "8-3": "a/9c94b4c85bed.mp3", "8-4": "a/a7fac3468f2d.mp3", "8-5": "a/d4e446e474be.mp3", "8-6": "a/2bb309f41235.mp3", "9-0": "a/b91c2fb55a39.mp3", "9-1": "a/6bcfc2530612.mp3", "9-2": "a/7e221bcf9776.mp3", "9-3": "a/b43d899530a0.mp3", "9-4": "a/6bddd1e4f195.mp3", "9-5": "a/fbb5a481461b.mp3", "9-6": "a/5fa9561c90c3.mp3", "10-0": "a/5afdcb7f42a5.mp3", "10-1": "a/fa4ef6120831.mp3", "10-2": "a/c827d3a92bcd.mp3", "10-3": "a/52a267d9489c.mp3", "10-4": "a/38284f85b5d6.mp3", "10-5": "a/657e4f3e917b.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/8166d6021c08.mp3", "11-2": "a/6adb84e3e3a8.mp3", "11-3": "a/b4df17d45ed0.mp3", "11-4": "a/915835da827f.mp3", "11-5": "a/ea444411dfe0.mp3", "12-0": "a/4627e86810e8.mp3", "12-1": "a/4e81516ea260.mp3", "12-2": "a/7dab8bef6502.mp3", "12-3": "a/cd6b3d6f8c40.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

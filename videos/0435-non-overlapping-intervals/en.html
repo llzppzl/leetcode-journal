@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Earliest Meeting Ends</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Earliest Meeting Ends', template:'prep', lang:'en', sub:'LeetCode 435 Non-overlapping Intervals · animated walkthrough', key:'lc435envid', doc:'LeetCode 435', blurb:'First flip the question: removing the fewest means keeping the most. Sorting by start gets trapped by [1, 100]; sorting by end and always keeping the meeting that ends earliest works, because it leaves the most free time for the rest.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of meetings','The problem: touching is not overlapping','Flip it: keep the most','Instinct: sort by start','Key: keep the earliest end','Why the earliest end never loses','Walk through: [[1,2],[2,3],[3,4],[1,3]]','Touching and duplicates','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- timeline: one bar per interval; green = kept, red = removed, amber line = current end, mint zone = free time ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tl{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.tl .s:not(.on){opacity:0}
+.tl .only.s{opacity:0!important} .tl .only.s.now{opacity:1!important}
+.tl rect.bar{fill:var(--term);stroke:var(--sky);stroke-width:2}
+.tl rect.keep{fill:rgba(98,224,180,.45);stroke:var(--mint);stroke-width:2}
+.tl rect.drop{fill:rgba(255,122,107,.4);stroke:var(--coral);stroke-width:2;stroke-dasharray:5 4}
+.tl rect.ring{fill:none;stroke:var(--amber);stroke-width:3}
+.tl rect.free{fill:rgba(98,224,180,.12);stroke:none}
+.tl line.ax{stroke:var(--dim);stroke-width:1.5}
+.tl line.tick{stroke:var(--dim);stroke-width:1}
+.tl line.end{stroke:var(--amber);stroke-width:2.5;stroke-dasharray:6 4}
+.tl text{fill:var(--paper);font-family:var(--f-mono);font-size:12px;text-anchor:middle;dominant-baseline:central}
+.tl text.tk{fill:var(--dim);font-size:11px}
+.tl text.el{fill:var(--amber);font-size:12px}
+.tl text.fl{fill:var(--mint);font-family:var(--f-body);font-size:12px}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow i{font-style:normal;color:var(--coral)}
+</style>`;
+// o: {bars:[[s,e]], T, mark:[[step,idx,'keep'|'drop',only]], ring:[[step,idx]], endl:[[step,v]], free:[[step,v]], st:[[step,html]]}
+function tl(o){
+  const T=o.T, X0=24, W=292, RH=32, TOP=26, n=o.bars.length;
+  const x=t=>X0+t*W/T, cx=t=>t>T?X0+W+14:x(t);
+  const H=TOP+n*RH+30, axY=TOP+n*RH+4;
+  const box=i=>{ const [s,e]=o.bars[i]; return {x:x(s), y:TOP+i*RH+5, w:cx(e)-x(s), h:RH-10}; };
+  let h=TCSS+`<svg class="tl" viewBox="0 0 340 ${H}" role="img" aria-label="interval timeline">`;
+  (o.free||[]).forEach(([st,v])=>{ const a=cx(v); h+=`<g class="only s" data-s="${st}"><rect class="free" x="${a}" y="${TOP}" width="${Math.max(0,X0+W+20-a)}" height="${n*RH}"/>${v<T?`<text class="fl" x="${X0+W+18}" y="${TOP-14}" style="text-anchor:end">free</text>`:''}</g>`; });
+  h+=`<line class="ax" x1="${X0}" y1="${axY}" x2="${X0+W+20}" y2="${axY}"/>`;
+  for(let t=0;t<=T;t++) h+=`<line class="tick" x1="${x(t)}" y1="${axY}" x2="${x(t)}" y2="${axY+5}"/><text class="tk" x="${x(t)}" y="${axY+14}">${t}</text>`;
+  o.bars.forEach(([s,e],i)=>{ const b=box(i);
+    h+=`<rect class="bar" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="5"/>`;
+    (o.mark||[]).filter(m=>m[1]===i).forEach(([st,,cls,only])=>h+=`<rect class="${cls} s${only?' only':''}" data-s="${st}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="5"/>`);
+    (o.ring||[]).filter(r=>r[1]===i).forEach(([st])=>h+=`<rect class="ring only s" data-s="${st}" x="${b.x-4}" y="${b.y-4}" width="${b.w+8}" height="${b.h+8}" rx="7"/>`);
+    h+=`<text x="${b.x+b.w/2}" y="${b.y+b.h/2}">[${s}, ${e}]${e>T?' …':''}</text>`;
+  });
+  (o.endl||[]).forEach(([st,v])=>{ const a=cx(v); h+=`<g class="only s" data-s="${st}"><line class="end" x1="${a}" y1="${TOP-6}" x2="${a}" y2="${axY}"/><text class="el" x="${Math.min(a,X0+W)}" y="${TOP-14}">end = ${v}</text></g>`; });
+  h+=`</svg>`;
+  if(o.st) h+=`<div class="qrow">${o.st.map(([st,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return h;
+}
+const EX = [[1,2],[2,3],[3,4],[1,3]];          // original order
+const EXS = [[1,2],[2,3],[1,3],[3,4]];         // sorted by end
+const BIG = [[1,100],[2,3],[4,5]];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Earliest Meeting Ends<br><em>LeetCode 435</em>', vis:
+  gloss(0,[['interval','[start, end]: a stretch of time that starts at start and ends at end'],['overlap','Two stretches of time share some time in common'],['greedy','At every step, make the choice that looks best right now, and never go back']])
+  + flow([[1,'Flip it','remove fewest = keep most'],[1,'Instinct','sort by start: trapped'],[2,'Key','sort by end'],[2,'Picture','ends earliest, most free time'],[3,'Walk through','end moves right'],[3,'Code','sort + one pass']]),
+  say:[
+  'This lesson covers LeetCode 435, Non-overlapping Intervals. First, three words. An interval is a stretch of time that starts at start and ends at end. Overlap means two stretches of time share some time in common. Greedy means at every step you make the choice that looks best right now, and never go back.',
+  'Step one is to flip the question: removing the fewest is the same as keeping the most. Then we try the most natural approach, sorting by start time, and see which example traps it.',
+  'Next comes the key idea: sort by end time, and always keep the meeting that ends earliest. We understand why it works by asking how much free time is left after this meeting ends.',
+  'Finally we walk through the example on a timeline, cover the touching edge case, and write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>touching is not overlapping</em>', vis:
+  gloss(0,[['non-overlapping','No two intervals share any time'],['touching','One interval ends at exactly the moment another one starts']])
+  + duo(tl({bars:EX, T:5, mark:[[3,3,'drop']]}),
+    q(1,'[[1, 2], [2, 3], [3, 4], [1, 3]]: what is the fewest you can remove so the rest do not overlap?')
+    + cards([[2,'[1, 3] is the trouble','It overlaps both [1, 2] and [2, 3]','coral'],
+             [3,'Remove [1, 3] → answer 1','The other three follow one after another','mint'],
+             [4,'[1, 2] and [2, 3] only touch','One ends at 2, the next starts at 2: not an overlap','amber']])),
+  say:[
+  'Non-overlapping means no two intervals share any time. Touching means one interval ends at exactly the moment another one starts.',
+  'The question for this scene: 1 to 2, 2 to 3, 3 to 4, and 1 to 3. What is the fewest you can remove so the rest do not overlap?',
+  'Look at the timeline. The interval 1 to 3 is the trouble: it overlaps 1 to 2, and it also overlaps 2 to 3.',
+  'Remove 1 to 3, and the other three follow one after another. The answer is 1.',
+  'Notice that 1 to 2 and 2 to 3 only touch: one meeting ends at 2 and the next starts at 2, so there is no conflict and it does not count as overlap. Later in the code, this is why we use greater than or equal.'
+]});
+
+/* ===== 2 Flip it ===== */
+add({ch:2, title:'Flip it: <em>how many can you keep</em>', vis:
+  gloss(0,[['n','The total number of intervals'],['kept','The number of intervals you keep']])
+  + q(1,'"The fewest to remove" is hard to attack directly. How can we ask it another way?')
+  + cards([[2,'Remove the fewest = keep the most','The total is fixed: the more you keep, the fewer you remove','sky'],
+           [3,'Removed = n − kept','We only need the most you can keep','mint'],
+           [4,'Example: 4 − 3 = 1','Keep at most [1, 2], [2, 3], [3, 4]: three','amber']]),
+  say:[
+  'n is the total number of intervals, and kept is the number of intervals you keep.',
+  'The question for this scene: the fewest to remove is hard to attack directly, so how can we ask it another way?',
+  'The removed ones and the kept ones add up to n, and that total is fixed. So the more you keep, the fewer you remove. Removing the fewest is keeping the most.',
+  'So the answer is n minus kept. All we need to figure out is the most non-overlapping intervals we can keep.',
+  'Back to our example: we can keep at most three, 1 to 2, 2 to 3, and 3 to 4. 4 minus 3 is 1, which matches the last scene.'
+]});
+
+/* ===== 3 Instinct: sort by start ===== */
+add({ch:3, title:'Instinct: <em>sort by start time</em>', vis:
+  gloss(0,[['sort by start','Earlier starts go first, then keep whatever fits from left to right'],['end','The moment the last kept interval ends']])
+  + duo(tl({bars:BIG, T:6, mark:[[3,0,'keep'],[4,1,'drop'],[4,2,'drop']], ring:[[3,0]], endl:[[3,100],[4,100]],
+      st:[[2,'by start: [1,100] [2,3] [4,5]'],[3,'keep <em>[1, 100]</em>, <b>end = 100</b>'],[4,'2 &lt; 100, 4 &lt; 100: <i>remove both</i>'],[5,'removed <i>2</i>'],[6,'removed <i>2</i>']]}),
+    q(1,'The most natural idea: sort by start time and keep whatever fits. What happens with [[1, 100], [2, 3], [4, 5]]?')
+    + cards([[5,'Removes 2, but the answer is 1','Remove only [1, 100], and [2, 3] and [4, 5] both stay','coral'],
+             [6,'Starting early does not mean good','[1, 100] occupies everything up to 100 and blocks the rest','amber']])),
+  say:[
+  'Sorting by start means intervals that start earlier go first, and then from left to right you keep whatever fits. end records the moment the last kept interval ends.',
+  'The question for this scene: the most natural idea is to sort by start time and keep whatever fits. What happens with 1 to 100, 2 to 3, and 4 to 5?',
+  'Sorted by start time, the order is 1 to 100, then 2 to 3, then 4 to 5.',
+  'The first one, 1 to 100, has nothing before it, so we keep it. end becomes 100.',
+  '2 to 3 starts at 2, which is less than 100. It overlaps, so we remove it. 4 to 5 starts at 4, also less than 100, so we remove it too.',
+  'We removed 2. But if we remove only 1 to 100, the remaining 2 to 3 and 4 to 5 do not conflict at all. The correct answer is 1.',
+  'Here is the problem: 1 to 100 starts earliest, but it runs all the way to 100 and blocks everything after it. Starting early does not mean good. What matters is when it ends.'
+]});
+
+/* ===== 4 Key: sort by end ===== */
+add({ch:4, title:'Key: <em>keep the one that ends earliest</em>', vis:
+  gloss(0,[['end time','The second number of an interval, the moment the meeting ends'],['free time','The time after this meeting ends, when you can still book other meetings']])
+  + duo(tl({bars:BIG, T:6, mark:[[3,1,'keep'],[4,2,'keep'],[4,0,'drop']], ring:[[2,0],[3,1]], endl:[[2,100],[3,3],[4,5]], free:[[2,100],[3,3],[4,5]],
+      st:[[2,'keep [1, 100] first: free only from <b>100</b>'],[3,'keep <em>[2, 3]</em> first: free from <b>3</b>'],[4,'[4, 5] fits in the free time: keep <em>2</em>'],[5,'keep <em>2</em>, remove <i>1</i>']]}),
+    q(1,'Which one should you keep first, to leave the most room for the rest?')
+    + cards([[5,'Always keep the earliest end first','Sort by end time, then keep whatever fits from left to right','mint']])),
+  say:[
+  'The end time is the second number of an interval, the moment the meeting ends. Free time is the time after this meeting ends, when you can still book other meetings.',
+  'The question for this scene: which one should you keep first, to leave the most room for the rest?',
+  'Imagine you are booking a meeting room. If you keep 1 to 100 first, that meeting runs until 100, so your free time only starts at 100. Neither 2 to 3 nor 4 to 5 can fit.',
+  'If you keep 2 to 3 first, the meeting ends at 3, so your free time starts at 3, and this whole green area is open.',
+  '4 to 5 starts at 4, right inside the free time, so we keep it. 1 to 100 conflicts with them, so we remove it. Keep 2, remove 1. Correct.',
+  'So the rule is: always keep the one that ends earliest first, because it finishes soonest and leaves the most free time for the rest. In practice, sort by end time and keep whatever fits from left to right.'
+]});
+
+/* ===== 5 Why it never loses ===== */
+add({ch:5, title:'Why <em>the earliest end never loses</em>', vis:
+  gloss(0,[['optimal choice','A way of keeping intervals that keeps the most'],['swap','Replace one interval in the choice with another']])
+  + q(1,'Why does "keep the earliest end first" always keep the most?')
+  + cards([[2,'Take any optimal choice','Look at its earliest interval, call it A','sky'],
+           [3,'Swap A for B, the earliest end overall','B ends no later than A','sky'],
+           [4,'The rest all start after A ends','So they also start after B ends: no conflict, same count','mint'],
+           [5,'Keeping B first never loses; repeat for the rest','No step loses, so the total is the most','amber']]),
+  say:[
+  'An optimal choice is a way of keeping intervals that keeps the most. A swap replaces one interval in the choice with another.',
+  'The question for this scene: why does keeping the earliest end first always keep the most?',
+  'Take any optimal choice, and look at its earliest interval in time. Call it A.',
+  'Swap A for the interval that ends earliest among all of them. Call it B. B ends no later than A.',
+  'Every other interval in the choice starts after A ends, so each one also starts after B ends. After the swap there is no conflict, and the count is the same, so it is still optimal.',
+  'So keeping B first never loses. Drop the intervals that conflict with B, and what remains is the same problem, so apply the same argument again. No step loses, so what we keep in the end is the most.'
+]});
+
+/* ===== 6 Walk through ===== */
+add({ch:6, title:'Walk through: <em>end keeps moving right</em>', vis:
+  gloss(0,[['green','kept'],['red dashes','removed'],['orange box','the interval being checked'],['orange line','the current end']])
+  + duo(tl({bars:EXS, T:5, mark:[[3,0,'keep'],[4,1,'keep'],[5,2,'drop'],[6,3,'keep']], ring:[[3,0],[4,1],[5,2],[6,3]], endl:[[3,2],[4,3],[5,3],[6,4]],
+      st:[[2,'sorted by end&nbsp;&nbsp; <b>end = −∞</b>'],[3,'1 ≥ −∞ <em>keep</em>&nbsp;&nbsp; <b>end = 2</b>'],[4,'2 ≥ 2 touch <em>keep</em>&nbsp;&nbsp; <b>end = 3</b>'],[5,'1 &lt; 3 <i>remove</i>&nbsp;&nbsp; <b>end unchanged</b>'],[6,'3 ≥ 3 <em>keep</em>&nbsp;&nbsp; <b>end = 4</b>'],[7,'kept = <em>3</em>&nbsp;&nbsp; removed 4 − 3 = <i>1</i>']]}),
+    q(1,'[[1, 2], [2, 3], [3, 4], [1, 3]] sorted by end time, checked one by one: how many kept, how many removed?')
+    + cards([[7,'Keep 3, remove 1 → 1','Only [1, 3] is removed','mint']])),
+  say:[
+  'Green means kept, red dashes mean removed, the orange box is the interval being checked, and the orange line is the current end.',
+  'The question for this scene: with these four intervals sorted by end time and checked one by one, how many do we keep, and how many do we remove?',
+  'Sorted by end time, the order is 1 to 2, 2 to 3, 1 to 3, 3 to 4. At the start we have kept nothing, so end is negative infinity.',
+  'Check 1 to 2: its start, 1, is greater than or equal to negative infinity. Keep it, and end becomes 2.',
+  'Check 2 to 3: its start, 2, is greater than or equal to the end of 2. It only touches, so keep it, and end becomes 3.',
+  'Check 1 to 3: its start, 1, is less than 3, so it overlaps what we kept. Remove it. end stays at 3.',
+  'Check 3 to 4: 3 is greater than or equal to 3, another touch. Keep it, and end becomes 4.',
+  'We kept 3 in total, and removed 4 minus 3, which is 1. The answer is 1, and the one removed is exactly 1 to 3.'
+]});
+
+/* ===== 7 Touching and duplicates ===== */
+add({ch:7, title:'Touching and duplicates: <em>write >=</em>', vis:
+  gloss(0,[['>=','Greater than or equal: a start equal to end can still be kept']])
+  + q(1,'Do touching intervals conflict? What about several identical intervals?')
+  + cards([[2,'[[1, 2], [2, 3]] → 0','2 ≥ 2: touching is no conflict, keep both','mint'],
+           [3,'Writing > is wrong','2 > 2 is false, so [2, 3] gets removed and it returns 1','coral'],
+           [4,'[[1, 2], [1, 2], [1, 2]] → 2','Keep the first, end = 2; the other two have 1 < 2, remove both','sky']]),
+  say:[
+  'Greater than or equal means an interval whose start equals end can still be kept.',
+  'The question for this scene: do touching intervals conflict? And what about several identical intervals?',
+  '1 to 2, then 2 to 3: keep 1 to 2, and end is 2. 2 to 3 starts at 2, and 2 is greater than or equal to 2, so keep it. Both stay, and we remove 0.',
+  'If you write the condition as greater than, 2 greater than 2 is false, so 2 to 3 gets removed and it returns 1, which is wrong. Touching is not overlapping, so always write greater than or equal.',
+  'Three copies of 1 to 2: keep the first one, and end is 2. The other two both start at 1, and 1 is less than 2, so remove both. We remove 2, so the answer is 2.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>sort, then one pass</em>', vis:
+  gloss(0,[['key=lambda x: x[1]','Sort by the second number of each interval, which is its end time'],["float('-inf')",'Negative infinity: smaller than any number']])
+  + term('solution.py',[
+    [2,'o','def eraseOverlapIntervals(intervals):'],
+    [2,'hl','    intervals.sort(key=lambda x: x[1])   # sort by end time'],
+    [3,'o',"    end = float('-inf')                  # when the last kept interval ends"],
+    [3,'o','    kept = 0'],
+    [4,'o','    for s, e in intervals:'],
+    [4,'hl','        if s >= end:                     # no conflict; touching is fine'],
+    [4,'o','            kept += 1'],
+    [4,'o','            end = e'],
+    [5,'hl','    return len(intervals) - kept         # removed = n - kept']])
+  + q(1,'Which earlier scene does each part of the code match?'),
+  say:[
+  'key equals lambda x colon x bracket 1 means we sort by the second number of each interval, which is its end time. float negative infinity is a number smaller than any other number.',
+  'The question for this scene: which earlier scene does each part of the code match?',
+  'The first line sorts by end time. That is the key scene: the interval that ends earliest goes first and gets considered first.',
+  'end starts at negative infinity, meaning nothing is kept yet, so the first interval can always be kept. kept starts counting from 0.',
+  'The loop has just one check: if the start is greater than or equal to end, there is no conflict. Keep it, add 1 to kept, and update end to its end time. Otherwise do nothing, which means it is removed.',
+  'Finally return n minus kept. That is the flip scene: the number removed equals the total minus the number kept.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n log n)','The cost of sorting; the single pass after it is O(n)']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n log n), space O(1)','Sorting is the slowest part; besides sorting, only two variables, end and kept','sky'],
+           [3,'Sorting by start','[[1, 100], [2, 3], [4, 5]] returns 2, but the answer is 1','coral'],
+           [4,'Writing > for touching','[[1, 2], [2, 3]] returns 1, but the answer is 0','coral'],
+           [4,'Returning kept','The problem asks how many to remove: n − kept','coral']]),
+  say:[
+  'Big O of n log n is the cost of sorting. After sorting, we scan just once, which is big O of n.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to go wrong?',
+  'Time is big O of n log n, because sorting is the slowest part. Space is big O of 1: besides the sort itself, we only use two variables, end and kept.',
+  'Pitfall one: sorting by start time. 1 to 100, 2 to 3, 4 to 5 returns 2, but the correct answer is 1.',
+  'Pitfall two: writing greater than for touching. 1 to 2 and 2 to 3 returns 1, but the correct answer is 0. Pitfall three: returning kept. The problem asks how many to remove, so return n minus kept.'
+]});
+
+/* ===== 10 Interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, and write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why sort by end time and not by start time?"')
+  + flow([[2,'Flip it','remove fewest = keep most'],[3,'Sort','by end time'],[3,'Scan','keep if s >= end'],[4,'Answer','n − kept'],[4,'Complexity','O(n log n)']])
+  + chips(4,['interval scheduling','greedy','sort by end time','exchange argument','touching is not overlapping','452 Minimum Arrows']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why sort by end time and not by start time?',
+  'First explain the method: removing the fewest equals keeping the most, so the answer is n minus kept. I sort by end time and scan from left to right. If a start is greater than or equal to the current end, I keep it and update end.',
+  'Then explain why: an interval that starts early can run very long, like 1 to 100, and block everything after it. The interval that ends earliest leaves the most free time for the rest. The first interval of any optimal choice can be swapped for it without conflict, so keeping it first never loses.',
+  'Complexity is big O of n log n. The English keywords are interval scheduling and exchange argument. Problem 452, Minimum Number of Arrows to Burst Balloons, uses the same pattern.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Flip it','remove fewest = keep most'],[0,'Sort','by end time'],[0,'Scan','keep if s >= end'],[0,'Answer','n − kept']])
+  + cards([[1,'① Remove the fewest = keep the most','The answer is n − kept','amber'],
+           [2,'② Sort by end, keep the earliest-ending meeting first','It leaves the most free time; sorting by start gets trapped by [1, 100]','sky'],
+           [3,'③ Touching is not overlapping: s >= end','[[1, 2], [2, 3]] → 0','mint']]),
+  say:[
+  'One more pass through the main line: flip removing the fewest into keeping the most; sort by end time; keep an interval when its start is greater than or equal to end; and finally return n minus kept.',
+  'First: removing the fewest is keeping the most, and the answer is n minus kept.',
+  'Second: sort by end time, and always keep the meeting that ends earliest first, because it leaves the most free time for the rest. Sorting by start time gets trapped by a long meeting like 1 to 100.',
+  'Third: touching is not overlapping, so the condition is start greater than or equal to end. For 1 to 2 and 2 to 3, you do not remove anything.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/8ba61571efe1.mp3", "0-1": "a/5f5143bac246.mp3", "0-2": "a/37bf377d0d72.mp3", "0-3": "a/3867b00824fb.mp3", "1-0": "a/d7b758e10935.mp3", "1-1": "a/c481993e31e0.mp3", "1-2": "a/62d3b6192823.mp3", "1-3": "a/b741e9713a9c.mp3", "1-4": "a/9e24dd34f866.mp3", "2-0": "a/db7ee80ad007.mp3", "2-1": "a/93cc0512087b.mp3", "2-2": "a/3a2ca0cde8a8.mp3", "2-3": "a/6339a60594b4.mp3", "2-4": "a/86682e7c18db.mp3", "3-0": "a/21bbd6ced5aa.mp3", "3-1": "a/673ba520ffa9.mp3", "3-2": "a/ae706ee79776.mp3", "3-3": "a/c7cc0adfc0ed.mp3", "3-4": "a/32ebcaf450bb.mp3", "3-5": "a/bfc8e2c48c08.mp3", "3-6": "a/1b538f8c0ece.mp3", "4-0": "a/3a0a4db69b7f.mp3", "4-1": "a/04ac1c54064d.mp3", "4-2": "a/4f79774bd35f.mp3", "4-3": "a/6cb3012c040f.mp3", "4-4": "a/128564828d7d.mp3", "4-5": "a/fa5667af2e7d.mp3", "5-0": "a/e39bc84e436a.mp3", "5-1": "a/ff29e262935c.mp3", "5-2": "a/5eb4571713a4.mp3", "5-3": "a/d123697fa0ad.mp3", "5-4": "a/4d811b3e9152.mp3", "5-5": "a/58db3ed01be9.mp3", "6-0": "a/363a617d8922.mp3", "6-1": "a/b8c199a980d1.mp3", "6-2": "a/d82a6be9e4fb.mp3", "6-3": "a/76018c8bb47b.mp3", "6-4": "a/f51585820c70.mp3", "6-5": "a/1aeccb628077.mp3", "6-6": "a/c110a6057eaa.mp3", "6-7": "a/2124b9524cca.mp3", "7-0": "a/a8fe82d7279c.mp3", "7-1": "a/6a10e90881bf.mp3", "7-2": "a/e3a1383a6036.mp3", "7-3": "a/9e3f77c1468a.mp3", "7-4": "a/8f320bc3b5a6.mp3", "8-0": "a/8d3f1900edc8.mp3", "8-1": "a/65caef4c7586.mp3", "8-2": "a/40dd5a47415d.mp3", "8-3": "a/767a0298609e.mp3", "8-4": "a/5b563d8c2e48.mp3", "8-5": "a/e2fc75f2b827.mp3", "9-0": "a/6502fe8ddaf4.mp3", "9-1": "a/8bac07fdf8f7.mp3", "9-2": "a/9d216d35c989.mp3", "9-3": "a/a64f6e0ecf04.mp3", "9-4": "a/764a3738a6d6.mp3", "10-0": "a/7ff80f442c9c.mp3", "10-1": "a/d1de04c1ab4e.mp3", "10-2": "a/8ccb961a9e6e.mp3", "10-3": "a/3a91c5b87358.mp3", "10-4": "a/d7b795623138.mp3", "11-0": "a/e2d959226071.mp3", "11-1": "a/4ebb894b08a7.mp3", "11-2": "a/b74f7f8ae6d4.mp3", "11-3": "a/77f0a167174a.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

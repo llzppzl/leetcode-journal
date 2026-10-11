@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>连成一串</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'连成一串', template:'prep', sub:'LeetCode 128 Longest Consecutive Sequence · 算法动画', key:'lc128vid', doc:'LeetCode 128 题', blurb:'排序太慢，"每个数都往上数"又会重复数；只从一段的起点开始数（x − 1 不在集合里），每个数就只被数一次，O(n)。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：散落的数字','读题：数值挨着就算','直觉一：先排序','哈希集合：一步查到','直觉二：每个数往上数','关键：只从起点数','为什么是 O(n)','走一遍：[100, 4, 200, 1, 3, 2]','重复的数：遍历集合','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a strip of numbers: tag above (start / skip), green tint = walked over, amber ring = current x ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ls{display:grid;gap:4px;justify-content:center;margin:0 auto .3em}
+.ls>.tg{position:relative;height:1.4em;font-family:var(--f-mono);font-size:.72em;text-align:center;white-space:nowrap}
+.ls>.tg .s{position:absolute;left:-1em;right:-1em;transform:none}
+.ls>.tg .s:not(.on){opacity:0}
+.ls .st{color:var(--amber)} .ls .sk{color:var(--dim)} .ls .du{color:var(--coral)}
+.ls>.v{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.ls>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.15em}
+.ls .tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(98,224,180,.35);transform:none}
+.ls .tint.s:not(.on){opacity:0}
+.ls .bad.s{position:absolute;inset:0;border-radius:7px;background:rgba(255,122,107,.4);transform:none}
+.ls .bad.s:not(.on){opacity:0}
+.ls i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.ls i.ring.s.now{opacity:1!important}
+.lrow{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-bottom:.4em}
+.lrow .s{position:absolute;left:0;right:0}
+.lrow .only.s{opacity:0!important} .lrow .only.s.now{opacity:1!important}
+.lrow b{color:var(--amber)} .lrow em{font-style:normal;color:var(--mint)}
+.lcap{font-size:.8em;color:var(--dim);text-align:center;margin:.2em 0}
+.tri{display:grid;grid-template-columns:3.6em repeat(5,minmax(0,2.2em)) 3.4em;gap:4px;justify-content:center;margin:0 auto;font-family:var(--f-mono)}
+.tri>.r{display:contents}
+.tri .r.s:not(.on)>*{opacity:0}
+.tri .lb{color:var(--dim);font-size:.78em;align-self:center;text-align:right}
+.tri .c{height:1.9em;border-radius:6px;display:grid;place-items:center}
+.tri .c.f{background:rgba(98,224,180,.3);border:1px solid var(--mint)}
+.tri .n{color:var(--amber);font-size:.8em;align-self:center}
+</style>`;
+// o: {tag:{k:[step,text,cls]}, tint:{k:step}, bad:{k:step}, ring:[[step,k]], info:[[step,html]], cap}
+function ls(vals, o={}){
+  const n = vals.length;
+  let h = LCSS + (o.cap?`<div class="lcap">${o.cap}</div>`:'') + `<div class="ls" style="grid-template-columns:repeat(${n},minmax(0,2.6em))">`;
+  h += vals.map((_,k)=>{ const t=(o.tag||{})[k]; return `<div class="tg">${t?`<span class="s ${t[2]||''}" data-s="${t[0]}">${t[1]}</span>`:''}</div>`; }).join('');
+  h += vals.map((v,k)=>`<div class="v"><b>${v}</b>${(o.tint||{})[k]!=null?`<i class="tint s" data-s="${o.tint[k]}"></i>`:''}${(o.bad||{})[k]!=null?`<i class="bad s" data-s="${o.bad[k]}"></i>`:''}${(o.ring||[]).filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  h += `</div>`;
+  if(o.info) h += `<div class="lrow">${o.info.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// rows: [[step, start]] on 1..5, each row walks start..5
+function tri(rows){
+  let h = LCSS + `<div class="tri">`;
+  rows.forEach(([st,a])=>{
+    h += `<div class="r s" data-s="${st}"><span class="lb">从 ${a}</span>`;
+    for(let v=1; v<=5; v++) h += `<span class="c ${v>=a?'f':''}">${v>=a?v:''}</span>`;
+    h += `<span class="n">${6-a} 次</span></div>`;
+  });
+  return h + `</div>`;
+}
+const EX = [100,4,200,1,3,2];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'连成一串<br><em>LeetCode 128</em>', vis:
+  gloss(0,[['连续序列','数值一个挨一个、每次加一的一串数，比如 1, 2, 3, 4'],['哈希集合 set','能一步查出"某个数在不在"的容器'],['起点','一串连续数里最小的那个：它的前一个数 x − 1 不在']])
+  + flow([[1,'读题','数值挨着就算'],[1,'排序','O(n log n)，太慢'],[2,'往上数','会重复数，O(n²)'],[2,'只从起点数','x − 1 不在'],[3,'走一遍','[100, 4, 200, 1, 3, 2]'],[3,'代码','遍历集合，O(n)']]),
+  say:[
+  '这节课讲力扣 128 题，最长连续序列。先认三个词：连续序列，就是数值一个挨一个、每次加一的一串数。哈希集合，是能一步查出某个数在不在的容器。起点，就是一串连续数里最小的那个，它的前一个数不在。',
+  '我们先试两个最自然的想法：先排序，太慢；从每个数往上数，又会把同一串数重复数很多遍。',
+  '关键的一招只有一句：只从起点开始往上数。这样每个数只被数一次，就是 O n。',
+  '然后在 100、4、200、1、3、2 上完整走一遍，再看带重复数字的例子，最后写代码。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>数值挨着就算</em>', vis:
+  gloss(0,[['长度','这一串里有几个数'],['未排序','数组里的数是乱序的，位置不代表大小']])
+  + duo(ls(EX,{tint:{3:2,4:2,5:2,1:2}}),
+    q(1,'nums = [100, 4, 200, 1, 3, 2]，最长的连续序列有多长？')
+    + cards([[2,'1, 2, 3, 4 → 长度 4','它们在数组里不挨着也没关系：只看数值','mint'],
+             [3,'100、200 各自一串，长度 1','99、101、199、201 都不在','sky']])),
+  say:[
+  '长度，就是这一串里有几个数。未排序，是说数组里的数是乱序的，位置不代表大小。',
+  '这一幕要回答的是：100、4、200、1、3、2，最长的连续序列有多长？',
+  '答案是 4：1、2、3、4 连成一串。它们在数组里东一个西一个，不挨着也没关系，只看数值是不是挨着。',
+  '100 和 200 各自单独一串，长度都是一，因为 99、101、199、201 都不在数组里。'
+]});
+
+/* ===== 2 直觉一：排序 ===== */
+add({ch:2, title:'直觉一：<em>先排序</em>', vis:
+  gloss(0,[['O(n)','步数跟数的个数 n 成正比'],['O(n log n)','排序要的步数：比 O(n) 多一个 log n 的倍数']])
+  + duo(ls([1,2,3,4,100,200],{tint:{0:3,1:3,2:3,3:3},tag:{0:[3,'1','st'],1:[3,'2','st'],2:[3,'3','st'],3:[3,'4','st'],4:[3,'1','sk'],5:[3,'1','sk']},cap:'排序以后'}),
+    q(1,'先排序，再从左往右数，行不行？')
+    + cards([[2,'排好：1, 2, 3, 4, 100, 200','连续的数现在真的挨在一起了','sky'],
+             [3,'扫一遍：差 1 就接上','4 到 100 断开，重新从 1 数；最长 4','sky'],
+             [4,'答案对，但太慢','排序本身 O(n log n)；题目要求 O(n)','coral']])),
+  say:[
+  'O n 的意思是，步数跟数的个数 n 成正比。O n log n 是排序要的步数，比 O n 多乘了一个 log n。',
+  '这一幕要回答的是：先排序，再从左往右数，行不行？',
+  '排好以后是 1、2、3、4、100、200。连续的数，现在真的挨在一起了。',
+  '从左往右扫，跟前一个差一就接上，长度加一；4 到 100 断开了，重新从一数。最长是 4。',
+  '答案是对的，可是排序本身就要 O n log n。题目明确要求 O n，所以排序这一步就超了。我们需要一种不排序、也能知道下一个数在不在的办法。'
+]});
+
+/* ===== 3 哈希集合 ===== */
+add({ch:3, title:'哈希集合：<em>一步查到在不在</em>', vis:
+  gloss(0,[['哈希函数','把一个数算成一个格子编号的公式'],['O(1)','不管有多少个数，都是固定几步']])
+  + q(1,'不排序，怎么一步知道 "x + 1 在不在"？')
+  + cards([[2,'在列表里找：一个个看','最坏把 n 个数全看一遍，O(n)','coral'],
+           [3,'放进集合：先算格子号','存 x 时用哈希函数算出格子号，放进去；查 x 时算同一个号，直接去那一格看','sky'],
+           [4,'查一次 O(1)，建集合 O(n)','set(nums) 把 n 个数各放一次；重复的数只留一个','mint']]),
+  say:[
+  '哈希函数，就是把一个数算成一个格子编号的公式。O 一的意思是，不管有多少个数，都是固定几步。',
+  '这一幕要回答的是：不排序，怎么一步就知道 x 加一在不在？',
+  '如果在列表里找，只能一个个看过去，最坏要把 n 个数全看一遍，这是 O n。每次都这样查，就太慢了。',
+  '集合的做法像储物柜：存 x 的时候，用哈希函数算出一个格子号，放进那一格；查 x 的时候，算出同一个格子号，直接去那一格看，不用从头翻。',
+  '所以查一次在不在是 O 一。建集合要把 n 个数各放一次，是 O n。还有一个附送的好处：重复的数，集合里只留一个。'
+]});
+
+/* ===== 4 直觉二：每个数往上数 ===== */
+add({ch:4, title:'直觉二：<em>每个数都往上数</em>', vis:
+  gloss(0,[['往上数','从 x 开始，查 x + 1、x + 2…… 在不在，一直数到断开'],['O(n²)','n 乘 n 量级的步数：n 翻倍，步数翻四倍']])
+  + duo(tri([[2,1],[3,2],[4,3],[4,4],[4,5]]),
+    q(1,'有了集合，从每个数出发往上数，最后取最长。[1, 2, 3, 4, 5] 要数多少次？')
+    + cards([[5,'5 + 4 + 3 + 2 + 1 = 15 次','同一串数，被从每个位置重新数了一遍','coral'],
+             [6,'n 个数 → n(n + 1) / 2 → O(n²)','10 万个连续的数，要数 50 亿次','coral']])),
+  say:[
+  '往上数，就是从 x 开始，查 x 加一、x 加二在不在，一直数到断开。O n 平方，是 n 乘 n 量级的步数，n 翻一倍，步数翻四倍。',
+  '这一幕要回答的是：有了集合，从每个数出发往上数，最后取最长的。1、2、3、4、5 要数多少次？',
+  '从 1 出发，数到 1、2、3、4、5，数了五次，长度 5，已经是答案了。',
+  '可是程序不知道，接着从 2 出发，又把 2、3、4、5 数了四次。',
+  '从 3、4、5 出发，再分别数三次、两次、一次。',
+  '一共五加四加三加二加一，十五次。同一串数，被从每个位置重新数了一遍，这就是浪费的地方。',
+  'n 个数就是 n 乘 n 加一除以二次，也就是 O n 平方。10 万个连续的数，要数 50 亿次，一定超时。'
+]});
+
+/* ===== 5 关键：只从起点数 ===== */
+add({ch:5, title:'关键：<em>只从起点开始数</em>', vis:
+  gloss(0,[['起点','x − 1 不在集合里的 x：没有人排在它前面']])
+  + duo(ls([1,2,3,4,5],{tag:{0:[2,'起点','st'],1:[3,'跳过','sk'],2:[3,'跳过','sk'],3:[3,'跳过','sk'],4:[3,'跳过','sk']},tint:{0:2,1:2,2:2,3:2,4:2},ring:[[2,0],[3,1],[3,2],[3,3],[3,4]]}),
+    q(1,'上一幕从 2 出发的那四次，为什么一定是白数的？')
+    + cards([[2,'1：0 不在 → 起点，往上数','1, 2, 3, 4, 5，长度 5','mint'],
+             [3,'2：1 在 → 跳过','从 1 数一定比从 2 数更长；3、4、5 同理','sky'],
+             [4,'只数 5 次，不是 15 次','规则：x − 1 不在，才从 x 开始数','amber']])),
+  say:[
+  '起点，就是 x 减一不在集合里的那个 x，没有人排在它前面。',
+  '这一幕要回答的是：上一幕从 2 出发数的那四次，为什么一定是白数的？',
+  '先看 1：查 0 在不在，不在，说明 1 是起点。从它往上数，1、2、3、4、5，长度 5。',
+  '再看 2：查 1 在不在，在。那从 1 开始数，一定比从 2 开始数更长，而且会把 2 也数进去。所以 2 直接跳过。3、4、5 的前一个数也都在，全部跳过。',
+  '这样只数了五次，不是十五次。规则就一句：x 减一不在集合里，才从 x 开始往上数。'
+]});
+
+/* ===== 6 为什么是 O(n) ===== */
+add({ch:6, title:'为什么是 <em>O(n)</em>', vis:
+  gloss(0,[['一段','一串连续的数，往前往后都接不上了'],['摊还','不看某一次循环多长，看所有循环加起来一共多少步']])
+  + duo(ls([1,2,3,4,100,200],{tag:{0:[2,'起点','st'],4:[2,'起点','st'],5:[2,'起点','st']},tint:{0:3,1:3,2:3,3:3,4:3,5:3},cap:'按大小排开，方便看'}),
+    q(1,'for 循环里套了一个 while 循环，为什么不是 O(n²)？')
+    + cards([[2,'每个数只属于一段','每段只有一个起点：1、100、200','sky'],
+             [3,'只有起点会往上数','每个数只被它那段的起点数到一次：4 + 1 + 1 = 6','mint'],
+             [4,'总步数 ≤ 2n → O(n)','每个数查一次 x − 1，再被往上数一次','amber']])),
+  say:[
+  '一段，就是一串连续的数，往前往后都接不上了。摊还的意思是，不看某一次循环有多长，看所有循环加起来一共多少步。',
+  '这一幕要回答的是：for 循环里面套了一个 while 循环，为什么不是 O n 平方？',
+  '先看分段：每个数只属于一段，每段只有一个起点。这里三段，起点是 1、100、200。',
+  '只有起点会往上数，而且只数自己那一段。所以每个数只会被它那段的起点数到一次：四加一加一，正好六次，就是数的个数。',
+  '再加上每个数都要查一次 x 减一在不在，总步数不超过两倍的 n。单看某一次 while 可能很长，但所有 while 加起来只有 n 步，所以是 O n。'
+]});
+
+/* ===== 7 走一遍 ===== */
+add({ch:7, title:'走一遍：<em>[100, 4, 200, 1, 3, 2]</em>', vis:
+  gloss(0,[['橙框','正在看的 x'],['绿色','被往上数到的数'],['best','目前找到的最长长度']])
+  + duo(ls(EX,{
+      tag:{0:[2,'起点','st'],1:[3,'跳过','sk'],2:[4,'起点','st'],3:[5,'起点','st'],4:[6,'跳过','sk'],5:[6,'跳过','sk']},
+      tint:{0:2,2:4,3:5,5:5,4:5,1:5},
+      ring:[[2,0],[3,1],[4,2],[5,3],[6,4],[6,5]],
+      info:[[2,'99 不在 → 数 <em>100</em>，长 1　best = <b>1</b>'],
+            [3,'3 在 → 跳过　best = <b>1</b>'],
+            [4,'199 不在 → 数 <em>200</em>，长 1　best = <b>1</b>'],
+            [5,'0 不在 → <em>1→2→3→4</em>，长 4　best = <b>4</b>'],
+            [6,'2 在，1 在 → 都跳过　best = <b>4</b>'],
+            [7,'答案 best = <b>4</b>']]}),
+    q(1,'每个数先问"x − 1 在不在"。哪些是起点？最后 best 是多少？')
+    + cards([[7,'起点只有 100、200、1 → 答案 4','往上数一共 6 次，每个数一次','mint']])),
+  say:[
+  '橙框是正在看的 x，绿色是被往上数到的数，best 是目前找到的最长长度。集合遍历的顺序不固定，这里按原数组的顺序看，结果一样。',
+  '这一幕要回答的是：每个数先问 x 减一在不在，哪些是起点？最后 best 是多少？',
+  '看 100：99 不在，是起点。往上查 101，不在，长度 1，best 变成 1。',
+  '看 4：3 在集合里，4 不是起点，跳过，什么都不数。',
+  '看 200：199 不在，是起点。201 不在，长度 1，best 还是 1。',
+  '看 1：0 不在，是起点。往上查 2 在、3 在、4 在、5 不在，一路数到 4，长度 4，best 变成 4。注意 2、3、4 在数组里分散各处，集合一步就能查到。',
+  '看 3 和 2：前一个数 2 和 1 都在，全部跳过。',
+  '起点只有 100、200、1 三个，往上数一共六次，每个数正好一次。答案是 4。'
+]});
+
+/* ===== 8 重复的数 ===== */
+add({ch:8, title:'重复的数：<em>遍历集合，不遍历列表</em>', vis:
+  gloss(0,[['重复','同一个数在数组里出现不止一次'],['遍历','用 for 把一个容器里的东西一个个拿出来']])
+  + ls([0,3,7,2,5,8,4,6,0,1],{tag:{0:[2,'×2','du'],8:[2,'×2','du']},bad:{0:2,8:2},cap:'列表：10 个数'})
+  + `<div class="s" data-s="3">${ls([0,1,2,3,4,5,6,7,8],{tag:{0:[4,'起点','st']},tint:{0:4,1:4,2:4,3:4,4:4,5:4,6:4,7:4,8:4},cap:'集合：9 个数（按大小排开）'})}</div>`
+  + q(1,'[0, 3, 7, 2, 5, 8, 4, 6, 0, 1] 里 0 出现了两次。for 应该遍历列表，还是遍历集合？')
+  + cards([[5,'遍历列表：0 当两次起点','0 到 8 被完整数两遍；同一个起点重复越多，越接近 O(n²)','coral'],
+           [6,'遍历集合：每个起点只来一次','for x in s，答案 9','mint']]),
+  say:[
+  '重复，是同一个数在数组里出现不止一次。遍历，是用 for 把一个容器里的东西一个个拿出来。',
+  '这一幕要回答的是：0、3、7、2、5、8、4、6、0、1 里面，0 出现了两次。for 应该遍历列表，还是遍历集合？',
+  '先看列表：一共十个数，0 出现了两次。',
+  '放进集合以后，重复的 0 只留一个，剩九个数：0 到 8。',
+  '0 的前一个数，负一，不在，所以 0 是唯一的起点。从 0 一路数到 8，长度 9。其余八个数前面都有人，全部跳过。',
+  '如果 for 遍历的是列表，0 会被当成起点两次，0 到 8 被完整数两遍。同一个起点重复得越多，重复数得越多，最坏又退回 O n 平方。',
+  '所以 for 遍历集合，写成 for x in s。每个起点只来一次，答案是 9。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>一个集合，一个判断</em>', vis:
+  gloss(0,[['s','nums 放进去的集合'],['y','往上数时走到的数，y − x + 1 就是这一段的长度']])
+  + term('solution.py',[
+    [2,'o','def longestConsecutive(nums):'],
+    [2,'hl','    s = set(nums)                  # 查"在不在"只要 O(1)'],
+    [2,'o','    best = 0'],
+    [3,'hl','    for x in s:                    # 遍历集合，重复的数只来一次'],
+    [3,'hl','        if x - 1 not in s:         # x 是一段的起点'],
+    [4,'o','            y = x'],
+    [4,'o','            while y + 1 in s:      # 往上数'],
+    [4,'o','                y += 1'],
+    [4,'o','            best = max(best, y - x + 1)'],
+    [5,'o','    return best']])
+  + q(1,'代码的每一段，对应前面哪一幕？'),
+  say:[
+  's 是把 nums 放进去的集合。y 是往上数时走到的数，y 减 x 加一，就是这一段的长度。',
+  '这一幕要回答的是：代码的每一段，对应前面哪一幕？',
+  '第一段建集合，对应哈希集合那一幕，之后每次查在不在都是 O 一。best 从零开始。',
+  'for 遍历的是集合，对应重复数字那一幕。紧接着的 if，就是关键的一招：x 减一不在，x 才是起点。',
+  '起点才进入 while 往上数：y 加一在，就往前走一步。数完用 y 减 x 加一更新 best。',
+  '最后返回 best。数组是空的时候，集合也是空的，循环一次都不跑，直接返回零。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['空间','程序额外占用的内存']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n)，空间 O(n)','每个数查一次、被数一次；集合存 n 个数','sky'],
+           [3,'忘了起点判断','每个数都往上数，退回 O(n²)，会超时','coral'],
+           [4,'遍历列表，不遍历集合','重复的起点会把同一段数很多遍','coral'],
+           [4,'先排序','答案对，但 O(n log n)，不满足题目要求','coral']]),
+  say:[
+  '空间，是程序额外占用的内存。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n：每个数查一次前一个数，最多再被往上数一次。空间 O n：集合里要存 n 个数。',
+  '坑一：忘了 x 减一不在的判断，每个数都往上数，退回 O n 平方，大数据会超时。',
+  '坑二：for 遍历列表而不是集合，重复的起点会把同一段数很多遍。坑三：先排序，答案对，但是 O n log n，不满足题目要求。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："while 套在 for 里面，凭什么说是 O(n)？"')
+  + flow([[2,'集合','set(nums)，查询 O(1)'],[3,'起点','x − 1 不在才数'],[3,'往上数','while y + 1 in s'],[4,'每个数一次','总步数 ≤ 2n'],[4,'复杂度','O(n) / O(n)']])
+  + chips(4,['hash set','O(1) lookup','start of a sequence','x - 1 not in set','amortized O(n)','iterate the set']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，while 套在 for 里面，凭什么说是 O n？',
+  '先讲做法：排序是 O n log n，不满足要求。我把所有数放进哈希集合，查在不在是 O 一。',
+  '然后只从起点开始往上数，起点就是 x 减一不在集合里的数。不是起点的数直接跳过。',
+  '再讲为什么是 O n：每个数只属于一段，每段只从起点数一次，所以所有 while 加起来只有 n 步。英文关键词是 hash set 和 start of a sequence。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'排序','O(n log n)，太慢'],[0,'集合','查询 O(1)'],[0,'起点','x − 1 不在'],[0,'往上数','每个数一次']])
+  + cards([[1,'① 放进集合，查"在不在"是 O(1)','哈希函数直接算出格子号，不用从头找','amber'],
+           [2,'② 只从起点开始数：x − 1 不在','每个数只被数一次，总共 O(n)','sky'],
+           [3,'③ for 遍历集合，不遍历列表','重复的起点不会重复数','mint']]),
+  say:[
+  '回顾一遍主线：排序太慢；放进集合，查询变成 O 一；只从起点往上数；每个数只被数一次。',
+  '第一句：把数放进哈希集合，查在不在是 O 一，因为哈希函数直接算出格子号，不用从头找。',
+  '第二句：只从起点开始往上数，起点就是 x 减一不在集合里的数。这样每个数只被数一次，总共 O n。',
+  '第三句：for 遍历集合，不遍历列表，重复的起点就不会把同一段数好几遍。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/4c04a3a5c089.mp3", "0-1": "a/e2d03b3184a2.mp3", "0-2": "a/c42c947587b2.mp3", "0-3": "a/0a8f0f4174b1.mp3", "1-0": "a/106aa93ccada.mp3", "1-1": "a/52be73a2dc20.mp3", "1-2": "a/8480647b6002.mp3", "1-3": "a/98bb13f94dcc.mp3", "2-0": "a/568964c5c301.mp3", "2-1": "a/8a825ebfa344.mp3", "2-2": "a/e9d0b6db7bfd.mp3", "2-3": "a/aecb31e8af0f.mp3", "2-4": "a/b7dca6d216ee.mp3", "3-0": "a/64f0bee3d668.mp3", "3-1": "a/bef1d9ce4847.mp3", "3-2": "a/4e45cf8163fe.mp3", "3-3": "a/c3fff6d69081.mp3", "3-4": "a/a9826347cc76.mp3", "4-0": "a/fcc6a33b85b2.mp3", "4-1": "a/7b6be2af77b7.mp3", "4-2": "a/b54573029647.mp3", "4-3": "a/71f4b20b92dd.mp3", "4-4": "a/68c2fc7d41a0.mp3", "4-5": "a/07a79fe2504e.mp3", "4-6": "a/941a466270e0.mp3", "5-0": "a/831398a90a15.mp3", "5-1": "a/9d9db94f9e27.mp3", "5-2": "a/c18a02db6da9.mp3", "5-3": "a/7262c3adcee8.mp3", "5-4": "a/2d26d0e662a7.mp3", "6-0": "a/9ac1025653ab.mp3", "6-1": "a/868c93f6fa6b.mp3", "6-2": "a/4ca1f9f3cfa9.mp3", "6-3": "a/58855724133e.mp3", "6-4": "a/438a1a32e7f2.mp3", "7-0": "a/aa24f8360b08.mp3", "7-1": "a/1c1f1b62732f.mp3", "7-2": "a/a7565b7e905f.mp3", "7-3": "a/33e07487fcb0.mp3", "7-4": "a/fdd179272274.mp3", "7-5": "a/2da6a921aea9.mp3", "7-6": "a/f693020e1e30.mp3", "7-7": "a/5eec18a43660.mp3", "8-0": "a/9edd849cc596.mp3", "8-1": "a/7582070c5b77.mp3", "8-2": "a/6b1e7445ce97.mp3", "8-3": "a/1f0d2966c61c.mp3", "8-4": "a/7482152dadd7.mp3", "8-5": "a/5fb9b8c08710.mp3", "8-6": "a/49538eb013ba.mp3", "9-0": "a/01705c35d533.mp3", "9-1": "a/cc4b84856d96.mp3", "9-2": "a/8d669564c9e1.mp3", "9-3": "a/3461dae2d3f7.mp3", "9-4": "a/c2c0b9fadbf1.mp3", "9-5": "a/15c53fac8b4a.mp3", "10-0": "a/f57de3f00af5.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/7456f7119449.mp3", "10-3": "a/6daecdb14bfb.mp3", "10-4": "a/64eee21c7f8f.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/d64a41642c0f.mp3", "11-2": "a/02e34fea0bff.mp3", "11-3": "a/76bc1f3a1f36.mp3", "11-4": "a/0ae2d34e147d.mp3", "12-0": "a/26c723e22d01.mp3", "12-1": "a/72afcc5e0464.mp3", "12-2": "a/bca2de3dcb40.mp3", "12-3": "a/5fffd08a68b0.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

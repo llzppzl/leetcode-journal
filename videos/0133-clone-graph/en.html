@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Copy a Web of Links</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Copy a Web of Links', template:'prep', lang:'en', sub:'LeetCode 133 Clone Graph · animated walkthrough', key:'lc133envid', doc:'LeetCode 133', blurb:'Start from what a deep copy means, see the two traps of cycles and duplicates, fix both with one old-to-new lookup book, then walk the DFS step by step, write the code, and explain the complexity.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a web of links','The problem: what is a deep copy','What goes wrong with a shallow copy','Two traps: cycles and duplicates','The key: a lookup book','DFS step by step','Write the code','Switch to BFS','Complexity','Common pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- the graph: LeetCode example 1, adjList [[2,4],[1,3],[2,4],[1,3]] ---------- */
+const P = {1:[55,45], 2:[175,45], 3:[175,165], 4:[55,165]};
+const DX = 270;                      // the copy is drawn to the right
+const EDGES = [[1,2],[2,3],[3,4],[4,1]];
+const GCSS = `<style>
+.cg{width:100%;max-width:560px;margin:0 auto;display:block;overflow:visible}
+.cg .s:not(.on){opacity:0}
+.cg .cur{opacity:0} .cg .cur.now{opacity:1}
+.cg line{stroke-width:3;stroke-linecap:round}
+.cg .eo{stroke:var(--sky)} .cg .ec{stroke:var(--mint)} .cg .bad{stroke:var(--coral);stroke-dasharray:7 6} .cg .hot{stroke:var(--amber);stroke-width:5}
+.cg circle{stroke-width:3;fill:var(--term)} .cg .no{stroke:var(--sky)} .cg .nc{stroke:var(--mint)} .cg .nx{stroke:var(--coral)}
+.cg .ring{fill:none;stroke:var(--amber);stroke-width:4}
+.cg text{fill:var(--paper);font-family:var(--f-display);font-size:21px;text-anchor:middle;dominant-baseline:central}
+.cg text.lab{font-family:var(--f-body);font-size:14px;fill:var(--dim)}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.book{display:flex;flex-direction:column;gap:6px;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em .8em}
+.book h4{margin:0;font-size:.85em;color:var(--dim);font-weight:500}
+.book .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:1.7em}
+.book .row b{font-family:var(--f-mono);color:var(--mint);min-width:2.2em}
+.book .k{color:var(--amber)}
+.book .k.s:not(.on),.book .nb.s:not(.on){opacity:0}
+.book .nb{font-family:var(--f-mono);font-size:.85em;padding:.05em .45em;border-radius:6px;border:1px solid var(--mint);color:var(--mint)}
+</style>`;
+const xy = (id, copy) => [P[id][0] + (copy ? DX : 0), P[id][1]];
+const wrapS = (s, inner, cls='s') => s==null ? inner : `<g class="${cls}" data-s="${s}">${inner}</g>`;
+const line = (a, b, ca, cb, cls) => { const [x1,y1]=xy(a,ca), [x2,y2]=xy(b,cb); return `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; };
+const node = (id, copy, cls) => { const [x,y]=xy(id,copy); return `<circle class="${cls}" cx="${x}" cy="${y}" r="21"/><text x="${x}" y="${y}">${id}${copy?"'":''}</text>`; };
+// o: {orig, cn:{id:step}, ce:[[a,b,step]], extra:[[step,svg]], cur:[[step,id]], right}
+function g(o={}){
+  let h = GCSS + `<svg class="cg" viewBox="0 0 500 228" role="img" aria-label="The original graph and the copy">`;
+  if(o.orig!==false){
+    EDGES.forEach(([a,b])=>h+=line(a,b,0,0,'eo'));
+    h += `<text class="lab" x="115" y="212">Original (given)</text>`;
+  }
+  (o.ce||[]).forEach(([a,b,s])=>h+=wrapS(s,line(a,b,1,1,'ec')));
+  (o.extra||[]).forEach(([s,svg])=>h+=wrapS(s,svg));
+  if(o.orig!==false) [1,2,3,4].forEach(id=>h+=node(id,0,'no'));
+  Object.entries(o.cn||{}).forEach(([id,s])=>h+=wrapS(s,node(+id,1,'nc')));
+  (o.cur||[]).forEach(([s,id])=>{ const [x,y]=xy(id,0); h+=`<circle class="ring cur s" data-s="${s}" cx="${x}" cy="${y}" r="28"/>`; });
+  if(o.right!==false) h += `<text class="lab" x="${115+DX}" y="212">${o.right||'Copy (we build)'}</text>`;
+  return h + `</svg>`;
+}
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* DFS events on the example, numbered 1..8 across two scenes */
+const EV = {
+  node:{1:1, 2:2, 3:4, 4:5},
+  edge:[[1,2,3],[2,3,5],[3,4,6],[4,1,6]],
+  nbs:{1:[[2,7],[4,8]], 2:[[1,3],[3,7]], 3:[[2,5],[4,7]], 4:[[1,6],[3,6]]},
+  cur:[[1,1],[2,2],[3,2],[4,3],[5,4],[6,4],[7,2],[8,1]]
+};
+// map global event number -> local step: events <= off show at step 0, later ones start at step 2
+function walk(off, upto=8){
+  const L = e => e<=off ? 0 : e-off+1;
+  const keep = e => e<=upto;
+  const cn = {}; Object.entries(EV.node).forEach(([id,e])=>{ if(keep(e)) cn[id]=L(e); });
+  const svg = g({cn, ce:EV.edge.filter(([,,e])=>keep(e)).map(([a,b,e])=>[a,b,L(e)]), cur:EV.cur.filter(([e])=>e>off&&keep(e)).map(([e,id])=>[L(e),id])});
+  const book = `<div class="book"><h4>Lookup book old2new (old → new)</h4><div class="row">${
+    Object.entries(EV.node).filter(([,e])=>keep(e)).map(([id,e])=>`<span class="k s" data-s="${L(e)}">${id} → ${id}'</span>`).join('')}</div>
+    <h4>Neighbor lists of the new nodes</h4>${[1,2,3,4].map(id=>`<div class="row"><b>${id}'</b>${EV.nbs[id].filter(([,e])=>keep(e)).map(([n,e])=>`<span class="nb s" data-s="${L(e)}">${n}'</span>`).join('')}</div>`).join('')}</div>`;
+  return duo(svg, book);
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Copy a Web of Links<br><em>LeetCode 133</em>', vis:
+  gloss(0,[['graph','a set of points and the lines that connect them, like a network of friends'],['node','one point in the graph'],['edge','a line that connects two nodes'],['neighbors','the nodes directly connected to a given node']])
+  + flow([[1,'Read','deep copy'],[1,'Two traps','cycles, duplicates'],[2,'Lookup book','old → new'],[2,'DFS','step by step'],[3,'Code','DFS and BFS'],[3,'Complexity','O(V+E)']]),
+  say:[
+  'This lesson covers LeetCode 133, Clone Graph. First, four words: a graph is a set of points and the lines that connect them, like a network of friends. Each point is a node, each line is an edge, and the nodes directly connected to a node are its neighbors.',
+  'Here is the plan. First we pin down what the deep copy in this problem means, then we look at two traps: the graph has cycles, and several paths can lead to the same node.',
+  'Then we use one lookup book, from old nodes to new nodes, to fix both traps at once, and we walk through the example step by step.',
+  'Finally we write both the DFS and the BFS code, and explain the complexity, the common pitfalls, and what to say in an interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'You get one node, <em>you return a whole new graph</em>', vis:
+  gloss(0,[['Node class','each node holds two things: val is its number, neighbors is its list of neighbors'],['reference','the "street address" of an object; holding it lets you find that object'],['deep copy','rebuild everything you can reach, all of it, from scratch']])
+  + duo(g({cn:{1:2,2:2,3:2,4:2}, ce:[[1,2,2],[2,3,2],[3,4,2],[4,1,2]]}),
+    q(1,'The problem gives you only a reference to node 1. What must you return?')
+    + cards([[2,'A brand-new graph','The exact same shape: 1 connects to 2 and 4, 2 connects to 1 and 3, and so on','mint'],
+             [3,'Every node is newly built','Not a single edge in the new graph may point back into the original','amber']])),
+  say:[
+  'First, what a node looks like. Each node holds two things: val is its number, and neighbors is its list of neighbors. A reference is like the street address of an object. A deep copy means rebuilding everything you can reach, all of it, from scratch.',
+  'The question for this scene: the problem gives you only a reference to node 1. What must you return?',
+  'You return a brand-new graph with the exact same shape as the original. In the example, the original is a square: 1 connects to 2 and 4, 2 connects to 1 and 3, 3 connects to 2 and 4, and 4 connects to 1 and 3.',
+  'The key is that every node must be a newly built object. Every edge in the new graph may only point to new nodes, never back into the original. At the end you return the new node 1, which we call 1 prime.'
+]});
+
+/* ===== 2 What goes wrong with a shallow copy ===== */
+add({ch:2, title:'Copy just one node: <em>why that fails</em>', vis:
+  gloss(0,[['shallow copy','copy only the outer layer; everything inside is still shared with the original'],["1'","read as 1 prime, the copy of node 1"]])
+  + duo(g({cn:{1:2}, extra:[[2,line(1,2,1,0,'bad')],[2,line(1,4,1,0,'bad')]], right:"Only 1' built"}),
+    q(1,"Build a new 1', and reuse the original 2 and 4 as its neighbor list. Does that count as a successful copy?")
+    + cards([[2,'No: the copy points back into the original','The red dashed lines point to 2 and 4, which are still the original nodes','coral'],
+             [3,'The consequence','Changing the copy changes the original; the judge checks and finds the same objects, so the answer is wrong','amber']])),
+  say:[
+  'A shallow copy copies only the outer layer, and everything inside is still shared with the original. 1 prime is the name for the copy of node 1.',
+  'The question for this scene: build a new 1 prime, and reuse the original 2 and 4 as its neighbor list. Does that count as a successful copy?',
+  'No. Look at the red dashed lines. 1 prime is new, but its neighbors are still the original 2 and 4. Take one step from the new graph, and you are back in the old one.',
+  'The consequence: changing the copy changes the original, and when the judge checks, it finds the same objects and marks the answer wrong. So every neighbor must be copied too, and every neighbor of a neighbor, all the way through the whole graph.'
+]});
+
+/* ===== 3 Two traps ===== */
+add({ch:3, title:'Trap one: <em>the graph has cycles</em>', vis:
+  gloss(0,[['cycle','start from a node, follow edges, and end up back at that node'],['recursion','a function calling itself: while copying a node, it calls itself to copy the neighbors'],['stack overflow','too many nested recursive calls, past the limit, and the program crashes']])
+  + duo(g({right:false, extra:[[2,line(1,2,0,0,'hot')]], cur:[[2,1],[3,2],[4,1]]}),
+    q(1,'The most direct recursion: copy 1, then copy its neighbor 2, then copy the neighbors of 2, and so on. What happens?')
+    + cards([[3,'The neighbors of 2 include 1','So it goes back to copy 1 again','coral'],
+             [4,'1 → 2 → 1 → 2 ...','It never stops, and ends in a stack overflow','coral']])),
+  say:[
+  'Some words first. A cycle means you start from a node, follow edges, and end up back where you started. Recursion means a function calls itself: while copying a node, it calls itself to copy the neighbors. A stack overflow is when recursion nests too deep and the program crashes.',
+  'The question for this scene: with the most direct recursion, copy 1, then copy its neighbor 2, then copy the neighbors of 2. What happens?',
+  'Start from 1 and copy it, then move to its neighbor 2 and copy that.',
+  'Who is in the neighbor list of 2? Node 1. This is an undirected graph, so 1 connects to 2, and 2 also connects to 1. So the program goes back and copies 1 again.',
+  'Then it goes to 2 again, then back to 1, and it never stops, until the stack overflows. So we must remember which nodes have already been copied.'
+]});
+
+add({ch:3, title:'Trap two: <em>the same node gets built twice</em>', vis:
+  gloss(0,[['one-to-one','each node in the original has exactly one copy in the new graph, no more, no less']])
+  + duo(g({right:"An extra 3'", cn:{3:3}, extra:[[2,line(2,3,0,0,'hot')+line(4,3,0,0,'hot')],[3,`<circle class="nx" cx="${175+DX}" cy="105" r="21"/><text x="${175+DX}" y="105">3'</text>`]]}),
+    q(1,'The neighbors of 1 are 2 and 4, and both 2 and 4 have 3 as a neighbor. If you reach 3 from both sides and keep no record, how many copies of 3 do you build?')
+    + cards([[2,'Two paths lead to 3','Once through 2, and once again through 4','amber'],
+             [3,"Two copies of 3' get built",'The new graph has 5 nodes, so the shape is wrong','coral'],
+             [4,'The rule: one-to-one','One old node maps to exactly one new node','mint']])),
+  say:[
+  'One-to-one means each node in the original has exactly one copy in the new graph, no more, no less.',
+  'The question for this scene: both 2 and 4 have 3 as a neighbor. If you reach 3 from both sides and keep no record, how many copies of 3 do you build?',
+  'Look at the two orange edges. You can reach 3 from 2, and you can also reach 3 from 4. Two paths lead to the same node.',
+  'If you build a copy every time you arrive, you get two 3 primes. The new graph has five nodes, and the shape is wrong.',
+  'So the rule is clear: one old node maps to exactly one new node. When you reach it again, you take out the copy you already built, instead of building another.'
+]});
+
+/* ===== 4 The lookup book ===== */
+add({ch:4, title:'One <em>"old → new" lookup book</em>', vis:
+  gloss(0,[['hash map (dict)','a Python dictionary: stores a value under a key, and lookups are fast'],['old2new','our lookup book: the key is an old node, the value is its copy']])
+  + q(1,'How does one lookup book, from old nodes to new nodes, fix both traps, cycles and duplicates, at once?')
+  + flow([[2,'Reach a node','check the book first'],[3,'Already recorded','take out the copy, go no further'],[4,'Not recorded','build a new node, record it right away'],[4,'Then the neighbors','each neighbor goes through the same steps']])
+  + cards([[5,'Why record it "right away"','A neighbor will loop back looking for it, and by then it must already be in the book','amber']]),
+  say:[
+  'A hash map in Python is a dictionary. It stores a value under a key, and lookups are fast. Our lookup book is called old2new: the key is an old node, and the value is its copy.',
+  'The question for this scene: how does this lookup book fix both traps, cycles and duplicates, at once?',
+  'The rule is simple: every time you reach a node, check the book first.',
+  'If it is already recorded, take out its copy and go no further. This one rule blocks both traps: a cycle that loops back stops here, and reaching 3 a second time gives you the same 3 prime.',
+  'If it is not recorded, build a new node, write it into the book right away, and only then handle each of its neighbors.',
+  'Why must you record it right away? Because handling the neighbors will loop back to it. For example, copying 2 looks back for 1, and at that moment 1 must already be in the book, or you get an infinite loop again.'
+]});
+
+/* ===== 5 DFS step by step ===== */
+add({ch:5, title:'DFS walkthrough, part one: <em>building deeper and deeper</em>', vis:
+  gloss(0,[['DFS','depth-first search: follow one path to the end, and back up when you get stuck'],['orange ring','the original node the program is working on right now']])
+  + q(1,"Starting from node 1, in what order are the four copies built?")
+  + walk(0, 4),
+  say:[
+  'DFS is depth-first search: follow one path to the end, and back up when you get stuck. The orange ring shows which original node the program is working on right now.',
+  'The question for this scene: starting from node 1, in what order are the four copies built?',
+  'Step one, handle 1. It is not in the book, so build 1 prime and record 1 to 1 prime right away. Then look at the neighbors of 1. The first one is 2.',
+  'Step two, handle 2. It is not recorded either, so build 2 prime and record it. The first neighbor of 2 is 1.',
+  'Step three, look back at 1: it is in the book. Take out 1 prime and put it in the neighbor list of 2 prime. This is exactly where the cycle gets blocked. We do not copy 1 again.',
+  'Step four, the next neighbor of 2 is 3. It is not recorded, so build 3 prime and record it. So far the order is 1, 2, 3, going deeper and deeper.'
+]});
+
+add({ch:5, title:'DFS walkthrough, part two: <em>return and fill in the edges</em>', vis:
+  gloss(0,[['return','the recursive call is done and hands the copy it built back to the level above']])
+  + q(1,'Once all the copies are built, how do the edges that are still missing get filled in?')
+  + walk(4),
+  say:[
+  'Return means the recursive call is done, and it hands the copy it built back to the level that called it.',
+  'The question for this scene: once all the copies are built, how do the edges that are still missing get filled in?',
+  'Step five, handle 3. Its first neighbor, 2, is already recorded, so take out 2 prime and put it in the list of 3 prime. The next neighbor, 4, is not recorded, so build 4 prime and record it. The four copies were built in the order 1, 2, 3, 4.',
+  'Step six, handle 4. Its neighbors 1 and 3 are both recorded, so take out 1 prime and 3 prime and put them in the list of 4 prime. With 4 done, it returns 4 prime to 3.',
+  'Step seven, return all the way up. 3 gets 4 prime and puts it in its own list. 3 prime returns to 2, so the list of 2 prime gets 3 prime. 2 prime returns to 1, so the list of 1 prime gets 2 prime.',
+  'Step eight, 1 has one neighbor left, 4. It is in the book, so take out 4 prime and add it. Four new nodes, each with two neighbors, exactly like the original. Finally, return 1 prime.'
+]});
+
+/* ===== 6 Write the code ===== */
+add({ch:6, title:'DFS code: <em>record first, then visit neighbors</em>', vis:
+  gloss(0,[['None','Python for "nothing at all"; an empty graph is passed in as None'],['append','add one item to the end of a list']])
+  + term('solution.py',[
+    [2,'o','def cloneGraph(node):'],
+    [2,'o','    if not node:'],
+    [2,'o','        return None'],
+    [2,'o','    old2new = {}'],
+    [3,'o','    def dfs(cur):'],
+    [3,'o','        if cur in old2new:'],
+    [3,'o','            return old2new[cur]'],
+    [4,'o','        copy = Node(cur.val)'],
+    [4,'hl','        old2new[cur] = copy      # record first, then visit neighbors'],
+    [5,'o','        for nb in cur.neighbors:'],
+    [5,'o','            copy.neighbors.append(dfs(nb))'],
+    [5,'o','        return copy'],
+    [5,'o','    return dfs(node)']])
+  + q(1,'Look at the highlighted line. Why must old2new[cur] = copy come before the for loop?'),
+  say:[
+  'None is Python for nothing at all. The problem says the graph can be empty, and then None is what gets passed in. append adds one item to the end of a list.',
+  'The question for this scene: why must the line that records the node come before the for loop?',
+  'Start at the top. If the input is empty, return None right away. Then set up an empty lookup book, old2new.',
+  'The first thing the dfs function does is check the book. If this node is already recorded, return its copy right away.',
+  'If not, build a new node with the same value, and record it immediately. That is the answer: the for loop that follows recurses into the neighbors, and a neighbor will loop back looking for this node, so it must already be in the book.',
+  'Finally, call dfs on each neighbor, get the copy of that neighbor, add it to our own neighbor list, and return our copy. The answer to the whole problem is what dfs returns for node 1.'
+]});
+
+/* ===== 7 BFS ===== */
+add({ch:7, title:'The BFS version: <em>copy ring by ring with a queue</em>', vis:
+  gloss(0,[['BFS','breadth-first search: handle the nodes close to the start first, then the farther ones, like ripples spreading out'],['queue (deque)','a container for waiting in line: enter at the back, leave from the front']])
+  + term('solution_bfs.py',[
+    [2,'o','def cloneGraph(node):'],
+    [2,'o','    if not node:'],
+    [2,'o','        return None'],
+    [2,'o','    old2new = {node: Node(node.val)}'],
+    [2,'o','    q = deque([node])'],
+    [2,'o','    while q:'],
+    [2,'o','        cur = q.popleft()'],
+    [2,'o','        for nb in cur.neighbors:'],
+    [3,'hl','            if nb not in old2new:'],
+    [3,'hl','                old2new[nb] = Node(nb.val)'],
+    [3,'hl','                q.append(nb)'],
+    [4,'hl','            old2new[cur].neighbors.append(old2new[nb])'],
+    [4,'o','    return old2new[node]']])
+  + q(1,'In BFS, when do you build a new node? When do you connect an edge?'),
+  say:[
+  'BFS is breadth-first search. It handles the nodes close to the start first, then the farther ones, like ripples spreading out on water. A queue is a container for waiting in line: items enter at the back and leave from the front.',
+  'The question for this scene: in BFS, when do you build a new node? When do you connect an edge?',
+  'At the start, copy the starting node, record it, and put it in the queue. Then keep taking a node from the front of the queue and look at each of its neighbors.',
+  'A new node is built only the first time you see a neighbor. If it is not in the book, build it, record it, and put it in the queue. A node you have already seen never joins the queue again, and that is where both cycles and duplicates get blocked.',
+  'Connecting an edge happens every time. Whether or not the neighbor is new, add its copy to the neighbor list of the current node copy. That is how each edge in the original gets filled in on the new graph, once from each end.'
+]});
+
+/* ===== 8 Complexity ===== */
+add({ch:8, title:'Complexity: <em>each node once, each edge twice</em>', vis:
+  gloss(0,[['V','the number of nodes, short for vertex'],['E','the number of edges, short for edge'],['O(V+E)','the number of steps grows in proportion to the nodes plus the edges']])
+  + q(1,'For a graph with V nodes and E edges, how many steps does one clone take?')
+  + cards([[2,'Each node is built once','The lookup book blocks duplicates, so V times in total','sky'],
+           [3,'Each edge is seen twice','An undirected edge sits in the neighbor lists at both ends, so 2E times in total','sky'],
+           [4,'Time O(V+E), space O(V)','The lookup book stores V nodes; the recursion stack or the queue holds at most V too','mint'],
+           [5,'This problem has at most 100 nodes','Recursion will not get too deep; for a very large graph, BFS is safer','amber']]),
+  say:[
+  'V is the number of nodes, and E is the number of edges. Big O of V plus E means the number of steps grows in proportion to the nodes plus the edges.',
+  'The question for this scene: for a graph with V nodes and E edges, how many steps does one clone take?',
+  'Each node is built only once, because the lookup book blocks duplicates. That is V times in total.',
+  'Each edge is seen twice. Take the undirected edge from 1 to 2: 2 is in the list of 1, and 1 is in the list of 2, so each end sees it once, for two times E in total.',
+  'So the time is big O of V plus E. The space is big O of V: the lookup book stores every node, and the recursion stack or the queue holds at most every node too.',
+  'The problem allows at most one hundred nodes, so the recursion will not get too deep. If the interviewer says the graph is huge, offer on your own to switch to BFS and avoid a stack overflow.'
+]});
+
+/* ===== 9 Common pitfalls ===== */
+add({ch:9, title:'Four <em>common pitfalls</em>', vis:
+  gloss(0,[['empty graph','a graph with no nodes at all; the problem passes in None']])
+  + q(1,'Where are the easiest places to go wrong on this problem?')
+  + cards([[2,'Not handling the empty graph','If None comes in, return None right away','coral'],
+           [3,'Recursing first, recording later','Put the record line after the for loop, and the cycle makes the program loop forever','coral'],
+           [4,'Neighbors pointing back to the old graph','Putting the original nodes in the neighbor list instead of the copies, or just returning node itself','coral'],
+           [5,'What to use as the key','The node object is the most general key; here every val from 1 to 100 is unique, so val works too','amber']]),
+  say:[
+  'An empty graph has no nodes at all, and the problem passes in None.',
+  'The question for this scene: where are the easiest places to go wrong on this problem?',
+  'One, not handling the empty graph. If None comes in, return None right away. Otherwise, reading a field on None throws an error.',
+  'Two, recursing first and recording later. If the record line sits after the for loop, then copying 2 looks back for 1, 1 is not recorded yet, and the program loops forever.',
+  'Three, neighbors pointing back to the old graph. Putting the original nodes in the neighbor list instead of the copies, or simply returning the original node, is a shallow copy, and the judge marks it wrong.',
+  'Four, what to use as the key. The node object itself is the most general key. In this problem every val from 1 to 100 is unique, so val works as the key too, but in an interview, state that assumption out loud.'
+]});
+
+/* ===== 10 How to explain it in an interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','explain the method out loud first, and write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why do you need a hash map?" How do you answer?')
+  + flow([[2,'Deep copy','every node is newly built'],[3,'Two traps','cycles loop forever, many paths build duplicates'],[4,'Lookup book','old → new, record first, then visit neighbors'],[5,'Complexity','O(V+E) time, O(V) space']])
+  + chips(5,['deep copy','hash map old → new','visited','cycle','DFS / BFS','O(V+E)']),
+  say:[
+  'In interviews, the habit is approach first: explain your method out loud, and start coding after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why do you need a hash map?',
+  'First, say that the problem asks for a deep copy. Every node must be newly built, and the new graph must never point back into the old one.',
+  'Then name the two hard parts. The graph has cycles, so direct recursion loops forever. And many paths lead to the same node, so it gets built more than once.',
+  'So I use a hash map from old nodes to new nodes. When I reach a node, I check the map first. If it is there, I use that copy. If not, I build one, record it first, and then copy the neighbors.',
+  'Finally, give the complexity: time is V plus E, space is V, and for a very large graph I use BFS. The key phrases are deep copy, and hash map from old node to new node.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Deep copy','every node is newly built'],[0,'Two traps','cycles, duplicates'],[0,'Lookup book','old → new'],[0,'DFS / BFS','record first, then visit neighbors'],[0,'Complexity','O(V+E)']])
+  + cards([[1,'① Deep copy: not one edge in the new graph points back into the old graph','Copy the neighbors, and the neighbors of the neighbors too','amber'],
+           [2,'② One old2new lookup book fixes both cycles and duplicates','If you have seen it, just take out the copy','sky'],
+           [3,'③ Record first, then visit neighbors','Time O(V+E), space O(V)','mint']]),
+  say:[
+  'Let us review the main thread. The problem wants a deep copy. Direct recursion has two traps, cycles and duplicates. One old to new lookup book fixes both. DFS and BFS both work, and the complexity is V plus E.',
+  'Number one: a deep copy means not one edge in the new graph points back into the old graph. Copy the neighbors, and copy the neighbors of the neighbors too.',
+  'Number two: one old2new lookup book fixes both cycles and duplicates. For a node you have already seen, just take out its copy.',
+  'Number three: record first, then visit neighbors. Get the order backwards and you loop forever. Next time you see a problem like copying a linked list, a tree, or a graph, it is the same pattern.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/0e989ac3ac9b.mp3", "0-1": "a/908e28e1636d.mp3", "0-2": "a/a4678cd302fe.mp3", "0-3": "a/e5a736dd5221.mp3", "1-0": "a/89c1ca405cb4.mp3", "1-1": "a/4303ecc75215.mp3", "1-2": "a/bc9d04144d8d.mp3", "1-3": "a/793604d95b4f.mp3", "2-0": "a/9b652a61cd10.mp3", "2-1": "a/bce37e9e05c3.mp3", "2-2": "a/3d6c2a33dbc7.mp3", "2-3": "a/d60e53cdecec.mp3", "3-0": "a/a9dd0f6a2c34.mp3", "3-1": "a/7f221fbff44f.mp3", "3-2": "a/8e3c4d2d8751.mp3", "3-3": "a/38221a573ebc.mp3", "3-4": "a/54a60122b6b9.mp3", "4-0": "a/fc7048b045ff.mp3", "4-1": "a/fa4c48540b4e.mp3", "4-2": "a/88b8697c965e.mp3", "4-3": "a/dd5ec0cc586c.mp3", "4-4": "a/4cb8a33e9a0d.mp3", "5-0": "a/13ecbd312a15.mp3", "5-1": "a/40e6ed4eed11.mp3", "5-2": "a/b7540d0e375b.mp3", "5-3": "a/bfeb6a92860b.mp3", "5-4": "a/1473a7e0568c.mp3", "5-5": "a/6c027b63392c.mp3", "6-0": "a/07b51d4ce65d.mp3", "6-1": "a/8fac8f2454a5.mp3", "6-2": "a/e9aaf5dba57a.mp3", "6-3": "a/596902fe7cee.mp3", "6-4": "a/5cceda4c4ea7.mp3", "6-5": "a/1a65afc45fd5.mp3", "7-0": "a/92f8aef0fbe3.mp3", "7-1": "a/8a6074315556.mp3", "7-2": "a/4d961dd56351.mp3", "7-3": "a/f88ea83633c5.mp3", "7-4": "a/b6599148a56e.mp3", "7-5": "a/6ca071f8876c.mp3", "8-0": "a/07829db55da2.mp3", "8-1": "a/282f1e8e1467.mp3", "8-2": "a/d06ff18a6f5c.mp3", "8-3": "a/9caa793b4314.mp3", "8-4": "a/f4cd0a569cf3.mp3", "8-5": "a/78415db59727.mp3", "9-0": "a/a5396bf78fa9.mp3", "9-1": "a/bd2890a4bb3f.mp3", "9-2": "a/f7afd88ffa6e.mp3", "9-3": "a/2d4a30e99d7b.mp3", "9-4": "a/4cd0b68e783c.mp3", "10-0": "a/79abb508d72a.mp3", "10-1": "a/495c23a4f236.mp3", "10-2": "a/ae62e38f9f12.mp3", "10-3": "a/acbf9f271ab9.mp3", "10-4": "a/87d1e2d898a3.mp3", "10-5": "a/2f071985c20d.mp3", "11-0": "a/52b20bee2805.mp3", "11-1": "a/b9af573dc23b.mp3", "11-2": "a/963703d1510a.mp3", "11-3": "a/e6220423bdce.mp3", "11-4": "a/c4a78b3b6767.mp3", "11-5": "a/7c86f857014d.mp3", "12-0": "a/53d768691ce9.mp3", "12-1": "a/0dca0516a4a1.mp3", "12-2": "a/1defdeee6f45.mp3", "12-3": "a/271c35579951.mp3", "12-4": "a/f757e579527b.mp3", "12-5": "a/593dee3bcd1c.mp3", "13-0": "a/f08fd401e7cb.mp3", "13-1": "a/ce4b033400a2.mp3", "13-2": "a/dba69122c620.mp3", "13-3": "a/4255cbfb983a.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

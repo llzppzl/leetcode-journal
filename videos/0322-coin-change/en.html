@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fewest Coins</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Fewest Coins', template:'prep', lang:'en', sub:'LeetCode 322 Coin Change · animated walkthrough', key:'lc322envid', doc:'LeetCode 322', blurb:'Try the natural greedy idea first, always take the biggest coin, and break it with coins [1,3,4] making 6; then ask where the last coin came from, get dp[x] = min(dp[x − c] + 1), fill the table cell by cell and write the code.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: making change','The problem: fewest coins','Instinct: biggest coin first','Greedy breaks: [1,3,4] making 6','Where did the last coin come from','The start and infinity','Fill the table: [1,2,5] for 1 to 10','Three candidates for dp[11]','Check three more examples','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- visuals: coin rows and the dp strip ---------- */
+const DCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.crows{display:flex;flex-direction:column;gap:10px}
+.crow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.crow .lb{color:var(--dim);font-size:.82em;min-width:3.6em}
+.crow .coin{display:inline-grid;place-items:center;width:2.1em;height:2.1em;border-radius:50%;border:2px solid var(--amber);color:var(--amber);font-family:var(--f-display);font-size:1.05em;background:rgba(255,184,77,.08)}
+.crow .txt{font-family:var(--f-mono);font-size:.82em;color:var(--dim)}
+.crow .res{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.crow .res.mint{color:var(--mint);border-color:var(--mint)}
+.crow .res.coral{color:var(--coral);border-color:var(--coral)}
+.crows .s:not(.on){opacity:0}
+.strip{display:flex;flex-wrap:wrap;gap:6px 5px;justify-content:center}
+.strip .cl{display:flex;flex-direction:column;align-items:center;gap:3px}
+.strip .ix{font-family:var(--f-mono);font-size:.72em;color:var(--dim)}
+.strip .bx{position:relative;width:2.3em;height:2.3em;border-radius:8px;border:1px solid var(--line);background:var(--term)}
+.strip .bx>b{position:absolute;inset:0;display:grid;place-items:center;border-radius:8px;font-family:var(--f-display);font-weight:400;font-size:1.2em;color:var(--mint);background:var(--term)}
+.strip .bx>b.inf{color:var(--dim)}
+.strip .bx>b.dead{color:var(--coral)}
+.strip .s:not(.on){opacity:0}
+.strip .bx>b.s.now{box-shadow:none}
+.strip i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.strip i.ring.sky{box-shadow:0 0 0 3px var(--sky)}
+.strip i.ring.s.now{opacity:1!important}
+.cap{text-align:center;color:var(--dim);font-size:.82em;margin-bottom:6px}
+</style>`;
+// a row of coins: items [[step, kind('coin'|'txt'|'res'), text, tone]]
+const crow = (label, items) => `<div class="crow"><span class="lb s" data-s="${items[0][0]}">${label}</span>${
+  items.map(([s,k,t,tone])=>`<span class="s ${k} ${tone||''}" data-s="${s}">${t}</span>`).join('')}</div>`;
+const crows = rows => DCSS + `<div class="crows">${rows.join('')}</div>`;
+// dp strip for amounts 0..n. vals [[x, v, step]] (v = Infinity shows a red ∞); infStep: step when every x ≥ 1 first shows a dim ∞; rings [[step, [x...], 'sky'?]]
+function strip(n, vals, infStep=null, rings=[]){
+  let h = DCSS + `<div class="strip">`;
+  for(let x=0;x<=n;x++){
+    let inner = '';
+    if(infStep!=null && x>0) inner += `<b class="inf s" data-s="${infStep}">∞</b>`;
+    vals.filter(v=>v[0]===x).forEach(([,v,s])=>inner += v===Infinity ? `<b class="dead s" data-s="${s}">∞</b>` : `<b class="s" data-s="${s}">${v}</b>`);
+    rings.filter(([,xs])=>xs.includes(x)).forEach(([s,,cls])=>inner += `<i class="ring s ${cls||''}" data-s="${s}"></i>`);
+    h += `<div class="cl"><span class="ix">${x}</span><div class="bx">${inner}</div></div>`;
+  }
+  return h + `</div>`;
+}
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+const capd = (s, t, inner) => `<div class="s" data-s="${s}"><div class="cap">${t}</div>${inner}</div>`;
+const ALL11 = [[0,0],[1,1],[2,1],[3,2],[4,2],[5,1],[6,2],[7,2],[8,3],[9,3],[10,2]];
+
+/* ===== 0 intro ===== */
+add({ch:0, cover:true, title:'Fewest Coins<br><em>LeetCode 322</em>', vis:
+  gloss(0,[['making change','Use the coin types you have to hit an amount exactly; you may use as many of each as you like'],['greedy','At every step, pick whatever looks best right now'],['dp','Dynamic programming table: store answers for small amounts, build the answer for big ones']])
+  + flow([[1,'Problem','[1,2,5] make 11 → 3'],[1,'Greedy','biggest first'],[2,'Counterexample','[1,3,4] make 6'],[2,'Last coin','where from'],[3,'Fill table','dp[0] … dp[11]'],[3,'Code','two loops']]),
+  say:[
+  'This lesson covers LeetCode 322, Coin Change. Three words first. Making change means using the coins you have to hit an amount exactly. Greedy means always picking what looks best right now. And dp is a dynamic programming table: store answers for small amounts, then build the big answer from them.',
+  'Here is the route. First we read the problem, then we try the most natural idea: always take the biggest coin.',
+  'Then we break greedy by hand with coins 1, 3 and 4 making 6. And we ask one key question: where did the last coin come from?',
+  'Finally we fill the table cell by cell for coins 1, 2 and 5 making 11, write the code, and cover complexity, pitfalls, and how to explain it in an interview.'
+]});
+
+/* ===== 1 the problem ===== */
+add({ch:1, title:'The problem: <em>fewest coins</em>', vis:
+  gloss(0,[['coins','The coin values you have; unlimited supply of each'],['amount','The total you need to make'],['−1','What to return when no combination works']])
+  + duo(crows([crow('11 =',[[2,'coin','5'],[2,'coin','5'],[2,'coin','1'],[2,'res','3 coins','mint']])]),
+    q(1,'coins = [1, 2, 5], amount = 11. What is the fewest number of coins?')
+    + cards([[3,'[2] make 3 → −1','Only 2s: every sum is even, so 3 is impossible','coral'],
+             [4,'[1] make 0 → 0','The amount is 0: take no coins at all','sky']])),
+  say:[
+  'coins are the coin values you have, with an unlimited supply of each. amount is the total you need to make. When no combination works, return minus 1.',
+  'The question for this scene: with coins 1, 2 and 5, what is the fewest number of coins that makes 11?',
+  'The answer is 3 coins: 5 plus 5 plus 1. The problem only asks for the count, not which coins.',
+  'Now two edge cases. With only 2s, make 3: every sum is even, so it is impossible, and we return minus 1.',
+  'With only 1s, make 0: take no coins at all, so the answer is 0. The code later handles both without special cases.'
+]});
+
+/* ===== 2 instinct: greedy ===== */
+add({ch:2, title:'Instinct: <em>biggest coin first</em>', vis:
+  gloss(0,[['greedy','Here: always take the biggest coin that does not exceed what is left']])
+  + duo(crows([crow('take 5',[[2,'coin','5'],[2,'txt','6 left']]),
+               crow('take 5',[[3,'coin','5'],[3,'txt','1 left']]),
+               crow('take 1',[[4,'coin','1'],[4,'txt','0 left'],[4,'res','3 coins','mint']])]),
+    q(1,'The natural idea: always take the biggest coin you can. Does it work on [1, 2, 5] making 11?')
+    + cards([[5,'Right this time','But right once is not right always; try other coins','amber']])),
+  say:[
+  'Greedy here means always taking the biggest coin that does not exceed what is left. To use few coins, take big ones first. It sounds very reasonable.',
+  'The question for this scene: does taking the biggest coin each time work on coins 1, 2 and 5 making 11?',
+  '11 left, the biggest we can take is 5. Take it, 6 left.',
+  '6 left, we can still take 5. Take it, 1 left.',
+  '1 left, we can only take 1, and 0 is left. That is 3 coins, the correct answer.',
+  'Right this time. But being right once is not being right always. Let us try other coins by hand.'
+]});
+
+/* ===== 3 greedy breaks ===== */
+add({ch:3, title:'Greedy breaks: <em>[1, 3, 4] making 6</em>', vis:
+  gloss(0,[['counterexample','One concrete input that makes a method fail; one is enough to rule it out']])
+  + duo(crows([crow('greedy',[[2,'coin','4'],[2,'txt','2 left'],[3,'coin','1'],[3,'coin','1'],[3,'res','3 coins','coral']]),
+               crow('better',[[4,'coin','3'],[4,'coin','3'],[4,'res','2 coins','mint']])]),
+    q(1,'Switch to coins [1, 3, 4] and make 6. Is greedy still right?')
+    + cards([[5,'Wrong at the first step','Taking 4 looks like a win, but the 2 left needs two 1s; greedy never takes a coin back','coral'],
+             [6,'Ask a different question','Not "which coin first" but compare every way, without brute-forcing each one','sky']])),
+  say:[
+  'A counterexample is one concrete input that makes a method fail. Finding just one is enough to rule the method out.',
+  'The question for this scene: switch to coins 1, 3 and 4 and make 6. Is greedy still right?',
+  'Greedy takes the biggest coin, 4. 2 is left.',
+  'With 2 left, 3 and 4 are both too big, so it takes 1, then 1 again. 3 coins in total.',
+  'But 3 plus 3 is also 6, and that is only 2 coins. Greedy used one coin too many.',
+  'It went wrong at the first step. Taking 4 looked like the best move, but the 2 left can only be filled with two 1s. Greedy never takes a coin back, so it cannot see the other path.',
+  'So we need a different question. Not which coin to take first, but compare every way to do it, without trying each combination one by one.'
+]});
+
+/* ===== 4 where did the last coin come from ===== */
+add({ch:4, title:'Ask: <em>where did the last coin come from</em>', vis:
+  gloss(0,[['dp[x]','The fewest coins that make amount x'],['Climbing Stairs 70','The last step is either 1 stair or 2; here the last coin can be any coin type']])
+  + q(1,'In the best way to make 6, which coin is the last one? We do not know, so assume each one in turn.')
+  + tbl(['last coin','amount before','coins'],[
+    [2,'1','5','dp[5] + 1'],
+    [3,'3','3','dp[3] + 1'],
+    [3,'4','2','dp[2] + 1']])
+  + cards([[4,'dp[x] = min(dp[x − c] + 1)','c ranges over every coin no bigger than x; take the smallest','mint'],
+           [5,'Why nothing is missed','The best way has a last coin, which is some c; the part before it, making x − c, must also use the fewest coins','sky']]),
+  say:[
+  'dp of x means the fewest coins that make amount x. This is the same question as Climbing Stairs, problem 70: where did the last step come from? There the last step is 1 or 2 stairs; here the last coin can be any coin type.',
+  'The question for this scene: in the best way to make 6, which coin is the last one? We do not know, so we assume each one in turn.',
+  'Suppose the last coin is 1. Remove it, and we need to make 5 before it, which takes at least dp of 5 coins. Add this one coin: dp of 5 plus 1.',
+  'If the last coin is 3, we need to make 3 before it: dp of 3 plus 1. If the last coin is 4, we need to make 2 before it: dp of 2 plus 1.',
+  'The smallest of the three candidates is dp of 6. As a formula: dp of x is the minimum of dp of x minus c, plus 1, where c ranges over every coin no bigger than x.',
+  'Why is nothing missed? The best way always has a last coin, and it is some c. The part before it, making x minus c, must also use the fewest coins. So if we try every c, the answer is among them.'
+]});
+
+/* ===== 5 the start and infinity ===== */
+add({ch:5, title:'Start at <em>dp[0] = 0</em>, fill the rest with <em>∞</em>', vis:
+  gloss(0,[['float(\'inf\')','Infinity in Python: a number bigger than every integer'],['impossible','No combination of coins makes this amount exactly']])
+  + q(1,'What goes in the table at the start? How do we mark an amount we cannot make?')
+  + cards([[2,'dp[0] = 0','Amount 0 takes no coins; every recurrence starts here','mint'],
+           [3,'Everything else starts at ∞','It means "no way found yet"; any real count is smaller, so min replaces it','sky'],
+           [4,'∞ + 1 is still ∞','One more coin on an impossible amount is still impossible; no fake answers','amber'],
+           [5,'Still ∞ at the end → return −1','Translate "impossible" into what the problem wants','coral']]),
+  say:[
+  'float of inf is infinity in Python, a number bigger than every integer. Impossible means no combination of coins makes this amount exactly.',
+  'The question for this scene: what goes in the table at the start? And how do we mark an amount we cannot make?',
+  'First, dp of 0 is 0: amount 0 takes no coins. Every amount eventually traces back here, so it is where the recurrence starts.',
+  'Every other cell starts at infinity, meaning no way found yet. Why not 0? Because we take the minimum, and with 0 the min would always stay 0. With infinity, any real count is smaller and replaces it at once.',
+  'Infinity plus 1 is still infinity. Adding one more coin to an impossible amount is still impossible, so no fake answer can appear.',
+  'When the table is done, if dp of amount is still infinity, the amount really is impossible, and we translate that into minus 1.'
+]});
+
+/* ===== 6 fill 1..10 ===== */
+add({ch:6, title:'Fill the table: <em>[1, 2, 5]</em> for 1 to 10', vis:
+  gloss(0,[['orange box','The cells just filled in this step'],['number above a cell','The amount x; the cell holds dp[x]']])
+  + duo(strip(11,[[0,0,2],[1,1,3],[2,1,3],[3,2,4],[4,2,4],[5,1,5],[6,2,6],[7,2,6],[8,3,7],[9,3,7],[10,2,7]],2,
+              [[3,[1,2]],[4,[3,4]],[5,[5]],[6,[6,7]],[7,[8,9,10]]]),
+    q(1,'Using dp[x] = min(dp[x − c] + 1), fill from left to right. What is dp[10]?')
+    + term('fill log',[
+      [2,'o','dp[0] = 0, the rest ∞'],
+      [3,'o','x=1  1:dp[0]+1=1          → 1'],
+      [3,'o','x=2  1:2  2:dp[0]+1=1     → 1'],
+      [4,'o','x=3  1:2  2:2             → 2'],
+      [4,'o','x=4  1:3  2:2             → 2'],
+      [5,'o','x=5  1:3  2:3  5:dp[0]+1  → 1'],
+      [6,'o','x=6  1:2  2:3  5:2        → 2'],
+      [6,'o','x=7  1:3  2:2  5:2        → 2'],
+      [7,'o','x=8 → 3   x=9 → 3'],
+      [7,'hl','x=10  5:dp[5]+1=2         → 2']])),
+  say:[
+  'The orange box marks the cells just filled in this step. The number above a cell is the amount x, and the cell holds dp of x.',
+  'The question for this scene: using the formula, fill from left to right. What is dp of 10?',
+  'First, dp of 0 is 0, and everything else is infinity.',
+  'For x equals 1, only coin 1 fits: dp of 0 plus 1, which is 1. For x equals 2, coin 1 gives dp of 1 plus 1, which is 2; coin 2 gives dp of 0 plus 1, which is 1. The smaller one is 1.',
+  'For x equals 3, coin 1 and coin 2 both give 2, so dp of 3 is 2. For x equals 4, coin 2 gives dp of 2 plus 1, which is 2, so dp of 4 is 2.',
+  'For x equals 5, coin 5 fits for the first time: dp of 0 plus 1, which is 1. A single 5 is enough.',
+  'For x equals 6, coin 1 gives dp of 5 plus 1, which is 2, and coin 5 also gives 2, so dp of 6 is 2. For x equals 7, coin 2 and coin 5 both give 2, so dp of 7 is 2.',
+  'Continuing the same way, dp of 8 is 3 and dp of 9 is 3. For dp of 10, coin 5 gives dp of 5 plus 1, which is 2: two 5s.'
+]});
+
+/* ===== 7 three candidates for dp[11] ===== */
+add({ch:7, title:'Three candidates for <em>dp[11]</em>', vis:
+  gloss(0,[['candidate','Each coin type gives one plan where it is the last coin; we keep the fewest'],['blue box','The cell this candidate uses']])
+  + duo(strip(11,[...ALL11.map(([x,v])=>[x,v,0]),[11,3,5]],0,
+              [[2,[10],'sky'],[3,[9],'sky'],[4,[6],'sky'],[5,[11]]]),
+    q(1,'dp[11]: with the last coin being 1, 2 or 5, what is each candidate?')
+    + term('dp[11]',[
+      [2,'o','last coin 1: dp[10] + 1 = 3'],
+      [3,'e','last coin 2: dp[9]  + 1 = 4'],
+      [4,'o','last coin 5: dp[6]  + 1 = 3'],
+      [5,'hl','min(3, 4, 3) = 3  → return 3']])),
+  say:[
+  'A candidate is the plan each coin type gives when it is the last coin; at the end we keep the fewest. The blue box marks the cell this candidate uses.',
+  'The question for this scene: for dp of 11, with the last coin being 1, 2 or 5, what is each candidate?',
+  'Last coin 1: we make 10 before it. dp of 10 is 2, plus 1 is 3. That is 5 plus 5 plus 1.',
+  'Last coin 2: we make 9 before it. dp of 9 is 3, plus 1 is 4. This candidate uses one coin more.',
+  'Last coin 5: we make 6 before it. dp of 6 is 2, plus 1 is 3. That is 5 plus 1, then plus 5.',
+  'The candidates are 3, 4 and 3. The minimum is 3, so dp of 11 is 3, the same as we counted at the start. The answer is the last cell.'
+]});
+
+/* ===== 8 check three more examples ===== */
+add({ch:8, title:'Check <em>three more examples</em>', vis:
+  gloss(0,[['red ∞','Still infinity after the whole table is filled: this amount really is impossible']])
+  + q(1,'[1, 3, 4] making 6, [2] making 3, [1] making 0: what does each table look like?')
+  + `<div class="grid two">`
+  + capd(2,'[1, 3, 4] make 6 → 2',strip(6,[[0,0,2],[1,1,2],[2,2,2],[3,1,2],[4,1,2],[5,2,2],[6,2,2]],null,[[2,[6]]]))
+  + capd(3,'[2] make 3 → −1',strip(3,[[0,0,3],[1,Infinity,3],[2,1,3],[3,Infinity,3]]))
+  + capd(4,'[1] make 0 → 0',strip(0,[[0,0,4]]))
+  + `</div>`
+  + cards([[5,'No special cases','Impossible amounts and amount 0 are handled by the same code','mint']]),
+  say:[
+  'A red infinity means the cell is still infinity after the whole table is filled: that amount really is impossible.',
+  'The question for this scene: coins 1, 3, 4 making 6; coin 2 making 3; coin 1 making 0. What does each table look like?',
+  'Coins 1, 3, 4 making 6. The three candidates for dp of 6: coin 1 gives dp of 5 plus 1, which is 3; coin 3 gives dp of 3 plus 1, which is 2; coin 4 gives dp of 2 plus 1, which is 3. The minimum is 2: 3 plus 3. Greedy says 3, dp says 2.',
+  'Coin 2 making 3. No coin fits dp of 1, so it stays infinity. dp of 2 is dp of 0 plus 1, which is 1. dp of 3 uses dp of 1 plus 1, and infinity plus 1 is still infinity. That becomes minus 1.',
+  'Coin 1 making 0. The table has only the dp of 0 cell, the loop never runs, and we return 0.',
+  'None of the three needs a special case. The same code handles them all.'
+]});
+
+/* ===== 9 write the code ===== */
+add({ch:9, title:'Code: <em>two loops and a min</em>', vis:
+  gloss(0,[['min(a, b)','The smaller of a and b'],['negative index','In Python dp[-2] does not raise an error; it counts back 2 cells from the end']])
+  + term('solution.py',[
+    [2,'o','def coinChange(coins, amount):'],
+    [2,'hl','    dp = [0] + [float(\'inf\')] * amount   # dp[0]=0, rest "not made yet"'],
+    [3,'o','    for x in range(1, amount + 1):'],
+    [3,'o','        for c in coins:'],
+    [4,'hl','            if c <= x:                     # coin cannot exceed the amount'],
+    [4,'o','                dp[x] = min(dp[x], dp[x - c] + 1)'],
+    [5,'o','    return dp[amount] if dp[amount] != float(\'inf\') else -1']])
+  + q(1,'Why must we write c <= x? And why does the min include dp[x] itself?'),
+  say:[
+  'min of a and b gives the smaller of the two. Negative index: in Python, dp of minus 2 does not raise an error; it counts back 2 cells from the end. We will need this in a moment.',
+  'The question for this scene: why must we write c less than or equal to x? And why does the min include dp of x itself?',
+  'The first line builds the table: dp of 0 is 0, followed by amount copies of infinity, amount plus 1 cells in all.',
+  'The outer loop runs x from 1 to amount, and the inner loop goes through every coin c. That is assuming each coin in turn as the last one.',
+  'A coin can be used only if c is at most x. Without this check, x minus c goes negative, Python raises no error, and it silently reads a cell from the end. For example, coin 3 making 1 reads dp of 0 and returns 1, when the right answer is minus 1. The min includes dp of x itself because it holds the best result so far from the earlier coins, and each new candidate is compared against it.',
+  'The last line: if it is still infinity, return minus 1; otherwise return dp of amount.'
+]});
+
+/* ===== 10 complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>four pitfalls</em>', vis:
+  gloss(0,[['n','The number of coin types'],['O(amount × n)','Every amount tries every coin type once']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(amount × n), space O(amount)','amount is at most 10⁴ and n at most 12: about a hundred thousand steps','sky'],
+           [3,'Using greedy','[1, 3, 4] making 6: greedy gives 3 coins, the answer is 2','coral'],
+           [3,'Starting the whole table at 0','min would always stay 0; only dp[0] is 0, the rest is ∞','coral'],
+           [4,'Forgetting c <= x','Negative indexes do not error; [3] making 1 returns 1','coral'],
+           [4,'Returning dp[amount] directly','An impossible amount returns ∞; turn it into −1','coral']]),
+  say:[
+  'n is the number of coin types. Big O of amount times n means every amount tries every coin type once.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to slip?',
+  'Time is big O of amount times n. Space is one table of amount plus 1 cells, big O of amount. In this problem amount is at most ten thousand and there are at most 12 coin types, so about a hundred thousand steps.',
+  'Pitfall one: using greedy, which breaks on coins 1, 3, 4 making 6. Pitfall two: starting the whole table at 0, so the min always stays 0. Only dp of 0 is 0; the rest is infinity.',
+  'Pitfall three: forgetting c at most x. Negative indexes do not error, and coin 3 making 1 returns 1. Pitfall four: returning dp of amount directly, which gives infinity when the amount is impossible. Turn it into minus 1.'
+]});
+
+/* ===== 11 how to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first; write code after the interviewer nods']])
+  + q(1,'The interviewer asks: "Why not greedy?" How do you answer?')
+  + flow([[2,'Counterexample','[1,3,4] make 6'],[3,'State','dp[x] = fewest coins'],[3,'Last coin','try every c'],[4,'Edges','dp[0]=0, rest ∞'],[4,'Complexity','O(amount × n)']])
+  + chips(4,['coin change','greedy fails','last coin','dp[x] = min(dp[x - c] + 1)','dp[0] = 0','infinity → -1','O(amount × n)']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer nods.',
+  'The question for this scene: the interviewer asks, why not greedy?',
+  'Start with a counterexample: coins 1, 3, 4 making 6. Greedy takes 4 first and needs 3 coins; 3 plus 3 needs only 2.',
+  'Then the state: dp of x is the fewest coins that make x. The last coin is always some coin c, so dp of x is the minimum of dp of x minus c, plus 1.',
+  'Finally the edges and complexity: dp of 0 is 0, the rest starts at infinity, and if it is still infinity at the end, return minus 1. Time is big O of amount times n. The key phrases are greedy fails and last coin.'
+]});
+
+/* ===== 12 wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Greedy','breaks on [1,3,4] make 6'],[0,'Last coin','try every c'],[0,'Start','dp[0] = 0'],[0,'∞','impossible → −1']])
+  + cards([[1,'1. Greedy fails: [1, 3, 4] making 6','Greedy 4 + 1 + 1 is 3 coins; 3 + 3 is only 2','coral'],
+           [2,'2. Ask "where did the last coin come from"','dp[x] = min(dp[x − c] + 1), c over every coin no bigger than x','sky'],
+           [3,'3. dp[0] = 0, the rest ∞','∞ means not made yet; still ∞ at the end means return −1','mint']]),
+  say:[
+  'One more pass over the main line. Biggest coin first breaks on coins 1, 3, 4 making 6. Instead we ask where the last coin came from and try every coin. dp of 0 is 0, the rest starts at infinity, and impossible means minus 1.',
+  'First: greedy fails. For coins 1, 3, 4 making 6, greedy takes 4 plus 1 plus 1, three coins; 3 plus 3 is only two.',
+  'Second: ask where the last coin came from, the same question as Climbing Stairs. dp of x is the minimum of dp of x minus c, plus 1, with c over every coin no bigger than x.',
+  'Third: dp of 0 is 0, and the rest starts at infinity. Infinity means not made yet, and if it is still infinity at the end, return minus 1.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/2997a981718c.mp3", "0-1": "a/4c488bbf6a3f.mp3", "0-2": "a/b3a7b6331128.mp3", "0-3": "a/c007c0388ad1.mp3", "1-0": "a/dfe061566258.mp3", "1-1": "a/e9d27ea3dafa.mp3", "1-2": "a/94d26078447d.mp3", "1-3": "a/5213734bb6ed.mp3", "1-4": "a/6e86c36571a9.mp3", "2-0": "a/ebb95d591512.mp3", "2-1": "a/294acead9cf7.mp3", "2-2": "a/b4ac55e2b218.mp3", "2-3": "a/46ee7284a784.mp3", "2-4": "a/12990201b113.mp3", "2-5": "a/a966a47016f9.mp3", "3-0": "a/289594dca3f9.mp3", "3-1": "a/a8db3478d24e.mp3", "3-2": "a/d88223daceeb.mp3", "3-3": "a/a234ec5aeb4d.mp3", "3-4": "a/6f72de1caa48.mp3", "3-5": "a/34a1b77d2cf6.mp3", "3-6": "a/9000f4082c62.mp3", "4-0": "a/167aef90af95.mp3", "4-1": "a/983875ae386d.mp3", "4-2": "a/e7aa4b2b4569.mp3", "4-3": "a/c6a3b06eaf21.mp3", "4-4": "a/6443fbc59d1e.mp3", "4-5": "a/5f6cc1c4aa80.mp3", "5-0": "a/32b8147a1c83.mp3", "5-1": "a/20b931b93035.mp3", "5-2": "a/0f49cf562dd5.mp3", "5-3": "a/6390c6162b97.mp3", "5-4": "a/8dc7da0cf88a.mp3", "5-5": "a/c772f776632d.mp3", "6-0": "a/febbc3b14656.mp3", "6-1": "a/3a81f4512e5a.mp3", "6-2": "a/b7ee72dac38c.mp3", "6-3": "a/8c981a3cb844.mp3", "6-4": "a/71c6128189c0.mp3", "6-5": "a/9893b6d7c986.mp3", "6-6": "a/39c7088bcd7a.mp3", "6-7": "a/dc13d4696db3.mp3", "7-0": "a/9f9f818bdd6f.mp3", "7-1": "a/3fddb644d424.mp3", "7-2": "a/90d780d3feb8.mp3", "7-3": "a/b8b8d0883898.mp3", "7-4": "a/3bfc5ff869f5.mp3", "7-5": "a/5ac655cc6d16.mp3", "8-0": "a/e01e635fdcc0.mp3", "8-1": "a/becdb3518901.mp3", "8-2": "a/29178dd54697.mp3", "8-3": "a/be2e0dff70fb.mp3", "8-4": "a/80183ba06406.mp3", "8-5": "a/46557f7d2468.mp3", "9-0": "a/f3c687b8297d.mp3", "9-1": "a/e51c68261f07.mp3", "9-2": "a/c8ff70375910.mp3", "9-3": "a/d160c55bc0ef.mp3", "9-4": "a/9e86d82c070b.mp3", "9-5": "a/2e9aedce883f.mp3", "10-0": "a/4998860e466c.mp3", "10-1": "a/681a557d92a6.mp3", "10-2": "a/5de51baed4b1.mp3", "10-3": "a/5c822c11362b.mp3", "10-4": "a/8141f653d66c.mp3", "11-0": "a/08a5f490c081.mp3", "11-1": "a/7399dfa1063e.mp3", "11-2": "a/6a4089dfc9d3.mp3", "11-3": "a/d80b003e2768.mp3", "11-4": "a/f16508b33596.mp3", "12-0": "a/db0a6185bfcd.mp3", "12-1": "a/34bffb061bad.mp3", "12-2": "a/999ffc84aad1.mp3", "12-3": "a/8dd28b29b092.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

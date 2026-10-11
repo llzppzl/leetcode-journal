@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>转盘里找数</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'转盘里找数', template:'prep', sub:'LeetCode 33 Search in Rotated Sorted Array · 算法动画', key:'lc33vid', doc:'LeetCode 33 题', blurb:'先试普通二分，看它在断点上怎么出错；再用 153 先找断点、分两遍做；最后讲一遍搞定的关键：任何时候总有一半有序，只看那一半，两个比较决定去哪边。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：在转过的数组里找数','读题：返回下标','直接二分：卡在断点','先找断点：能做，要两遍','关键：总有一半有序','两个比较，扔一半','走一遍：找 0','走一遍：找 3','那个等号：[3, 1]','和 153 的不同：left <= right','写代码','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip with L / M / R markers per step; cells outside the range dim out; green bar = sorted half this step ---------- */
+const BCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.bs{display:grid;gap:5px;justify-content:center;margin:0 auto .4em}
+.bs>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.bs>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.bs>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.35em}
+.bs>.v.min{border-color:var(--mint)}
+.bs .dim.s{position:absolute;inset:0;border-radius:8px;background:rgba(10,17,36,.82);transform:none}
+.bs .dim.s:not(.on){opacity:0}
+.bs .ans.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--mint);transform:none}
+.bs .ans.s:not(.on){opacity:0}
+.bs .srt.s{position:absolute;left:-3px;right:-3px;bottom:-6px;height:3px;border-radius:2px;background:var(--mint);box-shadow:none;transform:none;opacity:0!important}
+.bs .srt.s.now{opacity:1!important}
+.bs>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.bs .mk span.s{position:absolute;opacity:0!important;transform:none}
+.bs .mk span.s.now{opacity:1!important}
+.bs .mk .L{color:var(--sky)} .bs .mk .R{color:var(--coral)} .bs .mk .M{color:var(--amber)}
+</style>`;
+// st: [[step, left, right, mid|null, sortedFrom?, sortedTo?]]; ans: [step, k]
+function bs(nums, st=[], ans=null){
+  const n = nums.length;
+  let h = BCSS + `<div class="bs" style="grid-template-columns:repeat(${n},2.7em)">`;
+  h += nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += nums.map((v,k)=>{
+    const firstOut = st.find(([,l,r])=>k<l||k>r);
+    const srt = st.filter(e=>e[4]!=null&&k>=e[4]&&k<=e[5]).map(e=>`<i class="srt s" data-s="${e[0]}"></i>`).join('');
+    return `<div class="v ${ans&&ans[1]===k?'min':''}">${v}${firstOut?`<i class="dim s" data-s="${firstOut[0]}"></i>`:''}${ans&&ans[1]===k?`<i class="ans s" data-s="${ans[0]}"></i>`:''}${srt}</div>`;
+  }).join('');
+  h += nums.map((_,k)=>`<div class="mk">${st.map(([s,l,r,m])=>{
+    const t = [k===l?'<span class="L">L</span>':'', k===m?'<span class="M">M</span>':'', k===r?'<span class="R">R</span>':''].filter(Boolean).join('');
+    return t?`<span class="s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+const A = [4,5,6,7,0,1,2];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'转盘里找数<br><em>LeetCode 33</em>', vis:
+  gloss(0,[['旋转排序数组','有序数组把开头一段整体搬到末尾，比如 [4,5,6,7,0,1,2]'],['二分查找','每次看中间，把一半范围扔掉'],['有序的一半','左半或右半里，数从小到大没有断开']])
+  + flow([[1,'读题','找 target 的下标'],[2,'普通二分','卡在断点'],[2,'先找断点','能做，要两遍'],[3,'一半有序','只看有序那半'],[3,'两个比较','在不在范围里'],[3,'代码','O(log n)']]),
+  say:[
+  '这节课讲力扣 33 题，搜索旋转排序数组。先认三个词：旋转排序数组，是把有序数组开头一段搬到末尾；二分查找，是每次看中间、扔掉一半；有序的一半，是左半或右半里没有断开。',
+  '这道题是 153 的续集。上一题找最小值；这一题要找一个给定的数 target，返回它的下标。',
+  '先试直接用普通二分，看它哪一步出错；再用 153 先找断点，能做，但要两遍。',
+  '然后是一遍搞定的关键：左右两半至少有一半有序，只看那一半，两个比较就够。最后写代码。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>返回的是下标</em>', vis:
+  gloss(0,[['target','要找的那个数'],['下标','位置编号，从 0 开始数'],['-1','找不到时的返回值']])
+  + duo(bs(A,[],[2,4]),
+    q(1,'nums = [4, 5, 6, 7, 0, 1, 2]。target = 0 返回几？target = 3 呢？')
+    + cards([[2,'target = 0 → 4','0 在下标 4；返回位置，不是数本身','mint'],
+             [3,'target = 3 → -1','数组里没有 3','coral'],
+             [4,'要 O(log n)','数各不相同；扫一遍是 O(n)，得用二分','amber']])),
+  say:[
+  'target 是要找的数。下标是位置编号，从零开始。找不到就返回负一。',
+  '这一幕要回答的是：nums 是 4、5、6、7、0、1、2。target 是 0 的时候返回几？target 是 3 呢？',
+  '0 在下标 4，返回 4。返回的是位置，不是数本身。',
+  'target 是 3 的时候，数组里根本没有 3，返回负一。',
+  '数组里的数各不相同。从头扫一遍是 O n，题目要 O log n，得用二分。'
+]});
+
+/* ===== 2 直接二分 ===== */
+add({ch:2, title:'直接二分：<em>卡在断点</em>', vis:
+  gloss(0,[['普通二分','target 比 nums[mid] 小就去左边，大就去右边'],['前提','普通二分要求整个范围有序']])
+  + duo(bs(A,[[2,0,6,3],[3,0,2,null]],[4,4]),
+    q(1,'把普通二分直接用在 [4, 5, 6, 7, 0, 1, 2] 上找 0，会怎样？')
+    + cards([[2,'mid = 3，nums[3] = 7','0 比 7 小 → 普通二分去左边','amber'],
+             [3,'right = 2','右边四格被扔掉，只剩 [4, 5, 6]','coral'],
+             [4,'0 就在被扔掉的那边','前提断了：整个数组不是有序的','coral']])),
+  say:[
+  '普通二分，是 target 比 nums mid 小就去左边找，大就去右边找。它有个前提：整个范围是有序的。',
+  '这一幕要回答的是：把普通二分直接用在 4、5、6、7、0、1、2 上找 0，会怎样？',
+  '范围零到六，mid 是三，nums 3 是 7。0 比 7 小，普通二分说：去左边找。',
+  'right 变成二，右边四格被扔掉，只剩 4、5、6。',
+  '可 0 就在被扔掉的那边，下标 4。前提断了：旋转以后数组不再有序，比 mid 小的数也会在右边。'
+]});
+
+/* ===== 3 先找断点 ===== */
+add({ch:3, title:'先找断点：<em>能做，要两遍</em>', vis:
+  gloss(0,[['断点','前一个数比后一个大的地方；最小值就在它后面（153 题）'],['两遍','先跑一次二分找断点，再跑一次二分找 target']])
+  + duo(bs(A,[[3,4,6,null]],[2,4]),
+    q(1,'普通二分要有序。那先把数组切成两段有序的，再找，行不行？')
+    + cards([[2,'第一遍：用 153 找最小值','0 在下标 4：[4, 5, 6, 7] 和 [0, 1, 2] 各自有序','sky'],
+             [3,'第二遍：挑一段做普通二分','0 < nums[0] = 4，不在左段 → 在 [0, 1, 2] 里找，得到 4','mint'],
+             [4,'能做，但要两遍','两个二分，循环条件还不一样；能不能一遍？','amber']])),
+  say:[
+  '断点，是前一个数比后一个大的地方，最小值就在它后面。两遍，是先二分找断点，再二分找 target。',
+  '这一幕要回答的是：普通二分需要有序。那先把数组切成两段有序的，再找，行不行？',
+  '第一遍，用 153 的代码找最小值：0 在下标 4。于是 4、5、6、7 和 0、1、2 各自有序。',
+  '第二遍，挑一段做普通二分。0 比开头的 4 小，不在左段，去 0、1、2 里找，得到 4。找 3 也一样，去右段找不到，返回负一。',
+  '这个办法是对的，也是 O log n。只是要写两个二分，循环条件还不一样。能不能一遍搞定？'
+]});
+
+/* ===== 4 一半有序 ===== */
+add({ch:4, title:'关键：<em>总有一半有序</em>', vis:
+  gloss(0,[['[left, mid]','从下标 left 到 mid：左半'],['[mid, right]','从下标 mid 到 right：右半'],['绿线','有序的那一半']])
+  + duo(bs(A,[[2,0,6,3],[3,0,6,3,0,3]]) + bs([6,7,0,1,2,4,5],[[4,0,6,3,3,6]]),
+    q(1,'数组整体不有序。那 mid 切开的两半里，有没有一半是有序的？')
+    + cards([[2,'断点只有一个','mid 把范围切成两半，断点只能落在其中一半','sky'],
+             [3,'没有断点的那半就有序','mid = 3：断点在右半，左半 [4, 5, 6, 7] 有序','mint'],
+             [4,'nums[left] <= nums[mid] → 左半有序','否则右半有序：6 > 1，右半 [1, 2, 4, 5] 有序','amber']])),
+  say:[
+  'left 到 mid 是左半，mid 到 right 是右半，两半都包括 mid。绿线标出有序的那一半。',
+  '这一幕要回答的是：数组整体不有序。那 mid 切开的两半里，有没有一半是有序的？',
+  '旋转过的数组只有一个断点。mid 把范围切成两半，断点只能落在其中一半里。',
+  '没有断点的那一半，数从小到大没断开，就是有序的。4、5、6、7、0、1、2，mid 是三，断点在右半，左半 4、5、6、7 有序。',
+  '怎么看出是哪一半？左端 nums left 小于等于 nums mid，左半有序；否则右半有序。比如 6、7、0、1、2、4、5，mid 是三，6 大于 1，右半 1、2、4、5 有序。'
+]});
+
+/* ===== 5 两个比较 ===== */
+add({ch:5, title:'两个比较，<em>扔一半</em>', vis:
+  gloss(0,[['范围','有序的一段：最小是第一个数，最大是最后一个数'],['排除法','不在有序那半，就一定在另一半']])
+  + q(1,'知道哪一半有序了，下一步扔哪一半？')
+  + tbl(['有序的一半','target 在里面吗','在','不在'],[
+    [2,'左半','nums[left] <= target < nums[mid]','right = mid − 1','left = mid + 1'],
+    [3,'右半','nums[mid] < target <= nums[right]','left = mid + 1','right = mid − 1']])
+  + cards([[4,'只问有序的那半','看两头就知道在不在；乱的那半没法这样判断，用排除法','mint']]),
+  say:[
+  '有序的一段，第一个数最小，最后一个最大，这就是它的范围。排除法，是不在有序那半，就在另一半。',
+  '这一幕要回答的是：知道哪一半有序了，下一步扔哪一半？',
+  '左半有序时，问 nums left 小于等于 target、并且 target 小于 nums mid 吗。在，right 等于 mid 减一；不在，left 等于 mid 加一。',
+  '右半有序时反过来：nums mid 小于 target、并且 target 小于等于 nums right，就 left 等于 mid 加一；否则 right 等于 mid 减一。',
+  '关键是只问有序那半，看两头就知道在不在；乱的那半没法这样看，就用排除法。mid 已经比过相等，所以 mid 那侧用严格小于。'
+]});
+
+/* ===== 6 走一遍：找 0 ===== */
+add({ch:6, title:'走一遍：<em>找 0</em>', vis:
+  gloss(0,[['L、M、R','left、mid、right 三个下标'],['变暗','已经扔出范围的格子']])
+  + duo(bs(A,[[2,0,6,3,0,3],[3,4,6,5,4,5],[4,4,4,4],[5,4,4,4]],[5,4]),
+    q(1,'[4, 5, 6, 7, 0, 1, 2] 找 0，每一轮扔哪一半？')
+    + term('每一轮',[
+      [2,'o','M=3  7≠0  左半 4..7 有序，0 不在 → left = 4'],
+      [3,'o','M=5  1≠0  左半 0..1 有序，0 在 → right = 4'],
+      [4,'o','M=4  nums[4] == 0'],
+      [5,'hl','返回 4，三轮']])),
+  say:[
+  'L、M、R 是 left、mid、right 三个下标。绿线是这一轮有序的那一半，变暗的格子已经扔出范围。',
+  '这一幕要回答的是：4、5、6、7、0、1、2 找 0，每一轮扔哪一半？',
+  '第一轮：mid 是三，7 不等于 0。4 小于等于 7，左半 4 到 7 有序。0 不在里面，扔掉左半，left 等于四。',
+  '第二轮：范围四到六，mid 是五，1 不等于 0。左半 0、1 有序，0 在里面，去左半，right 等于四。',
+  '第三轮：left、right、mid 都是四，nums 4 等于 0，找到了。',
+  '三轮，返回下标 4。每轮只看有序那半，两个比较决定扔哪边。'
+]});
+
+/* ===== 7 走一遍：找 3 ===== */
+add({ch:7, title:'走一遍：<em>找 3</em>', vis:
+  gloss(0,[['范围变空','left > right：范围里一个数都不剩']])
+  + duo(bs(A,[[2,0,6,3,0,3],[3,4,6,5,4,5],[4,6,6,6,6,6],[5,7,6,null]]),
+    q(1,'同一个数组找 3。数组里没有 3，循环怎么停下来？')
+    + term('每一轮',[
+      [2,'o','M=3  7≠3  左半 4..7 有序，3 不在 → left = 4'],
+      [3,'o','M=5  1≠3  左半 0..1 有序，3 不在 → left = 6'],
+      [4,'o','M=6  2≠3  左半只有 2，3 不在 → left = 7'],
+      [5,'e','left = 7 > right = 6 → 返回 -1']])),
+  say:[
+  '范围变空，就是 left 跑到了 right 右边，范围里一个数都不剩。',
+  '这一幕要回答的是：同一个数组找 3。数组里没有 3，循环怎么停下来？',
+  '第一轮：mid 是三，7 不等于 3。左半 4、5、6、7 有序，3 不在里面，left 等于四。',
+  '第二轮：范围四到六，mid 是五，1 不等于 3。左半 0、1 有序，3 也不在，left 等于六。',
+  '第三轮：只剩下标 6，mid 是六，2 不等于 3。左半就是 2 自己，3 不在，left 等于七。',
+  '现在 left 是七，right 是六，范围变空，循环结束，返回负一。'
+]});
+
+/* ===== 8 那个等号 ===== */
+add({ch:8, title:'那个等号：<em>[3, 1] 找 1</em>', vis:
+  gloss(0,[['<=','小于等于：相等也算成立']])
+  + duo(bs([3,1],[[2,0,1,0,0,0],[3,1,1,1]],[3,1]),
+    q(1,'[3, 1] 找 1。判断左半有序时，写成 nums[left] < nums[mid] 会怎样？')
+    + term('两种写法',[
+      [2,'o','L=0 R=1 M=0  nums[left] 和 nums[mid] 是同一个数'],
+      [3,'hl','<= ：左半 [3] 有序，1 不在 → left = 1 → 返回 1'],
+      [4,'e','<  ：以为右半 [3, 1] 有序 → right = -1 → 返回 -1 ✗'],
+      [5,'hl','两个数时 mid == left：一个数就是有序的']])),
+  say:[
+  '小于等于，就是相等也算成立。这一幕看只剩两个数的时候。',
+  '这一幕要回答的是：3、1 里找 1。判断左半有序时，写成 nums left 小于 nums mid，会怎样？',
+  'left 是零，right 是一，mid 是零。3 不等于 1。这时 nums left 和 nums mid 是同一个数。',
+  '写小于等于：3 小于等于 3 成立，左半只有一个 3，是有序的。1 不在里面，left 等于一。下一轮 mid 是一，找到了，返回 1。',
+  '写成小于：3 小于 3 不成立，代码以为右半有序。可右半 3、1 根本不有序，1 不在 3 到 1 之间，right 等于负一，返回负一，错了。',
+  '所以记住：两个数的时候，mid 总是等于 left，左半只有一个数，一个数就是有序的。这个等号必须写。'
+]});
+
+/* ===== 9 和 153 的不同 ===== */
+add({ch:9, title:'和 153 不同：<em>left <= right</em>', vis:
+  gloss(0,[['闭区间 [left, right]','两端的下标都还在考虑范围里']])
+  + q(1,'153 写 while left < right、right = mid；这题为什么改成 left <= right、mid ± 1？')
+  + tbl(['','153 找最小值','33 找 target'],[
+    [2,'mid 比过吗','没比，mid 还有机会是最小值','先比 nums[mid] == target'],
+    [3,'更新','right = mid，留着 mid','不相等就扔掉 mid：mid ± 1'],
+    [4,'循环条件','left < right：剩一个就是答案','left <= right：剩一个还没比']])
+  + cards([[5,'反例：[5] 找 5','写成 left < right，循环一次都不跑，返回 -1 ✗','coral']]),
+  say:[
+  '闭区间，就是 left 和 right 两端的下标，都还在考虑范围里。',
+  '这一幕要回答的是：153 写 while left 小于 right、right 等于 mid；这题为什么改成 left 小于等于 right、mid 加一减一？',
+  '区别在 mid 有没有被检查过。153 不拿 mid 比相等，mid 还有机会是最小值；这题每轮先比 nums mid 是不是 target。',
+  '153 要留着 mid，所以 right 等于 mid。这题比过不相等，mid 一定不是答案，直接扔掉：mid 加一或减一。范围每轮都变小，不会死循环。',
+  '153 剩一个数就是答案，所以 left 小于 right 就停。这题剩一个数时还没比过，要再跑一轮，所以是 left 小于等于 right。',
+  '反例：数组只有一个 5，找 5。写成 left 小于 right，循环一次都不跑，返回负一，错了。'
+]});
+
+/* ===== 10 写代码 ===== */
+add({ch:10, title:'代码：<em>一遍二分</em>', vis:
+  gloss(0,[['链式比较','Python 里 a <= x < b 就是 a <= x 并且 x < b']])
+  + term('solution.py',[
+    [2,'o','def search(nums, target):'],
+    [2,'o','    left, right = 0, len(nums) - 1'],
+    [2,'hl','    while left <= right:'],
+    [3,'o','        mid = left + (right - left) // 2'],
+    [3,'hl','        if nums[mid] == target:'],
+    [3,'o','            return mid'],
+    [4,'hl','        if nums[left] <= nums[mid]:            # 左半有序'],
+    [4,'o','            if nums[left] <= target < nums[mid]:'],
+    [4,'o','                right = mid - 1'],
+    [4,'o','            else:'],
+    [4,'o','                left = mid + 1'],
+    [5,'o','        else:                                # 右半有序'],
+    [5,'o','            if nums[mid] < target <= nums[right]:'],
+    [5,'o','                left = mid + 1'],
+    [5,'o','            else:'],
+    [5,'o','                right = mid - 1'],
+    [6,'o','    return -1']])
+  + q(1,'前面讲的每一步，落在代码的哪几行？'),
+  say:[
+  '链式比较：Python 里 a 小于等于 x 小于 b，意思就是 a 小于等于 x，并且 x 小于 b。',
+  '这一幕要回答的是：前面讲的每一步，落在代码的哪几行？',
+  '开头范围是整个数组。循环条件 left 小于等于 right，剩一个数也要检查。',
+  '每轮先算 mid，记得加上 left；再比相等，找到就返回下标。',
+  '左端小于等于中间，左半有序，这里的等号不能丢。target 在左半的范围里，就去左半，否则去右半。',
+  '否则右半有序：target 在右半的范围里就去右半，否则去左半。',
+  '范围变空还没找到，返回负一。时间 O log n，空间 O 一。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："数组不是有序的，你凭什么用二分？"')
+  + flow([[2,'一半有序','断点只有一个'],[3,'看有序那半','两个比较'],[3,'在就留下','不在去另一半'],[4,'<= 和 mid ± 1','mid 已经比过'],[4,'复杂度','O(log n)']])
+  + chips(4,['rotated sorted array','one half is always sorted','check the sorted half','left <= right','mid is already checked','O(log n)']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，数组不是有序的，你凭什么用二分？',
+  '先讲关键：旋转过的数组只有一个断点，mid 把范围切成两半，断点只能在其中一半，另一半一定有序。',
+  '我只看有序的那半，它的范围就是两头，两个比较就知道 target 在不在里面。在，就留下这半；不在，就去另一半。每轮扔掉一半，所以是 O log n。',
+  '再提两个细节：左半有序用小于等于，处理两个数的情况；mid 已经比过，所以用 left 小于等于 right 和 mid 加一减一。英文关键词是 one half is always sorted。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'一半有序','断点只有一个'],[0,'两个比较','在不在有序那半'],[0,'<=','两个数的情况'],[0,'mid ± 1','mid 已比过']])
+  + cards([[1,'① 任何 mid，至少一半有序','nums[left] <= nums[mid] → 左半有序，否则右半','amber'],
+           [2,'② 只问有序那半：target 在不在','在就留下，不在就去另一半','sky'],
+           [3,'③ 先比 mid，再 mid ± 1，left <= right','和 153 不同：这里 mid 已经检查过','mint']]),
+  say:[
+  '回顾主线：普通二分卡在断点；断点只有一个，总有一半有序；只看那半，两个比较决定去哪边。',
+  '第一句：任何一个 mid，左右两半至少有一半是有序的。nums left 小于等于 nums mid，左半有序，否则右半有序，等号别丢。',
+  '第二句：只问有序的那半，target 在不在它的范围里。在，就留下这半；不在，就去另一半。',
+  '第三句：先比 nums mid 等不等于 target，再 mid 加一或减一，循环条件是 left 小于等于 right。和 153 不同，因为这里 mid 已经检查过了。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/d41cb0bf4cee.mp3", "0-1": "a/102f3889a9a7.mp3", "0-2": "a/fa9d5a5b5cbc.mp3", "0-3": "a/6be09bdfcb16.mp3", "1-0": "a/f4a7a6d5cb5e.mp3", "1-1": "a/e1d3354230c0.mp3", "1-2": "a/87dfd132bece.mp3", "1-3": "a/42bcfc8e9f82.mp3", "1-4": "a/e8c0505bd35b.mp3", "2-0": "a/22137af0f5f6.mp3", "2-1": "a/5b8472e7abf7.mp3", "2-2": "a/df24ffcdb0e4.mp3", "2-3": "a/ea598e5f0d1c.mp3", "2-4": "a/abdaf9419cab.mp3", "3-0": "a/0d353566bb95.mp3", "3-1": "a/38e3c29dffce.mp3", "3-2": "a/1002f88f84a6.mp3", "3-3": "a/b0d3bdf72dbe.mp3", "3-4": "a/2d6a50d3f35a.mp3", "4-0": "a/2fde4ff66a97.mp3", "4-1": "a/dd5fdbb42a8b.mp3", "4-2": "a/bf666fc42eca.mp3", "4-3": "a/095ae050bd4a.mp3", "4-4": "a/468fece00260.mp3", "5-0": "a/c62eb42b84ec.mp3", "5-1": "a/b1121f6ad353.mp3", "5-2": "a/14a9b5996f51.mp3", "5-3": "a/472c7a965cdb.mp3", "5-4": "a/348cbe22567b.mp3", "6-0": "a/bc0803236ce9.mp3", "6-1": "a/b1b4d2e15847.mp3", "6-2": "a/94b1a69b3219.mp3", "6-3": "a/d48673bd08a4.mp3", "6-4": "a/b1f3ea10e058.mp3", "6-5": "a/d7a3018c1ddd.mp3", "7-0": "a/a89eedc5095a.mp3", "7-1": "a/2e2e16942dc9.mp3", "7-2": "a/d4fc2101a0a2.mp3", "7-3": "a/7e743916228a.mp3", "7-4": "a/ebfda182aee0.mp3", "7-5": "a/b8b5929c2851.mp3", "8-0": "a/6edc46a5f3f3.mp3", "8-1": "a/657d586efc03.mp3", "8-2": "a/ee69740a751a.mp3", "8-3": "a/a5e6a115e3e3.mp3", "8-4": "a/ee9ed16f120d.mp3", "8-5": "a/f704a92fbf89.mp3", "9-0": "a/6bb389495f72.mp3", "9-1": "a/a76bea7aa2e4.mp3", "9-2": "a/e0fb260ee69e.mp3", "9-3": "a/b85380e3554f.mp3", "9-4": "a/d7a153a3fd1e.mp3", "9-5": "a/a90ef7d52aee.mp3", "10-0": "a/239d9164298a.mp3", "10-1": "a/7d3b2c1fe697.mp3", "10-2": "a/d1df941a6e6a.mp3", "10-3": "a/3a02a43ab0e9.mp3", "10-4": "a/21a471ea8ba3.mp3", "10-5": "a/583682e004ea.mp3", "10-6": "a/ff703e2843da.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/2dcaa8dd6a19.mp3", "11-2": "a/2518308a8ede.mp3", "11-3": "a/027519f1b23e.mp3", "11-4": "a/553af07eef2a.mp3", "12-0": "a/6095c07fad4e.mp3", "12-1": "a/891c2e7d769f.mp3", "12-2": "a/45292fab090c.mp3", "12-3": "a/27d6a1a66c5b.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Negative? Start Over</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Negative? Start Over', template:'prep', lang:'en', sub:'LeetCode 53 Maximum Subarray · animated walkthrough', key:'lc53envid', doc:'LeetCode 53', blurb:'Start from summing every subarray and see exactly where it gets slow; then switch to the must-end-here framing from problem 300: if the sum before you is negative, drop it and start over, and one pass gives the maximum sum.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of positive and negative numbers','The problem: one contiguous piece','Instinct: sum every piece','Reframe: must end here','The key step: extend or start over','Walk through: first five cells','Walk through: last four cells','All negative: -1','Write the code','Complexity and pitfalls','Follow-up: where is the piece','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip: index row, nums row, optional cur / best rows; amber ring = current i; amber number = fresh start; green tint = the answer ---------- */
+const KCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ks{display:grid;gap:3px;width:100%;max-width:30em;margin:0 auto}
+.ks>div{position:relative;display:grid;place-items:center;height:2.4em;min-width:0;border-radius:7px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.ks>.lb{border:0;background:none;color:var(--dim);font-size:.72em;justify-items:end;padding-right:.25em;font-family:var(--f-mono)}
+.ks>.ix{border:0;background:none;height:1.2em;color:var(--dim);font-family:var(--f-mono);font-size:.72em}
+.ks .v{position:relative;z-index:1;font-family:var(--f-display);font-size:1.15em}
+.ks b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.1em;color:var(--mint)}
+.ks b.fr{color:var(--amber)} .ks b.bs{color:var(--sky)}
+.ks b.s:not(.on){opacity:0}
+.ks i.tint.s{position:absolute;inset:0;border-radius:6px;background:rgba(98,224,180,.3);transform:none}
+.ks i.tint.s:not(.on){opacity:0}
+.ks i.ring.s{position:absolute;inset:-3px;border-radius:9px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.ks i.ring.s.now{opacity:1!important}
+</style>`;
+// rows: [[label, {k:[text, step, cls]}]], ring: [[step, k]], pick: [step, [k...]]
+function ks(nums, rows=[], ring=[], pick=null){
+  const n = nums.length;
+  let h = KCSS + `<div class="ks" style="grid-template-columns:2.8em repeat(${n},minmax(0,1fr))">`;
+  h += `<div class="lb ix">i</div>` + nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += `<div class="lb">nums</div>` + nums.map((v,k)=>`<div><span class="v">${v}</span>${pick&&pick[1].includes(k)?`<i class="tint s" data-s="${pick[0]}"></i>`:''}${ring.filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  rows.forEach(([lb,cells])=>{ h += `<div class="lb">${lb}</div>` + nums.map((_,k)=>`<div>${cells[k]?`<b class="s ${cells[k][2]||''}" data-s="${cells[k][1]}">${cells[k][0]}</b>`:''}</div>`).join(''); });
+  return h + `</div>`;
+}
+const BIG = [-2,1,-3,4,-1,2,1,-5,4];
+// verified trace: cur = [-2,1,-2,4,3,5,6,1,5], best = [-2,1,1,4,4,5,6,6,6], fresh starts at i = 1 and 3
+const CUR = [-2,1,-2,4,3,5,6,1,5], BEST = [-2,1,1,4,4,5,6,6,6], FRESH = [1,3];
+const half = (first) => {
+  const cur = {}, best = {}, ring = [];
+  for(let k=0;k<9;k++){
+    const st = first ? (k<=4 ? k+2 : null) : (k<=4 ? 0 : k-3);
+    if(st==null) continue;
+    cur[k] = [CUR[k], st, FRESH.includes(k)?'fr':''];
+    best[k] = [BEST[k], st, 'bs'];
+    if(st>0) ring.push([st,k]);
+  }
+  return ks(BIG, [['cur',cur],['best',best]], ring, first?null:[6,[3,4,5,6]]);
+};
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Negative? Start Over<br><em>LeetCode 53</em>', vis:
+  gloss(0,[['subarray','A contiguous piece of the array, at least one number, no skipping in the middle'],['cur','The largest sum among subarrays that must end at index i'],['Kadane\'s algorithm','A one-pass method for the maximum subarray sum; the core is a single max line']])
+  + flow([[1,'Read','max sum of one contiguous piece'],[1,'Instinct','sum every piece'],[2,'Reframe','must end here'],[2,'Key','negative? start over'],[3,'Walk through','answer 6'],[3,'Code','one pass']]),
+  say:[
+  'This lesson covers LeetCode 53, Maximum Subarray. First, three words. A subarray is a contiguous piece of the array, with no skipping in the middle. cur is the largest sum among subarrays that must end at index i. And Kadane\'s algorithm is the one-pass method that solves this problem.',
+  'We start from the most natural idea: sum up every piece. It gets the right answer, but it is slow, and we will stop at the exact moment it gets slow.',
+  'Then we switch to the framing you know from problem 300: the subarray must end right here. The answer turns into one sentence: if the sum before you is negative, throw it away and start over from yourself.',
+  'Finally we walk a nine-number example cell by cell, look at the all-negative trap, and write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>one contiguous piece</em>', vis:
+  gloss(0,[['sum','All the numbers in a piece added up'],['maximum sum','The largest sum over all subarrays']])
+  + duo(ks([2,-1,3],[],[],[2,[0,1,2]]),
+    q(1,'nums = [2, -1, 3]. Which subarray has the largest sum, and what is it?')
+    + cards([[2,'The whole array [2, -1, 3], sum 4','The -1 in the middle comes along too','mint'],
+             [3,'Why carrying -1 still pays off','2 − 1 = 1 is still positive: handed to 3 it makes 4, more than 3 alone','sky'],
+             [4,'No skipping','[2, 3] is not a subarray: the -1 in between cannot be skipped','coral']])),
+  say:[
+  'A sum is all the numbers in a piece added up. The maximum sum is the largest sum over all subarrays.',
+  'The question for this scene: nums is 2, minus 1, 3. Which subarray has the largest sum, and what is it?',
+  'The answer is the whole array: 2 plus minus 1 plus 3 equals 4, these three green cells. The minus 1 in the middle comes along too.',
+  'Why is carrying minus 1 still worth it? Because 2 minus 1 is 1, which is still positive. Hand that 1 to the 3 after it, and you get 4, more than 3 by itself.',
+  'Note that you cannot skip. 2 and 3 are not next to each other, minus 1 sits between them, so 2, 3 is not a subarray.'
+]});
+
+/* ===== 2 Instinct: sum every piece ===== */
+add({ch:2, title:'Instinct: <em>sum every piece</em>', vis:
+  gloss(0,[['start i, end j','The subarray starts at index i and ends at index j'],['running sum','Move the end one step right and add the new number, instead of re-adding from scratch']])
+  + q(1,'The most direct way: compute the sum of every subarray. How does that go on [2, -1, 3]? What happens when the array is long?')
+  + term('Try each start, move the end right',[
+    [2,'o','start 0: 2 → 1 → 4'],
+    [3,'o','start 1: -1 → 2'],
+    [3,'o','start 2: 3'],
+    [4,'hl','6 subarrays, max is 4']])
+  + cards([[5,'n = 10⁵: about 5 billion subarrays','Two nested loops, O(n²), time limit exceeded','coral'],
+           [6,'Where the time goes','Each new start re-adds everything after it; the last round\'s work is thrown away','amber']]),
+  say:[
+  'Start i and end j mean the subarray starts at index i and ends at index j. A running sum means that when the end moves one step right, you add the new number, instead of re-adding from scratch.',
+  'The question for this scene: the most direct way is to compute the sum of every subarray. How does that go on 2, minus 1, 3? And what happens when the array is long?',
+  'Start at index 0: first 2. Move the end right and add minus 1, that makes 1. Add 3, that makes 4.',
+  'Start at index 1: minus 1, then add 3 to get 2. Start at index 2: just 3.',
+  'Six subarrays in total, and the largest is 4. The answer is right.',
+  'But the array can hold up to a hundred thousand numbers. The number of subarrays is n times n plus 1, over 2, about five billion. Two nested loops, big O of n squared, and it times out.',
+  'Where does the time go? Each new start re-adds every number after it, and everything the previous round computed is thrown away. We want each cell to reuse the result of the cell before it.'
+]});
+
+/* ===== 3 Reframe ===== */
+add({ch:3, title:'Reframe: <em>must end here</em>', vis:
+  gloss(0,[['ending at i','The last number of the subarray is required to be nums[i]'],['cur[i]','The largest sum among all subarrays ending at i']])
+  + q(1,'Just like problem 300: if the subarray must end at index i, what is the largest sum?')
+  + term('[2, -1, 3], grouped by end',[
+    [2,'o','end 0: [2]=2                       cur = 2'],
+    [3,'o','end 1: [2,-1]=1  [-1]=-1            cur = 1'],
+    [4,'o','end 2: [2,-1,3]=4  [-1,3]=2  [3]=3  cur = 4'],
+    [5,'hl','answer = max(2, 1, 4) = 4']])
+  + cards([[6,'Look at the end 2 row','Each piece is "some piece ending at 1, plus 3", or 3 alone','sky']]),
+  say:[
+  'Ending at i means the last number of the subarray is required to be nums of i. cur of i is the largest sum among all subarrays ending at i, the same idea as dp of i in problem 300.',
+  'The question for this scene: if the subarray must end at index i, what is the largest sum?',
+  'Only one piece ends at index 0: 2 by itself. cur is 2.',
+  'Two pieces end at index 1: 2, minus 1, with sum 1; and minus 1 alone, with sum minus 1. The largest is 1.',
+  'Three pieces end at index 2: the whole array is 4, minus 1, 3 is 2, and 3 alone is 3. The largest is 4.',
+  'The best piece has to end somewhere, so the answer is the largest of all the cur values: 4, out of 2, 1 and 4.',
+  'Now look at the end 2 row again: every piece is either some piece ending at 1 with 3 added on, or 3 by itself. That sentence is the formula in the next scene.'
+]});
+
+/* ===== 4 The key step ===== */
+add({ch:4, title:'The key step: <em>extend or start over</em>', vis:
+  gloss(0,[['extend','Attach x to the best piece ending at the previous cell: cur + x'],['start over','Drop everything before and start from x alone: x']])
+  + q(1,'When computing cell i, can we use only the previous cell\'s cur, without looking at every piece?')
+  + cards([[2,'A piece ending at i is one of two kinds','① x alone　② some piece ending at i − 1, then x','sky'],
+           [3,'The best of kind ② is cur + x','The bigger the piece before, the better; the biggest is exactly the previous cur','sky'],
+           [4,'cur = max(x, cur + x)','A negative sum before only drags x down: drop it, start over from x','amber']]),
+  say:[
+  'Extend means attaching x to the best piece ending at the previous cell, so the sum is cur plus x. Start over means dropping everything before and starting from x alone, so the sum is just x.',
+  'The question for this scene: when computing cell i, can we use only the previous cell\'s cur, without looking at every piece again?',
+  'Yes. A piece ending at cell i is one of two kinds: x by itself, or some piece ending at i minus 1, with x attached.',
+  'For the second kind, x is fixed, so the bigger the piece before it, the better. And the biggest piece before it is exactly the previous cur. So the best of the second kind is cur plus x.',
+  'Take the bigger of the two: cur equals the max of x and cur plus x. When do we start over? When cur is negative, because extending only drags x down. For example minus 2, then 1: minus 2 plus 1 is minus 1, less than 1 alone, so start over from 1.'
+]});
+
+/* ===== 5 Walk through: first five ===== */
+add({ch:5, title:'Walk through: <em>the first five cells</em>', vis:
+  gloss(0,[['amber box','The cell being computed'],['amber number','This cell chose to start over'],['best','The largest cur seen so far']])
+  + duo(half(true),
+    q(1,'nums = [-2, 1, -3, 4, -1, 2, 1, -5, 4]. What are cur and best for the first five cells?')
+    + term('cur = max(x, cur + x)',[
+      [2,'o','i=0  first number     cur = -2'],
+      [3,'n','i=1  max(1, -2+1)     cur = 1   restart'],
+      [4,'o','i=2  max(-3, 1-3)     cur = -2'],
+      [5,'n','i=3  max(4, -2+4)     cur = 4   restart'],
+      [6,'o','i=4  max(-1, 4-1)     cur = 3']])),
+  say:[
+  'The amber box is the cell being computed, and an amber number means that cell chose to start over. best is the largest cur seen so far.',
+  'The question for this scene: on minus 2, 1, minus 3, 4, minus 1, 2, 1, minus 5, 4, what are cur and best for the first five cells?',
+  'Cell 0 can only be itself. cur is minus 2, and best is minus 2 too.',
+  'Cell 1 is 1. The previous cur is minus 2; extending gives minus 1, less than 1 alone, so start over. cur is 1, and best becomes 1.',
+  'Cell 2 is minus 3. The previous cur is 1, which is positive; extending gives minus 2, more than minus 3 alone, so extend. cur is minus 2, best stays 1. Notice: x is negative and we still extend, because what matters is the sum before it.',
+  'Cell 3 is 4. The previous cur is minus 2, negative again, and extending only gives 2, so start over. cur is 4, and best becomes 4.',
+  'Cell 4 is minus 1. The previous cur is 4; extending gives 3, so cur is 3. best stays 4, because 3 does not beat it.'
+]});
+
+/* ===== 6 Walk through: last four ===== */
+add({ch:6, title:'Walk through: <em>the last four cells</em>', vis:
+  gloss(0,[['green','The piece with the largest sum']])
+  + duo(half(false),
+    q(1,'Keep going for the last four cells. What is the final answer, and which piece is it?')
+    + term('cur = max(x, cur + x)',[
+      [2,'o','i=5  max(2, 3+2)      cur = 5   best = 5'],
+      [3,'hl','i=6  max(1, 5+1)      cur = 6   best = 6'],
+      [4,'o','i=7  max(-5, 6-5)     cur = 1   best = 6'],
+      [5,'o','i=8  max(4, 1+4)      cur = 5   best = 6'],
+      [6,'hl','answer 6 = 4 − 1 + 2 + 1']])),
+  say:[
+  'Green marks the piece with the largest sum.',
+  'The question for this scene: keep going for the last four cells. What is the final answer, and which piece is it?',
+  'Cell 5 is 2. The previous cur is 3; extending gives 5. cur is 5, and best becomes 5.',
+  'Cell 6 is 1. The previous cur is 5; extending gives 6. cur is 6, and best becomes 6.',
+  'Cell 7 is minus 5. The previous cur is 6; extending gives 1, still more than minus 5, so extend, and cur drops to 1. But best remembers 6 and does not drop with it.',
+  'Cell 8 is 4. The previous cur is 1, which is positive; extending gives 5, so cur is 5. 5 does not beat 6, so best stays 6.',
+  'The answer is best, which is 6. The last restart was at cell 3, and best reached 6 at cell 6, so the piece is cells 3 to 6: 4, minus 1, 2, 1. Notice the last cur is 5, which is not the answer.'
+]});
+
+/* ===== 7 All negative ===== */
+add({ch:7, title:'All negative: <em>the answer is -1</em>', vis:
+  gloss(0,[['non-empty','A subarray has at least one number; an empty piece does not count']])
+  + duo(ks([-3,-1,-2],[['cur',{0:[-3,2],1:[-1,3,'fr'],2:[-2,4,'fr']}],['best',{0:[-3,2,'bs'],1:[-1,3,'bs'],2:[-1,4,'bs']}]],[[2,0],[3,1],[4,2]]),
+    q(1,'nums = [-3, -1, -2]. What is the answer? Can best start at 0?')
+    + cards([[5,'The answer is -1','Pick the least negative single number','mint'],
+             [6,'best starts at 0 → returns 0','0 is not the sum of any subarray: it is the empty piece','coral'],
+             [7,'cur = best = nums[0]','Start from the first number; the loop starts at the second','amber']])),
+  say:[
+  'Non-empty means a subarray has at least one number; an empty piece does not count.',
+  'The question for this scene: for minus 3, minus 1, minus 2, what is the answer? Can best start at 0?',
+  'At cell 0, cur and best are both minus 3.',
+  'Cell 1 is minus 1. The previous cur is minus 3; extending gives minus 4, so start over. cur is minus 1, and best becomes minus 1.',
+  'Cell 2 is minus 2. The previous cur is minus 1, also negative; extending gives minus 3, so start over again. cur is minus 2, best stays minus 1.',
+  'The answer is minus 1. When everything is negative, the best you can do is pick the least negative number as a piece by itself.',
+  'If best starts at 0, every cur is below 0, best stays 0 the whole time, and we return 0. But 0 is the sum of the empty piece, which the problem does not allow. That is wrong.',
+  'So cur and best both start at the first number, nums of 0, and the loop starts at the second number.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>one max line, one pass</em>', vis:
+  gloss(0,[['nums[1:]','All numbers from the second one on']])
+  + term('solution.py',[
+    [2,'o','def maxSubArray(nums):'],
+    [2,'hl','    cur = best = nums[0]          # start from the first number, not 0'],
+    [3,'o','    for x in nums[1:]:'],
+    [3,'hl','        cur = max(x, cur + x)     # start over, or extend'],
+    [4,'o','        best = max(best, cur)     # remember the best ending'],
+    [5,'o','    return best']])
+  + q(1,'Which earlier scene does each line come from?'),
+  say:[
+  'nums from 1 colon means all the numbers from the second one on.',
+  'The question for this scene: which earlier scene does each line come from?',
+  'The first line starts cur and best at nums of 0, not at 0. That is the all-negative scene.',
+  'The first line in the loop sets cur to the max of x and cur plus x: start over if the sum before is negative, otherwise extend. That is the key step scene.',
+  'The second line makes best remember the best of all endings, because the best piece can end at any cell.',
+  'Finally return best, not cur. cur is only the answer for pieces ending at the last cell.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Each number is looked at once'],['O(1)','Only two variables, cur and best']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(n), space O(1)','A hundred thousand numbers, a hundred thousand steps','sky'],
+           [3,'best starts at 0','[-3, -1, -2] returns 0; the correct answer is -1','coral'],
+           [4,'Returning cur','In the example the last cur is 5; the answer is 6','coral'],
+           [4,'Deciding by the sign of x','Look at the cur before it: the -3 at i = 2 is negative and still gets extended','coral']]),
+  say:[
+  'Big O of n means each number is looked at once. Big O of 1 means we only use two variables, cur and best.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to slip?',
+  'One pass, so time is big O of n: a hundred thousand numbers take a hundred thousand steps. Space is big O of 1.',
+  'Pitfall one: starting best at 0. Minus 3, minus 1, minus 2 would return 0, but the correct answer is minus 1.',
+  'Pitfall two: returning cur. In the example the last cur is 5, but the answer is 6. Pitfall three: deciding to start over by the sign of x itself. What matters is the cur before it; the minus 3 at cell 2 is negative and still gets extended.'
+]});
+
+/* ===== 10 Follow-up: where is the piece ===== */
+add({ch:10, title:'Follow-up: <em>where is the piece</em>', vis:
+  gloss(0,[['start','The cell where the current cur piece begins']])
+  + q(1,'The interviewer follows up: "Also return where the piece starts and ends." How do you change the code?')
+  + cards([[2,'On every restart, record start = i','In the example start is 0, becomes 1 at cell 1, then 3 at cell 3','sky'],
+           [3,'When best grows, record (start, i)','At i = 6 best becomes 6: record (3, 6)','sky'],
+           [4,'Answer: indices 3 to 6, [4, -1, 2, 1]','Still one pass, just two more variables','mint']]),
+  say:[
+  'start is the cell where the current cur piece begins.',
+  'The question for this scene: the interviewer follows up and asks you to also return where the piece starts and ends. How do you change the code?',
+  'Every time you start over, a new piece begins right here, so record start equals i. In the example, start is 0, becomes 1 at cell 1, then becomes 3 at cell 3.',
+  'Every time best grows, record the current start and i together. At cell 6 best becomes 6, so record 3 and 6.',
+  'The final answer is indices 3 to 6, which is 4, minus 1, 2, 1. Still one pass, with just two more variables.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first; write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can you just throw away a negative sum before you?"')
+  + flow([[2,'Brute force','every subarray, O(n²)'],[3,'Reframe','cur = best sum ending at i'],[3,'Transition','max(x, cur + x)'],[4,'Answer','best = max of all cur'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['Kadane\'s algorithm','subarray','ending at i','start fresh','O(n)','152 Maximum Product Subarray']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can you just throw away a negative sum before you?',
+  'First the method: brute force tries every subarray, which is big O of n squared. I reframe it so that cur is the largest sum of a piece that must end at index i.',
+  'Then the why: a piece ending at i is either x by itself, or the best piece ending at the previous cell with x attached. If the sum before is negative, attaching it only makes the total smaller, so starting over from x is better. The answer is the largest cur.',
+  'Complexity is big O of n time and big O of 1 space. The English keywords are Kadane\'s algorithm and ending at i. A good next problem is 152, Maximum Product Subarray: the same idea, but you also track a minimum.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Reframe','must end at i'],[0,'Transition','max(x, cur + x)'],[0,'Answer','best'],[0,'Start','nums[0], not 0']])
+  + cards([[1,'① cur = largest sum that must end at cell i','Like problem 300: the answer is the largest of all cur','amber'],
+           [2,'② cur = max(x, cur + x)','A negative sum before only drags x down: drop it, start over','sky'],
+           [3,'③ cur = best = nums[0]','When all numbers are negative, the answer is the largest negative, not 0','mint']]),
+  say:[
+  'Let\'s recap the main line. Brute force sums every piece and is too slow. Reframe so the piece must end at cell i. Each cell only chooses between extending and starting over. best remembers the best one. And everything starts from the first number.',
+  'One: cur is the largest sum of a piece that must end at cell i. Like problem 300, the answer is the largest of all the cur values.',
+  'Two: cur is the max of x and cur plus x. A negative sum before you only drags x down, so drop it and start over from x.',
+  'Three: cur and best both start at nums of 0. When every number is negative, the answer is the largest negative number, not 0.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/0308fe1b7c99.mp3", "0-1": "a/bbb60e91cc30.mp3", "0-2": "a/09a158ce9c96.mp3", "0-3": "a/5844af18f3fe.mp3", "1-0": "a/8376bfcb21d8.mp3", "1-1": "a/63b27c42256b.mp3", "1-2": "a/f997c32b5ef4.mp3", "1-3": "a/e9114e76701b.mp3", "1-4": "a/fcde309125e5.mp3", "2-0": "a/78a76c8454a8.mp3", "2-1": "a/d0ccc9685269.mp3", "2-2": "a/1792c86b25cd.mp3", "2-3": "a/782ffaa0a06e.mp3", "2-4": "a/3fd678bcd40b.mp3", "2-5": "a/5030994cef98.mp3", "2-6": "a/49ccf747ccdb.mp3", "3-0": "a/f1086ba7fcdd.mp3", "3-1": "a/7b0000dd0d6d.mp3", "3-2": "a/ba4ebd1ae576.mp3", "3-3": "a/95c14c0aed3a.mp3", "3-4": "a/dbdcf46b0a71.mp3", "3-5": "a/7207c873211e.mp3", "3-6": "a/b9e53dc76bbf.mp3", "4-0": "a/b8e6bc7b5c36.mp3", "4-1": "a/04511a85618a.mp3", "4-2": "a/c22f03951455.mp3", "4-3": "a/29f0571fb4c7.mp3", "4-4": "a/62966d163a5f.mp3", "5-0": "a/1d6f52672438.mp3", "5-1": "a/d9c69b69b6ad.mp3", "5-2": "a/45c3b6a65148.mp3", "5-3": "a/387c18a22cae.mp3", "5-4": "a/bdb74ee155e7.mp3", "5-5": "a/65e60d048048.mp3", "5-6": "a/3af38723b8c4.mp3", "6-0": "a/ecd985824e81.mp3", "6-1": "a/d22091e540ce.mp3", "6-2": "a/6bf9331d19be.mp3", "6-3": "a/7fd04aa794ea.mp3", "6-4": "a/0793a5c324d2.mp3", "6-5": "a/bae4679f2ab0.mp3", "6-6": "a/be1ca4161adb.mp3", "7-0": "a/39151aa331a6.mp3", "7-1": "a/96f8c0ca6e0b.mp3", "7-2": "a/d79c2a69213a.mp3", "7-3": "a/bb05a6591164.mp3", "7-4": "a/80d6127b2236.mp3", "7-5": "a/ed8eb4c932e1.mp3", "7-6": "a/6b14644c077d.mp3", "7-7": "a/a2404ac22d8b.mp3", "8-0": "a/f80fc33b7d94.mp3", "8-1": "a/79ee8d4e1ce0.mp3", "8-2": "a/a6f2107be792.mp3", "8-3": "a/9f771e2bf368.mp3", "8-4": "a/0bbac8b7f6de.mp3", "8-5": "a/d4d734f40838.mp3", "9-0": "a/7fbb10f977e9.mp3", "9-1": "a/fab3f43d53e1.mp3", "9-2": "a/a0f7dd1ddb23.mp3", "9-3": "a/44cd1e03d99d.mp3", "9-4": "a/131c516b4f02.mp3", "10-0": "a/e04f6c5f8f97.mp3", "10-1": "a/8f9454c2d2ba.mp3", "10-2": "a/f55d3451c1fa.mp3", "10-3": "a/de25e4175f31.mp3", "10-4": "a/d72a1e2cbf6d.mp3", "11-0": "a/d485550e7ba0.mp3", "11-1": "a/f2254a2bea91.mp3", "11-2": "a/30cf7a337821.mp3", "11-3": "a/a4bd3c3f5174.mp3", "11-4": "a/f2ac821a7545.mp3", "12-0": "a/f08d169c2a62.mp3", "12-1": "a/2c6d6358fc56.mp3", "12-2": "a/ed4c8ba13d12.mp3", "12-3": "a/ea63a42c11d2.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

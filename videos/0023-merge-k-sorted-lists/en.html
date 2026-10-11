@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Watch the Fronts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Watch the Fronts', template:'prep', lang:'en', sub:'LeetCode 23 Merge k Sorted Lists · animated walkthrough', key:'lc23envid', doc:'LeetCode 23', blurb:'Start from linked lists and merging two, see why merging one list at a time is slow and why sorting an array wastes information, then keep the k fronts in a min-heap and build the answer step by step.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: k linked lists','The problem: what is a linked list','First learn 21: merge two','Idea one: merge one at a time','Idea two: dump into an array and sort','Min-heap: the smallest on demand','Walk through: first four steps','Walk through: two 4s','Write the code','Complexity and empty input','Another way: pairwise divide and conquer','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- lists on the left, heap tree on the right, output row at the bottom ----------
+   color = source list (sky L0, mint L1, amber L2); dashed red ring = front currently in the heap; dark cover = already in the output */
+const LBL = {heap:'min-heap', out:'output', dummy:'dummy', aria:'lists, heap and output'};
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lk{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.lk .s{transform:none}
+.lk .s:not(.on){opacity:0}
+.lk .only.s{opacity:0!important} .lk .only.s.now{opacity:1!important}
+.lk circle{fill:var(--term);stroke-width:3}
+.lk .c0{stroke:var(--sky)} .lk .c1{stroke:var(--mint)} .lk .c2{stroke:var(--amber)}
+.lk circle.gone{fill:var(--ink);stroke:none;opacity:.85}
+.lk circle.ring{fill:none;stroke:var(--coral);stroke-width:3;stroke-dasharray:5 3}
+.lk circle.dm{stroke:var(--dim);stroke-width:2;stroke-dasharray:3 3}
+.lk line{stroke:var(--dim);stroke-width:2}
+.lk text{fill:var(--paper);font-family:var(--f-display);font-size:16px;text-anchor:middle;dominant-baseline:central}
+.lk text.lab{font-family:var(--f-mono);font-size:11px;fill:var(--dim)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const NX = j => 56 + 46*j, RY = r => 26 + 44*r, OX = j => 58 + 37*j;
+const HP = [[270,34],[232,92],[308,92]];
+const at = (st, inner) => [].concat(st).map(x=>`<g class="only s" data-s="${x}">${inner}</g>`).join('');
+function seg([x1,y1],[x2,y2],r){ const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  return `<line x1="${(x1+ux*r).toFixed(1)}" y1="${(y1+uy*r).toFixed(1)}" x2="${(x2-ux*r).toFixed(1)}" y2="${(y2-uy*r).toFixed(1)}"/>`; }
+// o: {rows:[[label,[vals]]], gone:[[row,idx,step]], ring:[[step|steps,[[row,idx]]]], heap:[[step|steps,[[val,row]] in heap-array order]], out:[[val,row,step]], st:[[step|steps,text]]}
+function lk(o){
+  const n = o.rows.length, oy = RY(n-1) + 66, h = oy + 30;
+  let s = LCSS + `<svg class="lk" viewBox="0 0 340 ${h}" role="img" aria-label="${LBL.aria}">`;
+  o.rows.forEach(([lab, vals], r) => {
+    const y = RY(r);
+    s += `<text class="lab" x="14" y="${y}">${lab}</text>`;
+    vals.forEach((v, j) => {
+      const x = NX(j);
+      if (j) s += `<line x1="${NX(j-1)+16}" y1="${y}" x2="${x-16}" y2="${y}"/>`;
+      s += `<circle class="c${r}" cx="${x}" cy="${y}" r="16"/><text x="${x}" y="${y}">${v}</text>`;
+    });
+  });
+  (o.gone||[]).forEach(([r,j,st]) => s += `<g class="s" data-s="${st}"><circle class="gone" cx="${NX(j)}" cy="${RY(r)}" r="17"/></g>`);
+  (o.ring||[]).forEach(([st, pts]) => s += at(st, pts.map(([r,j])=>`<circle class="ring" cx="${NX(j)}" cy="${RY(r)}" r="21"/>`).join('')));
+  if (o.heap) {
+    s += `<text class="lab" x="270" y="6">${LBL.heap}</text>`;
+    o.heap.forEach(([st, arr]) => s += at(st, arr.map(([v,r],k)=>{ const [x,y]=HP[k];
+      return (k?seg(HP[0],HP[k],17):'') + `<circle class="c${r}" cx="${x}" cy="${y}" r="16"/><text x="${x}" y="${y}">${v}</text><text class="lab" x="${x}" y="${y+26}">L${r}</text>`; }).join('')));
+  }
+  s += `<text class="lab" x="20" y="${oy-26}">${LBL.out}</text><circle class="dm" cx="20" cy="${oy}" r="11"/><text class="lab" x="20" y="${oy+22}">${LBL.dummy}</text>`;
+  (o.out||[]).forEach(([v,r,st],j) => { const x = OX(j), px = j ? OX(j-1)+15 : 31;
+    s += `<g class="s" data-s="${st}"><line x1="${px}" y1="${oy}" x2="${x-15}" y2="${oy}"/><circle class="c${r}" cx="${x}" cy="${oy}" r="15"/><text x="${x}" y="${oy}">${v}</text></g>`; });
+  s += `</svg>`;
+  if (o.st) s += `<div class="qrow">${o.st.map(([st,t])=>[].concat(st).map(x=>`<span class="only s" data-s="${x}">${t}</span>`).join('')).join('')}</div>`;
+  return s;
+}
+/* the example, and the heap exactly as Python heapq holds it (verified run): HEAPS[k] = heap array after k pops */
+const K3 = [['L0',[1,4,5]],['L1',[1,3,4]],['L2',[2,6]]];
+const HEAPS = [[[1,0],[1,1],[2,2]],[[1,1],[2,2],[4,0]],[[2,2],[4,0],[3,1]],[[3,1],[4,0],[6,2]],[[4,0],[6,2],[4,1]],[[4,1],[6,2],[5,0]],[[5,0],[6,2]],[[6,2]],[]];
+const POPS = [[1,0],[1,1],[2,2],[3,1],[4,0],[4,1],[5,0],[6,2]];
+// map: [[step, k]] = show the state after k pops at that step
+function walk(map, st){
+  const last = map[map.length-1][1], first = p => map.find(([,k])=>k>=p)[0];
+  const used = [0,0,0], gone = [], out = [];
+  POPS.forEach(([v,r],i) => { if (i+1 <= last) { const s = first(i+1); gone.push([r,used[r],s]); out.push([v,r,s]); } used[r]++; });
+  const ring = map.map(([s,k]) => [s, HEAPS[k].map(([,r]) => [r, POPS.slice(0,k).filter(x=>x[1]===r).length])]);
+  return lk({rows:K3, heap:map.map(([s,k])=>[s,HEAPS[k]]), gone, out, ring, st});
+}
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Watch the Fronts<br><em>LeetCode 23</em>', vis:
+  gloss(0,[['linked list','Nodes chained one after another by pointers; you can only walk from the start'],['min-heap','A container that can hand you its smallest value at any moment'],['the k fronts','The first not-yet-used node of each list']])
+  + flow([[1,'Read','k sorted lists'],[1,'Merge two','LeetCode 21'],[2,'One at a time','O(kN)'],[2,'Array + sort','O(N log N)'],[3,'Min-heap','O(N log k)'],[3,'Divide and conquer','also O(N log k)']]),
+  say:[
+  'This lesson covers LeetCode 23, Merge k Sorted Lists. Three words first. A linked list is nodes chained one after another by pointers, and you can only walk it from the start. A min-heap is a container that can hand you its smallest value at any moment. The k fronts are the first not-yet-used node of each list.',
+  'We start from zero: what a linked list is, then how to merge two sorted lists, which is LeetCode 21.',
+  'Then we try two natural ideas: merging one list at a time, and dumping everything into an array to sort. We see where they are slow and what they waste.',
+  'Finally we keep the k fronts in a min-heap, walk through the example, write the code, and cover pairwise divide and conquer.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>what is a linked list</em>', vis:
+  gloss(0,[['node','A small box: it holds a value, val, and a pointer, next'],['next','Points to the next node; the last node\'s next is None, meaning empty'],['head','The first node of a list; holding it means holding the whole list']])
+  + duo(lk({rows:K3, out:POPS.map(([v,r])=>[v,r,3])}),
+    q(1,'lists = [[1,4,5],[1,3,4],[2,6]]: three lists, each sorted ascending. Merge them into one sorted list. What is the result?')
+    + cards([[2,'k = 3 lists, N = 8 nodes','k is the number of lists, N is the total number of nodes','sky'],
+             [3,'Answer: 1 1 2 3 4 4 5 6','Still one linked list: the original nodes, chained again','mint'],
+             [4,'A linked list has no index','To see the 3rd node you must walk from head along next','amber']])),
+  say:[
+  'A node is a small box that holds a value, val, and a pointer, next. Next points to the following node, and the last node\'s next is empty. Head is the first node; holding it means holding the whole list.',
+  'The question for this scene: three lists, each sorted ascending, 1 4 5, 1 3 4, and 2 6. Merge them into one sorted list. What is the result?',
+  'First, count. There are k equals 3 lists, and N equals 8 nodes in total.',
+  'The answer is 1, 1, 2, 3, 4, 4, 5, 6. Look at the bottom row: the result is still a linked list, made by chaining the original nodes again with next.',
+  'One more thing to remember: a linked list has no index. To see the third node, you must walk from head along next, one step at a time.'
+]});
+
+/* ===== 2 Merge two ===== */
+add({ch:2, title:'First learn 21: <em>merge two</em>', vis:
+  gloss(0,[['dummy head','A fake node placed at the start; return its next at the end'],['tail','The current last node of the output; new nodes attach after it'],['front','The first not-yet-used node of a list']])
+  + duo(lk({rows:[['A',[1,4,5]],['B',[1,3,4]]],
+      ring:[[2,[[0,0],[1,0]]],[3,[[0,1],[1,0]]],[4,[[0,1],[1,2]]],[5,[[0,2]]]],
+      gone:[[0,0,3],[1,0,4],[1,1,4],[0,1,5],[1,2,5],[0,2,6]],
+      out:[[1,0,3],[1,1,4],[3,1,4],[4,0,5],[4,1,5],[5,0,6]],
+      st:[[2,'tail = dummy · compare <b>1</b> and <b>1</b>'],[3,'1 ≤ 1: take A\'s <b>1</b>'],[4,'4 &gt; 1: take <b>1</b>; 4 &gt; 3: take <b>3</b>'],
+          [5,'4 ≤ 4: take A\'s <b>4</b>; 5 &gt; 4: take B\'s <b>4</b>'],[[6,7],'B is empty: attach the rest of A, <b>5</b>']]}),
+    q(1,'First learn LeetCode 21: A = 1→4→5, B = 1→3→4. How do you merge them into one sorted list?')
+    + cards([[7,'Each step: compare the two fronts, attach the smaller','Each list is walked once: O(m + n), where m and n are the lengths','mint']])),
+  say:[
+  'The dummy head is a fake node placed at the start, and at the end we return its next. Tail is the current last node of the output. A front is the first not-yet-used node of a list.',
+  'The question for this scene: first learn LeetCode 21. A is 1, 4, 5 and B is 1, 3, 4. How do you merge them into one sorted list?',
+  'At the start, tail points at dummy. The dashed red rings are the two fronts: A\'s 1 and B\'s 1.',
+  'Compare the two fronts. 1 is less than or equal to 1, so attach A\'s 1. A\'s front moves one step and becomes 4.',
+  '4 is bigger than B\'s 1, so attach B\'s 1. B\'s front becomes 3, and 4 is still bigger, so attach 3.',
+  '4 and 4 are equal, so attach A\'s 4, and A\'s front becomes 5. 5 is bigger than B\'s 4, so attach B\'s 4. Now B is used up.',
+  'Once one list is empty, the rest of the other is already sorted, so attach it to tail in one piece. Here that is 5.',
+  'The rule is one sentence: at each step, compare the two fronts and attach the smaller one. Each list is walked once, so the time is big O of m plus n, the two lengths.'
+]});
+
+/* ===== 3 Idea one ===== */
+add({ch:3, title:'Idea one: <em>merge one at a time</em>', vis:
+  gloss(0,[['merge','Combine two lists into one with the method from the last scene'],['walk','During a merge, every node gets looked at once']])
+  + q(1,'Now you can merge two. For k lists, merge L0 with L1, then the result with L2, and so on. How many nodes do you walk?')
+  + tbl(['Step','Nodes walked'],[[2,'L0 + L1','3 + 3 = 6'],[3,'result + L2','6 + 2 = 8'],[4,'Total','14, but N is only 8']])
+  + cards([[5,'k lists, n nodes each','2n + 3n + … + kn, about k × N ÷ 2','coral'],
+           [6,'k = 100, n = 100','N is 10,000, yet you walk 504,900 nodes: O(kN)','coral']]),
+  say:[
+  'To merge is to combine two lists into one with the method from the last scene. To walk means every node gets looked at once during a merge.',
+  'The question for this scene: now you can merge two. For k lists, merge L0 with L1, then the result with L2. How many nodes do you walk in total?',
+  'First, L0 and L1 merge. Each has 3 nodes, so we walk 6.',
+  'Second, that 6-node result merges with L2. 6 plus 2, so we walk 8.',
+  'That is 14 in total, but there are only 8 nodes. The early nodes are walked again on every merge.',
+  'In general: k lists with n nodes each. The merges walk 2n, 3n, all the way to kn, which adds up to about k times N divided by 2.',
+  'For example, 100 lists with 100 nodes each: N is only 10,000, yet you walk 504,900 nodes. That is big O of k times N, and it gets slow when there are many lists.'
+]});
+
+/* ===== 4 Idea two ===== */
+add({ch:4, title:'Idea two: <em>dump into an array and sort</em>', vis:
+  gloss(0,[['O(N log N)','The cost of sorting N numbers'],['ascending','Ordered from small to large']])
+  + duo(lk({rows:K3, ring:[[4,[[0,0],[1,0],[2,0]]]]}),
+    q(1,'Dump all 8 values into an array, sort, and chain them back into a list. Does it work? What does it waste?')
+    + cards([[2,'It passes: O(N log N)','Pull out the values, sort, build a new list; O(N) extra space','sky'],
+             [3,'It wastes "each list is already sorted"','Sorting treats them as a pile of random numbers','amber'],
+             [4,'The next smallest is always one of the k fronts','Each front is the smallest of what is left in its list','mint']])),
+  say:[
+  'Big O of N log N is the cost of sorting N numbers. Ascending means ordered from small to large.',
+  'The question for this scene: dump all 8 values into an array, sort them, and chain them back into a list. Does it work? What does it waste?',
+  'It works and passes. Pull out the 8 values, sort them, and build a new list. The time is big O of N log N, plus big O of N extra space.',
+  'But it wastes one piece of information: each list is already sorted, and sorting treats them as random numbers.',
+  'Use it instead. Each front is the smallest of what is left in its list, so the overall smallest must be one of the k fronts. Each step only has to choose among these k red rings.'
+]});
+
+/* ===== 5 Min-heap ===== */
+add({ch:5, title:'Min-heap: <em>the smallest on demand</em>', vis:
+  gloss(0,[['min-heap','A binary tree where every parent is at most its children, so the smallest is always on top'],['push / pop','Put one in / take the top out'],['heapq','Python\'s built-in min-heap, stored in a plain list']])
+  + q(1,'Each step picks the smallest of k fronts. Checking them one by one costs O(k), and N steps bring back O(kN). How do we do better?')
+  + cards([[2,'The top is always the smallest','Parent ≤ child: one glance at the top gives the minimum','sky'],
+           [3,'Push and pop: O(log k)','Swaps happen along one top-to-bottom path, and the tree height is log k','sky'],
+           [4,'At most k items in the heap','Each list puts in only its front; pop one, push its next','amber'],
+           [5,'Each of the N nodes goes in and out once','O(N log k)','mint']]),
+  say:[
+  'A min-heap is a binary tree where every parent is less than or equal to its children, so the smallest is always on top. Push puts one in, and pop takes the top out. Heapq is Python\'s built-in min-heap, stored in a plain list.',
+  'The question for this scene: each step picks the smallest of k fronts. Checking them one by one costs big O of k, and N steps bring back big O of k times N. How do we do better?',
+  'Use a min-heap. A parent is never bigger than its children, so with no comparing at all, one glance at the top gives the minimum.',
+  'After a push or a pop, the heap only swaps a few times along one path from top to bottom. That path has length log k, so each operation is big O of log k.',
+  'What goes in the heap? Each list puts in only its front, so the heap holds at most k items. Pop a front, and push its next to take its place.',
+  'Every node enters the heap once and leaves once, each at big O of log k, for big O of N log k in total.'
+]});
+
+/* ===== 6 Walk through: first four ===== */
+add({ch:6, title:'Walk through: <em>first four steps</em>', vis:
+  gloss(0,[['circle color','Which list a node came from: blue L0, green L1, orange L2'],['dashed red ring','A front that is in the heap right now'],['darkened','A node already attached to the output']])
+  + duo(walk([[2,0],[3,1],[4,2],[5,3],[6,4],[7,4]],
+      [[2,'heap: 1 1 2 · output: empty'],[3,'pop <b>1</b>(L0) · push <em>4</em>(L0)'],[4,'pop <b>1</b>(L1) · push <em>3</em>(L1)'],
+       [5,'pop <b>2</b>(L2) · push <em>6</em>(L2)'],[[6,7],'pop <b>3</b>(L1) · push <em>4</em>(L1)']]),
+    q(1,'Put the fronts in the heap, then repeat "pop the smallest, attach it, push its next". What happens in the first four steps?')
+    + cards([[7,'First four outputs: 1 1 2 3','The heap always holds the fronts of the lists, at most 3','mint']])),
+  say:[
+  'The color shows which list a node came from: blue L0, green L1, orange L2. A dashed red ring is a front that is in the heap right now, and a darkened node is already in the output.',
+  'The question for this scene: put the fronts in the heap, then repeatedly pop the smallest, attach it, and push its next. What happens in the first four steps?',
+  'Start: the three fronts 1, 1, and 2 go into the heap. On the right is the heap as a tree, with L0\'s 1 on top. The output is just dummy.',
+  'Step one: pop the top, L0\'s 1, and attach it to the output. Its next is 4, so push 4.',
+  'Step two: the top is L1\'s 1. Pop it, attach it, and push its next, 3.',
+  'Step three: the top is L2\'s 2. Pop it, attach it, and push 6.',
+  'Step four: the top is L1\'s 3. Pop it, attach it, and push L1\'s 4. Notice that the heap now holds two 4s.',
+  'The output is now 1, 1, 2, 3. The heap always holds the fronts of the lists, at most three.'
+]});
+
+/* ===== 7 Walk through: two 4s ===== */
+add({ch:7, title:'Walk through: <em>which 4 comes first</em>', vis:
+  gloss(0,[['tuple','A few values bundled together, like (4, 0, node)'],['element-wise compare','Tuples compare the first item; if equal, the second']])
+  + duo(walk([[2,4],[3,5],[4,6],[5,7],[6,8],[7,8]],
+      [[2,'heap: 4 6 4 · output: 1 1 2 3'],[3,'pop <b>4</b>(L0) · push <em>5</em>(L0)'],[4,'pop <b>4</b>(L1) · L1 is done, no push'],
+       [5,'pop <b>5</b>(L0) · L0 is done, no push'],[[6,7],'pop <b>6</b>(L2) · heap empty, stop']]),
+    q(1,'The heap holds two 4s. Which one does heapq take first? How does the rest finish?')
+    + cards([[2,'Two 4s: compare the next item, i','(4, 0, …) vs (4, 1, …): 0 &lt; 1, so L0\'s 4 comes first','amber'],
+             [7,'Result: 1 1 2 3 4 4 5 6','8 nodes, each pushed once and popped once','mint']])),
+  say:[
+  'A tuple is a few values bundled together, like 4, 0, node. Heapq compares tuples element by element: first item first, and if equal, the second.',
+  'The question for this scene: the heap holds two 4s. Which one does heapq take first? And how does the rest finish?',
+  'What we push is a triple: the value, the list number i, and the node. The two 4s tie on the first item, so heapq compares the second. 0 is less than 1, so L0\'s 4 comes out first.',
+  'Step five: pop L0\'s 4, attach it, and push its next, 5.',
+  'Step six: pop L1\'s 4. Its next is empty, so L1 is used up and nothing is pushed. The heap has two left.',
+  'Step seven: pop L0\'s 5. L0 is used up too, so no push.',
+  'Step eight: pop L2\'s 6. The heap is empty, and the loop ends.',
+  'The result is 1, 1, 2, 3, 4, 4, 5, 6, matching the answer. Every node was pushed once and popped once.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>copy the animation</em>', vis:
+  gloss(0,[['(val, i, node)','Value, list number, node: i breaks ties'],['enumerate','Gives you the index i and the item together']])
+  + q(1,'Which part of the code matches which step of the animation? Why put i in the middle of the tuple?')
+  + term('solution.py',[
+    [2,'o','import heapq'],
+    [2,'o','def mergeKLists(lists):'],
+    [2,'o','    heap = []'],
+    [2,'o','    for i, node in enumerate(lists):'],
+    [2,'o','        if node:                       # skip empty lists'],
+    [2,'hl','            heapq.heappush(heap, (node.val, i, node))'],
+    [3,'o','    dummy = tail = ListNode()'],
+    [3,'o','    while heap:'],
+    [3,'o','        val, i, node = heapq.heappop(heap)'],
+    [3,'o','        tail.next = node               # attach to the output'],
+    [3,'o','        tail = node'],
+    [3,'o','        if node.next:                  # its next takes its place'],
+    [3,'hl','            heapq.heappush(heap, (node.next.val, i, node.next))'],
+    [4,'hl','    return dummy.next'],
+    [5,'e','# pushing (val, node): on a tie it compares nodes → TypeError']]),
+  say:[
+  'The triple is value, list number, node, and the i in the middle breaks ties. Enumerate gives you the index i and the item together.',
+  'The question for this scene: which part of the code matches which step of the animation? And why put i in the middle of the tuple?',
+  'Part one: push the front of every non-empty list into the heap, together with its value and list number i. An empty list\'s head is None, so we skip it.',
+  'Part two is the loop: pop the top, attach it after tail, and move tail forward. If it has a next, push that next, with the same list number.',
+  'Finally, return dummy\'s next, which is the real first node.',
+  'Why i? If you push only the value and the node, then on a tie Python compares the two nodes, and ListNode cannot be compared, so you get a TypeError. Each list has at most one node in the heap, so i never repeats, and comparing it always settles the order.'
+]});
+
+/* ===== 9 Complexity ===== */
+add({ch:9, title:'Complexity, and <em>empty input</em>', vis:
+  gloss(0,[['N, k','N is the total number of nodes, k is the number of lists'],['O(k) space','At most k tuples in the heap; the output reuses the original nodes']])
+  + q(1,'What are the time and space? Do [] and [[]] break anything?')
+  + cards([[2,'Time O(N log k), space O(k)','Each node goes in and out of the heap once, O(log k) each time','sky'],
+           [3,'[] → [], [[]] → []','No front enters the heap, the loop never runs, return dummy.next = None','mint'],
+           [4,'Pitfall: pushing (val, node)','A tie gives TypeError; put the list number i in the middle','coral'],
+           [4,'Pitfall: forgetting to push node.next','The rest of that list is lost','coral']]),
+  say:[
+  'N is the total number of nodes and k is the number of lists. The space is big O of k because the heap holds at most k tuples, and the output reuses the original nodes.',
+  'The question for this scene: what are the time and space? And does an empty list, or a list holding one empty list, break anything?',
+  'The time is big O of N log k: each node goes in and out of the heap once, at big O of log k each time. The space is big O of k.',
+  'For an empty list, the for loop never runs. For one empty list, its head is None and the if skips it. Either way the heap is empty, and we return dummy\'s next, which is None.',
+  'Two pitfalls. Push only the value and the node, and a tie gives a TypeError, so add the list number i in the middle. And if you forget to push node dot next after a pop, the rest of that list is lost.'
+]});
+
+/* ===== 10 Divide and conquer ===== */
+add({ch:10, title:'Another way: <em>pairwise divide and conquer</em>', vis:
+  gloss(0,[['divide and conquer','Split a big problem in half, solve each half, then combine'],['round','Pair up all current lists and merge each pair once']])
+  + q(1,'The interviewer says: "Without a heap, using only the merge-two function, can you also reach O(N log k)?"')
+  + cards([[2,'Merge in pairs','8 lists → 4 → 2 → 1: 3 rounds','sky'],
+           [3,'In each round, every node is walked once','One round is O(N)','sky'],
+           [4,'There are log k rounds','O(N log k) in total, same as the heap','mint'],
+           [5,'100 lists, 100 nodes each','7 rounds, at most 70,000 walks, instead of 504,900','amber']]),
+  say:[
+  'Divide and conquer means splitting a big problem in half, solving each half, then combining. A round means pairing up all current lists and merging each pair once.',
+  'The question for this scene: the interviewer says, without a heap, using only the merge-two function, can you also reach big O of N log k?',
+  'Yes. Take 8 lists. Round one merges them in pairs, so 8 lists become 4. Round two makes 2, and round three makes 1.',
+  'The key is that in each round, every node belongs to just one pair and is walked once, so a round costs big O of N.',
+  'The number of lists halves every round, so there are log k rounds, for big O of N log k in total, the same as the heap.',
+  'With 100 lists of 100 nodes each, it takes only 7 rounds, at most 70,000 walks instead of 504,900, because no node gets walked k times over.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why is it enough to keep only the k fronts in the heap?"')
+  + flow([[2,'Merge two','compare fronts, attach smaller'],[2,'Brute force','one at a time, O(kN)'],[3,'Insight','the minimum is some front'],[3,'Min-heap','(val, i, node)'],[4,'Complexity','O(N log k), space O(k)']])
+  + chips(4,['linked list','dummy head','min-heap','priority queue','heapq','tie-breaker','divide and conquer','21 Merge Two Sorted Lists']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why is it enough to keep only the k fronts in the heap?',
+  'Set it up first: merging two means comparing fronts and attaching the smaller. Merging one list at a time walks the early nodes again and again, which is big O of k times N.',
+  'Then explain why: every list is sorted, so its front is the smallest of what is left, and the overall minimum must be one of the fronts. I keep those k fronts in a min-heap, as tuples of value, list number, and node.',
+  'Finally, the complexity: big O of N log k time and big O of k space. Pairwise divide and conquer is also big O of N log k. The key terms are min-heap and priority queue.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Two lists','compare fronts, attach smaller'],[0,'k lists','the minimum is a front'],[0,'Heap','pop, attach, push next'],[0,'Tuple','(val, i, node)']])
+  + cards([[1,'① Merge two: start with dummy, compare fronts, attach the smaller','When one runs out, attach the rest in one piece','amber'],
+           [2,'② The next smallest is always one of the k fronts','A min-heap watches the fronts: O(N log k)','sky'],
+           [3,'③ Push (val, i, node), not (val, node)','On a tie it compares i, never the nodes','mint']]),
+  say:[
+  'Let\'s review the main thread: with two lists, compare fronts and attach the smaller. With k lists, the minimum is among the fronts. Use a heap to pop, attach, and push next, and put the list number i in the tuple.',
+  'Number one: to merge two, start with dummy, compare the fronts at each step, attach the smaller, and when one runs out, attach the rest in one piece.',
+  'Number two: every list is sorted, so the next smallest is always one of the k fronts. Keep those k fronts in a min-heap, for big O of N log k time.',
+  'Number three: push the triple of value, list number, and node into heapq, not just value and node. On a tie it compares the number, so nothing breaks.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/9ada983d06f5.mp3", "0-1": "a/4212fd65be39.mp3", "0-2": "a/2efc3983044f.mp3", "0-3": "a/f7e3615c95a3.mp3", "1-0": "a/37dcec726fb0.mp3", "1-1": "a/c5067c53d2b8.mp3", "1-2": "a/ffe64ea0951c.mp3", "1-3": "a/17c246aaad3b.mp3", "1-4": "a/0b06f28878cd.mp3", "2-0": "a/1e98cec0decc.mp3", "2-1": "a/1481f6484303.mp3", "2-2": "a/527ec174bd03.mp3", "2-3": "a/f09d887a159c.mp3", "2-4": "a/b81bd0f4ca79.mp3", "2-5": "a/569d986c9094.mp3", "2-6": "a/7a291f4696d6.mp3", "2-7": "a/ebe53c98660d.mp3", "3-0": "a/ca7173914853.mp3", "3-1": "a/2592a963b819.mp3", "3-2": "a/420513be6773.mp3", "3-3": "a/8ba7fbd1d3e0.mp3", "3-4": "a/db5385273ee8.mp3", "3-5": "a/d94ab1d56a02.mp3", "3-6": "a/af00d56c51c7.mp3", "4-0": "a/6af6a228a31c.mp3", "4-1": "a/cb6e3e528833.mp3", "4-2": "a/b73a35e494b9.mp3", "4-3": "a/cd8be306459a.mp3", "4-4": "a/2fe4451e04bd.mp3", "5-0": "a/05397f7a3c68.mp3", "5-1": "a/24f740128154.mp3", "5-2": "a/5039f8bc308a.mp3", "5-3": "a/8dff0ece5690.mp3", "5-4": "a/39aca1f27a88.mp3", "5-5": "a/a5197b6be601.mp3", "6-0": "a/dd8117ae855d.mp3", "6-1": "a/744cc7594a01.mp3", "6-2": "a/443b470717c6.mp3", "6-3": "a/e861ab5c4fbb.mp3", "6-4": "a/87cdb4e221b7.mp3", "6-5": "a/826e8eec5f50.mp3", "6-6": "a/2a5aada64e89.mp3", "6-7": "a/6c7f79bd95d6.mp3", "7-0": "a/854972cd4cca.mp3", "7-1": "a/3701ac310f82.mp3", "7-2": "a/ddb273eae0fc.mp3", "7-3": "a/60d2efd8ed11.mp3", "7-4": "a/5c8271773fe9.mp3", "7-5": "a/ba195110ee8c.mp3", "7-6": "a/c8844dd8809e.mp3", "7-7": "a/8d5ea125d18e.mp3", "8-0": "a/9017d4087e73.mp3", "8-1": "a/a6589f50742a.mp3", "8-2": "a/8f21b3b78bb3.mp3", "8-3": "a/020afc680085.mp3", "8-4": "a/1ca44a8209b4.mp3", "8-5": "a/c8b5fefeb5ff.mp3", "9-0": "a/21a2d272322b.mp3", "9-1": "a/157a69261f58.mp3", "9-2": "a/646d27c662c0.mp3", "9-3": "a/5fcb64bc648a.mp3", "9-4": "a/94668ab431d0.mp3", "10-0": "a/1eb48e6d62f7.mp3", "10-1": "a/b9c3c9c176ea.mp3", "10-2": "a/3c1259646b13.mp3", "10-3": "a/b43e22cc6045.mp3", "10-4": "a/00b089aeb22c.mp3", "10-5": "a/3f9e2002b4ee.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/ac2ea1045f3e.mp3", "11-2": "a/11a2b27580e4.mp3", "11-3": "a/26f0f59df524.mp3", "11-4": "a/c9a4c3ced5ab.mp3", "12-0": "a/e2340e993e67.mp3", "12-1": "a/95976504a573.mp3", "12-2": "a/2dfb8bcf8fb5.mp3", "12-3": "a/33da7a1ca4a7.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

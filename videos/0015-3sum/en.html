@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Three Make Zero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Three Make Zero', template:'prep', lang:'en', sub:'LeetCode 15 3Sum · animated walkthrough', key:'lc15envid', doc:'LeetCode 15', blurb:'Start from three nested loops, which are slow and find duplicate triplets; sort first, fix the first number, and the rest is Two Sum on a sorted array, solved by two pointers moving inward, with two skip-equal-values rules for deduplication.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: three numbers that make zero','The problem: different positions, no repeats','Three nested loops: slow and repetitive','Key idea: sort, fix i, squeeze','Walk through: i = −4','Walk through: i = −1, two triplets','The rest: skip equal i, stop early','After a match: pointers skip too','Check: [0, 0, 0, 0]','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip with i / L / R markers; each state shows only at its own step (.only + .now) ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ts{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.ts>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.ts>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.ts>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.25em}
+.ts>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.ts .only.s{position:absolute;opacity:0!important;transform:none;box-shadow:none}
+.ts .only.s.now{opacity:1!important}
+.ts i.hit{inset:-4px;border-radius:10px}
+.ts i.hit.I{box-shadow:0 0 0 3px var(--amber)!important}
+.ts i.hit.P{box-shadow:0 0 0 3px var(--sky)!important}
+.ts .mk b{margin:0 2px}
+.ts .mk .I{color:var(--amber)} .ts .mk .L{color:var(--sky)} .ts .mk .R{color:var(--coral)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:4em;position:relative;margin-top:6px}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important;transform:none;box-shadow:none} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow u{text-decoration:none;color:var(--coral)}
+.fnd{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;font-family:var(--f-mono);font-size:.85em}
+.fnd .lb{color:var(--dim)}
+.fnd .s{padding:2px 8px;border-radius:6px;border:1px solid var(--mint);color:var(--mint)}
+.fnd .s:not(.on){opacity:0}
+</style>`;
+const neg = v => String(v).replace('-', '−');
+// st: [[step, i, L, R, text]] (null = no marker); found: [[step, text]]
+function ts(nums, st=[], found=[]){
+  const n = nums.length;
+  let h = TCSS + `<div class="ts" style="grid-template-columns:repeat(${n},2.6em)">`;
+  h += nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += nums.map((v,k)=>`<div class="v">${neg(v)}${st.map(([s,i,L,R])=>
+      k===i?`<i class="hit I only s" data-s="${s}"></i>`:(k===L||k===R)?`<i class="hit P only s" data-s="${s}"></i>`:'').join('')}</div>`).join('');
+  h += nums.map((_,k)=>`<div class="mk">${st.map(([s,i,L,R])=>{
+    const t = [k===i?'<b class="I">i</b>':'', k===L?'<b class="L">L</b>':'', k===R?'<b class="R">R</b>':''].filter(Boolean).join('');
+    return t?`<span class="only s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div>`;
+  if(st.some(x=>x[4])) h += `<div class="qrow">${st.map(([s,,,,t])=>`<span class="only s" data-s="${s}">${t||''}</span>`).join('')}</div>`;
+  if(found.length) h += `<div class="fnd"><span class="lb">Answer:</span>${found.map(([s,t])=>`<span class="s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const RAW = [-1,0,1,2,-1,-4];
+const SORTED = [-4,-1,-1,0,1,2];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Three Make Zero<br><em>LeetCode 15</em>', vis:
+  gloss(0,[['triplet','A group of three numbers'],['sort','Put the numbers in order from small to large'],['two pointers','Two indices, one from the left and one from the right, moving toward the middle'],['deduplicate','Keep only one copy of the same group']])
+  + flow([[1,'Read','three numbers sum to 0'],[1,'Instinct','three nested loops'],[2,'Problem','slow + repeats'],[2,'Key idea','sort, fix i'],[3,'Squeeze','L and R'],[3,'Dedupe','skip equal values']]),
+  say:[
+  'This lesson covers LeetCode 15, 3Sum. First, four words. A triplet is a group of three numbers. Sorting puts the numbers in order from small to large. Two pointers are two indices, one from the left and one from the right, moving toward the middle. Deduplicating means keeping only one copy of the same group.',
+  'The problem asks for every triplet that sums to zero. The first idea you will have is three nested loops that try every combination of three numbers.',
+  'We will try it by hand and see where it breaks: it is slow, and it finds the same group twice. The fix is to sort first, then fix the first number.',
+  'For the other two numbers, a left pointer and a right pointer squeeze toward the middle. Finally, two rules that skip equal values remove the repeats.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>different positions, no repeats</em>', vis:
+  gloss(0,[['nums','The input array of integers; it has positives and negatives, and values can repeat'],['sums to 0','The three numbers add up to zero']])
+  + duo(ts(RAW),
+    q(1,'nums = [−1, 0, 1, 2, −1, −4]. Find every triplet that sums to 0.')
+    + cards([[2,'Three different positions','Values may be equal: the two −1s sit at different positions','sky'],
+             [3,'Answer: [[−1, −1, 2], [−1, 0, 1]]','Two groups, both sum to 0','mint'],
+             [4,'Each group appears only once','[0, 1, −1] and [−1, 0, 1] are the same group','coral']])),
+  say:[
+  'nums is the input array of integers. It has positives and negatives, and values can repeat. Sums to zero means the three numbers add up to zero.',
+  'The question for this scene: nums is minus 1, 0, 1, 2, minus 1, minus 4. Find every triplet that sums to zero.',
+  'Rule one: the three numbers must come from three different positions. The values can be equal, like the two minus 1s here, at index 0 and index 4.',
+  'The answer has two groups: minus 1, minus 1, 2, and minus 1, 0, 1. Both add up to zero.',
+  'Rule two: each group may appear only once. 0, 1, minus 1 and minus 1, 0, 1 differ only in order, so they count as one group, and you submit it once.'
+]});
+
+/* ===== 2 Three nested loops ===== */
+add({ch:2, title:'Three nested loops: <em>slow and repetitive</em>', vis:
+  gloss(0,[['three nested loops','Three for loops over i, j, k with i < j < k, trying every set of three positions'],['O(n³)','With n numbers, about n times n times n divided by 6 combinations']])
+  + q(1,'If you try every set of three positions in [−1, 0, 1, 2, −1, −4], what do you find?')
+  + tbl(['positions i, j, k','three numbers','sum'],[
+    [2,'0, 1, 2','[−1, 0, 1]','0'],
+    [3,'0, 3, 4','[−1, 2, −1]','0'],
+    [4,'1, 2, 4','[0, 1, −1]','0 ← same group as row one']])
+  + cards([[5,'20 tries, 3 hits, only 2 groups','At n = 3000, about 4.5 billion tries: slow and repetitive','coral']]),
+  say:[
+  'Three nested loops means three for loops over i, j and k, with i less than j less than k, trying every set of three positions. With n numbers that is about n times n times n over 6 tries, which is big O of n cubed.',
+  'The question for this scene: if you try every set of three positions in this example, what do you find?',
+  'First you hit indices 0, 1, 2: minus 1, 0, 1. The sum is zero, so you record it.',
+  'Next you hit indices 0, 3, 4: minus 1, 2, minus 1. The sum is zero, so you record it.',
+  'Then indices 1, 2, 4: 0, 1, minus 1. The sum is zero too, but it is the same group as row one in a different order. That is a repeat.',
+  'Six numbers give twenty tries, three hits, and really only two groups. n can be up to three thousand, which means about four and a half billion tries. It is slow and it repeats, and we need to fix both.'
+]});
+
+/* ===== 3 Key idea ===== */
+add({ch:3, title:'Key idea: <em>sort, fix i, squeeze</em>', vis:
+  gloss(0,[['fix i','Choose the first number nums[i], and look for the other two only to its right'],['Two Sum','Find two numbers whose sum equals a target'],['L, R','The left pointer starts at i + 1, the right pointer starts at the far right']])
+  + duo(ts(SORTED,[[3,0,null,null,'Fix <b>i = 0</b> first: nums[i] = −4'],[4,0,1,5,'<b>i = 0</b>　L = 1　R = 5']]),
+    q(1,'How do we turn "try three numbers" into "try two numbers", without trying them one by one?')
+    + cards([[2,'Sort first','[−1, 0, 1, 2, −1, −4] → [−4, −1, −1, 0, 1, 2]','sky'],
+             [3,'Fix i: the rest is Two Sum','Right of i, find two numbers that sum to −nums[i]','amber'],
+             [4,'L from the left, R from the right, squeeze','sum < 0 → move L right; sum > 0 → move R left; = 0 → record','mint']])),
+  say:[
+  'Fixing i means choosing the first number, then looking for the other two only to its right. Two Sum means finding two numbers whose sum equals a target. L starts at i plus 1, and R starts at the far right.',
+  'The question for this scene: how do we turn trying three numbers into trying two, without trying them one by one?',
+  'Step one, sort. Minus 1, 0, 1, 2, minus 1, minus 4 becomes minus 4, minus 1, minus 1, 0, 1, 2. Once sorted, the sizes have a direction.',
+  'Step two, fix i. Say i is 0, so the first number is minus 4. What is left: to its right, find two numbers that sum to plus 4. That is Two Sum.',
+  'Step three, with L on the left and R on the right, add up the three numbers. Too small, move L right to a bigger number. Too big, move R left to a smaller number. Exactly zero, record it.'
+]});
+
+/* ===== 4 Walk through: i = −4 ===== */
+add({ch:4, title:'Walk through: <em>i = −4</em>', vis:
+  gloss(0,[['amber box','The fixed first number, i'],['blue boxes','The two numbers being tried, L and R'],['discard','This position cannot be in any answer, so we never look at it again']])
+  + duo(ts(SORTED,[
+      [2,0,1,5,'−4 + (−1) + 2 = <u>−3</u> &lt; 0 → move L right'],
+      [3,0,2,5,'−4 + (−1) + 2 = <u>−3</u> &lt; 0 → move L right'],
+      [4,0,3,5,'−4 + 0 + 2 = <u>−2</u> &lt; 0 → move L right'],
+      [5,0,4,5,'−4 + 1 + 2 = <u>−1</u> &lt; 0 → move L right'],
+      [6,0,5,5,'L meets R: <b>i = 0</b> done, nothing found'],
+      [7,0,5,5,'L meets R: <b>i = 0</b> done, nothing found']]),
+    q(1,'With −4 fixed, how do L and R move? Why is it safe to just discard L?')
+    + cards([[7,'R is already the biggest number left','The sum is still below 0, so L fails with any partner → discarding L misses nothing','mint']])),
+  say:[
+  'The amber box is the fixed first number, i. The blue boxes are L and R, the two being tried. Discard means this position cannot be in any answer, so we never look at it again.',
+  'The question for this scene: with minus 4 fixed, how do L and R move? Why is it safe to just discard L?',
+  'L is at index 1 and R is at index 5. Minus 4 plus minus 1 plus 2 is minus 3, below zero, so L moves right.',
+  'L reaches index 2, still minus 1, and the sum is still minus 3. L moves right again.',
+  'L reaches index 3, which is 0. Minus 4 plus 0 plus 2 is minus 2, still too small. L moves right.',
+  'L reaches index 4, which is 1. Minus 4 plus 1 plus 2 is minus 1, still too small. L moves right.',
+  'L reaches index 5 and meets R. The pointers overlap, so the round for i equals 0 ends with nothing found.',
+  'Why discarding L is safe: R is already the biggest number left, and the sum is still below zero, so L fails with any partner. Discarding L misses no answer. When the sum is too big, discarding R works the same way.'
+]});
+
+/* ===== 5 Walk through: i = −1 ===== */
+add({ch:5, title:'Walk through: <em>i = −1, two triplets</em>', vis:
+  gloss(0,[['record','The sum is exactly 0, so the three numbers go into the answer'],['cross','L has moved past R, so this round ends']])
+  + duo(ts(SORTED,[
+      [2,1,2,5,'−1 + (−1) + 2 = <em>0</em> → record'],
+      [3,1,3,4,'Both step inward: −1 + 0 + 1 = <em>0</em> → record'],
+      [4,1,4,3,'L passes R: <b>i = 1</b> done'],
+      [5,1,4,3,'L passes R: <b>i = 1</b> done']],
+      [[2,'[−1, −1, 2]'],[3,'[−1, 0, 1]']]),
+    q(1,'With the first −1 fixed, how many groups do we find? After a match, how do the pointers move?')
+    + cards([[5,'After a match, L and R both move inward','Move only one and keep the other, and the sum can no longer be 0','sky']])),
+  say:[
+  'Record means the sum is exactly zero, so the three numbers go into the answer. Cross means L has moved past R, and the round ends.',
+  'The question for this scene: with the minus 1 at index 1 fixed, how many groups do we find? After a match, how do the pointers move?',
+  'L is at index 2 and R is at index 5. Minus 1 plus minus 1 plus 2 is exactly zero, so we record the first group: minus 1, minus 1, 2.',
+  'After a match, L and R each step inward. L goes to index 3 and R to index 4. Minus 1 plus 0 plus 1 is zero again, so we record the second group: minus 1, 0, 1.',
+  'Both step inward again. L reaches 4 and R reaches 3, so they cross. The round for i equals 1 ends.',
+  'Why both move after a match: moving only L makes the sum bigger, and moving only R makes it smaller. Both L and R need new numbers to make zero again.'
+]});
+
+/* ===== 6 The rest ===== */
+add({ch:6, title:'The rest: <em>skip equal i, stop early</em>', vis:
+  gloss(0,[['skip i','nums[i] equals the number before it, so skip this round'],['stop early','nums[i] is greater than 0, so the whole loop ends']])
+  + duo(ts(SORTED,[
+      [2,2,null,null,'nums[2] == nums[1] = −1 → <b>skip</b>'],
+      [3,3,4,5,'0 + 1 + 2 = <u>3</u> &gt; 0 → move R left'],
+      [4,3,4,4,'L meets R: <b>i = 3</b> done'],
+      [5,4,null,null,'nums[4] = 1 &gt; 0 → <b>stop</b>'],
+      [6,4,null,null,'nums[4] = 1 &gt; 0 → <b>stop</b>']],
+      [[0,'[−1, −1, 2]'],[0,'[−1, 0, 1]']]),
+    q(1,'Why do we skip when i reaches the second −1? Why does everything stop when i reaches 1?')
+    + cards([[6,'Result: [[−1, −1, 2], [−1, 0, 1]]','Each group appears once','mint']])),
+  say:[
+  'Skip i means nums of i equals the number before it, so we skip this round. Stop early means nums of i is greater than zero, so the whole loop ends.',
+  'The question for this scene: why do we skip when i reaches the second minus 1? Why does everything stop when i reaches 1?',
+  'The minus 1 at index 2 equals the minus 1 at index 1. Everything it could find, the last round already found, like minus 1, 0, 1. Without the skip, that group would be recorded again. So we skip.',
+  'i moves to index 3, which is 0. L is at 4 and R is at 5. 0 plus 1 plus 2 is 3, too big, so R moves left.',
+  'R reaches index 4 and meets L. The round for i equals 3 ends.',
+  'i moves to index 4, which is 1, greater than zero. The array is sorted, so every number to its right is at least 1. Three positive numbers can never sum to zero, so the whole loop stops.',
+  'The final answer is minus 1, minus 1, 2, and minus 1, 0, 1. Each group appears once.'
+]});
+
+/* ===== 7 After a match: pointers skip too ===== */
+add({ch:7, title:'After a match: <em>pointers skip equal values too</em>', vis:
+  gloss(0,[['skip equal values','L keeps moving right until its value differs from the one just recorded; R does the same moving left']])
+  + duo(ts([-2,0,0,2,2],[
+      [2,0,1,4,'−2 + 0 + 2 = <em>0</em> → record'],
+      [3,0,2,3,'One step each: −2 + 0 + 2 = <u>0</u> again → repeat'],
+      [4,0,3,3,'nums[2] == nums[1] → L steps again and meets R'],
+      [5,0,3,3,'nums[2] == nums[1] → L steps again and meets R']],
+      [[2,'[−2, 0, 2]']]),
+    q(1,'In [−2, 0, 0, 2, 2], is skipping equal i enough?')
+    + cards([[5,'After a match: L skips equal values, and so does R','The result is only [[−2, 0, 2]]','mint']])),
+  say:[
+  'Skipping equal values means L keeps moving right until its value differs from the one just recorded. R does the same, moving left.',
+  'The question for this scene: with a new example, minus 2, 0, 0, 2, 2, is skipping equal i enough?',
+  'i is minus 2. L is at index 1 and R is at index 4. Minus 2 plus 0 plus 2 is zero, so we record minus 2, 0, 2.',
+  'L and R each take one step, to indices 2 and 3. They are still 0 and 2, so computing now gives minus 2, 0, 2 again, and it would be recorded twice.',
+  'So we also check: nums of 2 equals nums of 1, both 0, so L steps again to index 3 and meets R. The round ends.',
+  'We need both dedupe rules: i skips equal values, and after a match L and R skip equal values too. Then the result is only one group, minus 2, 0, 2.'
+]});
+
+/* ===== 8 Check: [0, 0, 0, 0] ===== */
+add({ch:8, title:'Check: <em>[0, 0, 0, 0]</em>', vis:
+  gloss(0,[['check','Run the method from start to end on a special example'],['all zeros','Every triplet sums to 0, so repeats are most likely']])
+  + duo(ts([0,0,0,0],[
+      [2,0,1,3,'0 + 0 + 0 = <em>0</em> → record'],
+      [3,0,2,2,'One step each: L meets R, <b>i = 0</b> done'],
+      [4,1,null,null,'nums[1] == nums[0] → <b>skip</b>'],
+      [5,3,null,null,'Indices 2 and 3 are skipped the same way'],
+      [6,3,null,null,'Indices 2 and 3 are skipped the same way']],
+      [[2,'[0, 0, 0]']]),
+    q(1,'[0, 0, 0, 0]: how many times do three nested loops find a triplet? What about our method?')
+    + cards([[6,'Result [[0, 0, 0]], just once','Three loops find it 4 times; the early stop is &gt; 0, and &gt;= 0 would miss it','mint']])),
+  say:[
+  'A check means running the method from start to end on a special example. In an array of all zeros, every triplet sums to zero, so repeats are most likely.',
+  'The question for this scene: with four zeros, how many times do three nested loops find a triplet? What about our method?',
+  'i is at index 0, L at 1, R at 3. 0 plus 0 plus 0 is zero, so we record 0, 0, 0.',
+  'L and R each take one step and both land on index 2. They meet, and the round for i equals 0 ends.',
+  'i moves to index 1. It is 0, the same as the one before, so we skip.',
+  'Indices 2 and 3 are also 0, the same as the one before, so they are skipped too.',
+  'The result is only one group, 0, 0, 0. Three nested loops would find it four times. Also note: the early stop condition is greater than zero. Write greater than or equal to zero, and the first round stops, missing this group.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>sort + one for loop + two pointers</em>', vis:
+  gloss(0,[['res','The answer list; each group found is added to it'],['s','The sum of the current three numbers']])
+  + term('solution.py',[
+    [2,'o','def threeSum(nums):'],
+    [2,'hl','    nums.sort()'],
+    [2,'o','    res, n = [], len(nums)'],
+    [3,'o','    for i in range(n):'],
+    [3,'hl','        if nums[i] > 0:                       # only positives remain'],
+    [3,'o','            break'],
+    [3,'hl','        if i > 0 and nums[i] == nums[i - 1]:  # each value once'],
+    [3,'o','            continue'],
+    [4,'o','        L, R = i + 1, n - 1'],
+    [4,'o','        while L < R:'],
+    [4,'o','            s = nums[i] + nums[L] + nums[R]'],
+    [4,'o','            if s < 0:'],
+    [4,'o','                L += 1                         # too small, go bigger'],
+    [4,'o','            elif s > 0:'],
+    [4,'o','                R -= 1                         # too big, go smaller'],
+    [5,'o','            else:'],
+    [5,'o','                res.append([nums[i], nums[L], nums[R]])'],
+    [5,'o','                L += 1'],
+    [5,'o','                R -= 1'],
+    [5,'hl','                while L < R and nums[L] == nums[L - 1]:'],
+    [5,'o','                    L += 1'],
+    [5,'hl','                while L < R and nums[R] == nums[R + 1]:'],
+    [5,'o','                    R -= 1'],
+    [6,'o','    return res']])
+  + q(1,'Which step of the walkthrough does each part of the code match?'),
+  say:[
+  'res is the answer list, and each group found is added to it. s is the sum of the current three numbers.',
+  'The question for this scene: which step of the walkthrough does each part of the code match?',
+  'Part one: sort first. Sorting changes nums in place, and every check after it relies on the order.',
+  'Part two: the outer for loop fixes i. If nums of i is greater than zero, stop. If it equals the number before it, skip.',
+  'Part three: L starts at i plus 1 and R at the far right. If the sum is too small, L plus 1. If it is too big, R minus 1.',
+  'Part four: when the sum is exactly zero, record it, step both pointers inward, then let each skip values equal to the ones just used.',
+  'Finally, return res. The whole thing is a sort, one for loop, and two pointers.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n²)','n times n: n values of i, and for each one the two pointers take fewer than n steps in total'],['O(n log n)','The time sorting takes, smaller than n squared']])
+  + q(1,'What is the time? Where is it easiest to slip?')
+  + cards([[2,'Time O(n²)','Sorting is n log n, plus n rounds of at most n steps','sky'],
+           [3,'Pitfall 1: compare i with i − 1','Comparing with i + 1 misses [−1, −1, 2]','coral'],
+           [4,'Pitfall 2: the early stop is > 0, not >= 0','>= 0 misses [0, 0, 0]','coral'],
+           [5,'Pitfall 3: forgetting to skip after a match','[−2, 0, 0, 2, 2] records [−2, 0, 2] twice','coral']]),
+  say:[
+  'Big O of n squared means n times n: there are n values of i, and for each one the two pointers take fewer than n steps in total. Big O of n log n is the time sorting takes, smaller than n squared.',
+  'The question for this scene: what is the time, and where is it easiest to slip?',
+  'The time is big O of n squared: sorting is n log n, plus n rounds of at most n steps each. That is one loop fewer than the n cubed of three nested loops.',
+  'Pitfall one: when skipping i, compare with the one before it, i minus 1. Compare with i plus 1 instead, and the first minus 1 gets skipped, so minus 1, minus 1, 2 is missed.',
+  'Pitfall two: the early stop condition is greater than zero, not greater than or equal to zero. In the four zeros example, greater than or equal to zero misses 0, 0, 0.',
+  'Pitfall three: forgetting to let the pointers skip equal values after a match. In minus 2, 0, 0, 2, 2, the group minus 2, 0, 2 gets recorded twice.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the method out loud first, then write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can you just move L right when the sum is too small?"')
+  + flow([[2,'Brute force','O(n³) with repeats'],[3,'Sort','fix i'],[3,'Squeeze','small → L right, big → R left'],[4,'Dedupe','i, L, R skip equal values'],[4,'Complexity','O(n²)']])
+  + chips(4,['3Sum','two pointers','sort first','skip duplicates','early termination','1 Two Sum','16 3Sum Closest','18 4Sum']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can you just move L right when the sum is too small?',
+  'Start with the motivation: three nested loops are big O of n cubed, with repeats. So I sort first and fix the first number, and the rest is Two Sum on a sorted array.',
+  'Then explain why: R is already the biggest number left, and the sum is still below zero, so L fails with any partner and can be discarded. Deduplication comes from i, L and R all skipping equal values.',
+  'Finish with the complexity, big O of n squared. The key English terms are two pointers and skip duplicates. Related problems are 16, 3Sum Closest, and 18, 4Sum.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Sort','small to large'],[0,'Fix i','the rest is Two Sum'],[0,'Squeeze','L right / R left'],[0,'Dedupe','skip equal values']])
+  + cards([[1,'① Sort, fix i, and the rest is Two Sum','L starts at i + 1, R at the far right','amber'],
+           [2,'② Sum too small, L moves right; too big, R moves left','If even the biggest R is not enough, L is useless','sky'],
+           [3,'③ Dedupe: compare i with i − 1; after a match, L and R skip equal values','Stop early once nums[i] > 0','mint']]),
+  say:[
+  'One more pass over the main line: sort, fix the first number, squeeze the other two with left and right pointers, and skip equal values to remove repeats.',
+  'Number one: sort, fix i, and the rest is Two Sum. L starts at i plus 1, and R starts at the far right.',
+  'Number two: if the sum is too small, L moves right. If it is too big, R moves left. If even the biggest R is not enough, L is useless.',
+  'Number three: deduplicate by skipping equal values. Compare i with i minus 1. After a match, L and R both skip equal values. Once nums of i is greater than zero, stop early.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/0c1093cf71c1.mp3", "0-1": "a/91c36aa9ed35.mp3", "0-2": "a/a59cd70b0f60.mp3", "0-3": "a/770a4dfdaae5.mp3", "1-0": "a/b391f7d63323.mp3", "1-1": "a/3e04d116baa6.mp3", "1-2": "a/42bddc28666f.mp3", "1-3": "a/ad3e566b0708.mp3", "1-4": "a/c8a98b9b3221.mp3", "2-0": "a/5c0cd21a0991.mp3", "2-1": "a/e510ee3f4e6e.mp3", "2-2": "a/642b96ae8cc7.mp3", "2-3": "a/e4837938e036.mp3", "2-4": "a/dde6a09856b3.mp3", "2-5": "a/e959b9d8263c.mp3", "3-0": "a/4780965220d7.mp3", "3-1": "a/ed8573ae102f.mp3", "3-2": "a/a02631606bf2.mp3", "3-3": "a/dc624c915142.mp3", "3-4": "a/fed3e7d22e9e.mp3", "4-0": "a/7709ced1cb09.mp3", "4-1": "a/59856cbbf9ca.mp3", "4-2": "a/05ef3eec9bbe.mp3", "4-3": "a/f49c12b30762.mp3", "4-4": "a/0211f0f847ad.mp3", "4-5": "a/8bb0ed03ba10.mp3", "4-6": "a/18e56d22824f.mp3", "4-7": "a/080c2901371b.mp3", "5-0": "a/719ff5e30ecb.mp3", "5-1": "a/a0b441f8b668.mp3", "5-2": "a/14a028aa1ea7.mp3", "5-3": "a/2d646bf667a1.mp3", "5-4": "a/0ec88d7d3e79.mp3", "5-5": "a/b1a45bf9921d.mp3", "6-0": "a/5a3596318a30.mp3", "6-1": "a/fa86dbe09a49.mp3", "6-2": "a/f0604eb3cf36.mp3", "6-3": "a/cef32749aa52.mp3", "6-4": "a/466bf4a3b324.mp3", "6-5": "a/07dbfd48d343.mp3", "6-6": "a/6480549a1310.mp3", "7-0": "a/0f08fcba4ee4.mp3", "7-1": "a/27ad068f7769.mp3", "7-2": "a/89e3b7fb4787.mp3", "7-3": "a/55341d5cff10.mp3", "7-4": "a/ec7c5b4ac8ef.mp3", "7-5": "a/e8c791cdc67d.mp3", "8-0": "a/c52a9226b993.mp3", "8-1": "a/325423a3fd3d.mp3", "8-2": "a/555dc408ec34.mp3", "8-3": "a/31078b7eac7f.mp3", "8-4": "a/99e627306e58.mp3", "8-5": "a/c6e519258443.mp3", "8-6": "a/6f7536775999.mp3", "9-0": "a/360ffd997f78.mp3", "9-1": "a/8f498385d308.mp3", "9-2": "a/dc7b80cf3e67.mp3", "9-3": "a/1b6224105a01.mp3", "9-4": "a/9e78641f3956.mp3", "9-5": "a/cd49c243476a.mp3", "9-6": "a/71085b9c2256.mp3", "10-0": "a/407db3418856.mp3", "10-1": "a/af3e036dce32.mp3", "10-2": "a/5840ed2b1bea.mp3", "10-3": "a/bd4008d29322.mp3", "10-4": "a/5ac3969b95fa.mp3", "10-5": "a/4c9738039c7b.mp3", "11-0": "a/a8b2325e73e6.mp3", "11-1": "a/b6580a04f2b0.mp3", "11-2": "a/f3cc5606d486.mp3", "11-3": "a/7eb0f1a86536.mp3", "11-4": "a/e8885d25bea7.mp3", "12-0": "a/a38b032eae0c.mp3", "12-1": "a/a29bd52d4151.mp3", "12-2": "a/616b28eab6a7.mp3", "12-3": "a/914406c83976.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

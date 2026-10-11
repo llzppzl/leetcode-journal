@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Turn the Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Turn the Grid', template:'prep', lang:'en', sub:'LeetCode 48 Rotate Image · animated walkthrough', key:'lc48envid', doc:'LeetCode 48', blurb:'Start from filling a new matrix, see why writing in place overwrites numbers you still need, then rotate the matrix 90 degrees clockwise in place with two rounds of swaps: transpose, then reverse every row.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: turn a grid','The problem: what it looks like after','Instinct: a new matrix','Writing in place: overwritten','Key idea: transpose + reverse','Why it works: follow one cell','Animation: 3 × 3','Check: 4 × 4','Write the code','Complexity and pitfalls','Follow-up: counter-clockwise','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- matrix grid: frames stack in one place, each frame shows only at its own step ---------- */
+const MCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.mxw{display:grid;justify-content:center;margin:0 auto}
+.mxw>.fr{grid-area:1/1;display:flex;flex-direction:column;align-items:center;gap:8px}
+.mxw .only.s{opacity:0!important;transform:none;box-shadow:none}
+.mxw .only.s.now{opacity:1!important;box-shadow:none}
+.mx{display:grid;gap:5px}
+.mx>div{display:grid;place-items:center;width:2.4em;height:2.4em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.1em;transition:none}
+.mx.sm>div{width:2.05em;height:2.05em;font-size:.95em}
+.mx>.ix{border:0;background:none;width:auto;height:auto;min-width:1em;color:var(--dim);font-family:var(--f-mono);font-size:.68em}
+.mx>.d{border:1px dashed var(--sky)}
+.mx>.m{border-color:var(--mint);background:rgba(98,224,180,.2)}
+.mx>.c{border-color:var(--coral);color:var(--coral);background:rgba(255,120,100,.14)}
+.mx>.a{border-color:var(--amber);color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+.mx>.e{color:var(--dim)}
+.pair{display:flex;align-items:center;gap:10px;justify-content:center}
+.pair>.ar{color:var(--dim);font-size:1.2em}
+.cap{font-family:var(--f-mono);font-size:.85em;color:var(--dim);text-align:center;max-width:22em}
+.cap b{color:var(--amber);font-weight:400} .cap em{font-style:normal;color:var(--mint)}
+</style>`;
+// mk: {a:'01 10', m:'all', c:'02', d:true}; cell (r, c) is written as "rc"; o: {ix:true, sm:true}
+function mat(M, mk={}, o={}){
+  const n = M.length, has = (k, r, c) => mk[k]==='all' || (mk[k]||'').split(' ').includes(''+r+c);
+  let h = `<div class="mx ${o.sm?'sm':''}" style="grid-template-columns:${o.ix?'auto ':''}repeat(${n},auto)">`;
+  if(o.ix) h += `<div class="ix"></div>` + M.map((_,c)=>`<div class="ix">${c}</div>`).join('');
+  M.forEach((row,r)=>{
+    if(o.ix) h += `<div class="ix">${r}</div>`;
+    row.forEach((v,c)=>{
+      const cl = [mk.d&&r===c?'d':'', ...['m','c','a'].filter(k=>has(k,r,c)), v==null?'e':''].join(' ');
+      h += `<div class="${cl}">${v==null?'·':v}</div>`;
+    });
+  });
+  return h + `</div>`;
+}
+const pair = (a, b) => `<div class="pair">${a}<span class="ar">→</span>${b}</div>`;
+const mx = frames => MCSS + `<div class="mxw">${frames.map(([s,body,cap])=>`<div class="fr only s" data-s="${s}">${body}<div class="cap">${cap||''}</div></div>`).join('')}</div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- examples (every state below was printed by running the Python code) ---------- */
+const A = [[1,2,3],[4,5,6],[7,8,9]];
+const T = [[1,4,7],[2,5,8],[3,6,9]];          // A transposed
+const R = [[7,4,1],[8,5,2],[9,6,3]];          // A rotated clockwise
+const _ = null;
+const A4 = [[5,1,9,11],[2,4,8,10],[13,3,6,7],[15,14,12,16]];
+const T4 = [[5,2,13,15],[1,4,3,14],[9,8,6,12],[11,10,7,16]];
+const R4 = [[15,13,2,5],[14,3,4,1],[12,6,8,9],[16,7,10,11]];
+const CCW = [[3,6,9],[2,5,8],[1,4,7]];
+const H180 = [[9,8,7],[6,5,4],[3,2,1]];
+const IX = {ix:true};
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Turn the Grid<br><em>LeetCode 48</em>', vis:
+  gloss(0,[['matrix','a square grid of numbers with n rows and n columns'],['in place','change the original grid only, never make a second one'],['transpose','fold along the top-left to bottom-right diagonal: rows become columns'],['reverse','flip one row left to right']])
+  + flow([[1,'Problem','clockwise 90°'],[1,'Instinct','fill a new matrix'],[2,'Stuck','writing in place overwrites'],[2,'Key idea','transpose + reverse rows'],[3,'Animation','3 × 3, 4 × 4'],[3,'Code','two loops']]),
+  say:[
+  'This lesson covers LeetCode 48, Rotate Image. First, four words. A matrix is a square grid of numbers with n rows and n columns. In place means you never make a second grid. Transpose means folding along the top-left to bottom-right diagonal. Reverse means flipping one row left to right.',
+  'Here is the route. First we see what the rotated grid looks like, then try the most natural idea: make a new matrix and move every number into the cell where it belongs.',
+  'But the problem requires in place. We will try writing straight back by hand, and see the exact step where it overwrites a number we still need. Then we use a neat trick: transpose, then reverse every row.',
+  'Finally we animate it step by step on a 3 by 3 and a 4 by 4, then write the code and cover the pitfalls.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>what it looks like after</em>', vis:
+  gloss(0,[['matrix[i][j]','the cell in row i, column j; rows and columns count from 0'],['clockwise 90°','a quarter turn to the right, like tightening a screw']])
+  + duo(mx([[2,mat(A,{},IX),'original'],[3,mat(R,{m:'all'},IX),'rotated'],[4,mat(R,{a:'02 12 22'},IX),'1 2 3 → last column'],[5,mat(R,{m:'all'},IX),'change matrix itself']]),
+    q(1,'Rotate [[1, 2, 3], [4, 5, 6], [7, 8, 9]] clockwise by 90°. What do you get?')
+    + cards([[3,'[[7, 4, 1], [8, 5, 2], [9, 6, 3]]','the left column 7 4 1, read bottom to top, became the first row','mint'],
+             [4,'first row → last column','1, 2, 3 now run top to bottom down the right edge','sky'],
+             [5,'must be in place','no new matrix to return; the function returns nothing and changes matrix','coral']])),
+  say:[
+  'matrix i j is the cell in row i, column j, and both rows and columns count from 0. Clockwise 90 degrees means a quarter turn to the right, like tightening a screw.',
+  'The question for this scene: take the 3 by 3 grid of 1 through 9 and rotate it clockwise by 90 degrees. What do you get?',
+  'First the original: the first row is 1, 2, 3, the second row is 4, 5, 6, and the third row is 7, 8, 9.',
+  'After rotating: 7, 4, 1, then 8, 5, 2, then 9, 6, 3. The old left column, read from bottom to top, became the first row.',
+  'Looked at the other way: the old first row 1, 2, 3 now runs top to bottom down the rightmost column.',
+  'The hard rule is in place: you cannot build a new matrix and return it. You change the matrix that was passed in.'
+]});
+
+/* ===== 2 Instinct: a new matrix ===== */
+add({ch:2, title:'Instinct: <em>fill a new matrix</em>', vis:
+  gloss(0,[['(i, j)','the position at row i, column j; row first, then column'],['new matrix','a second empty grid of the same size that you fill with the answer']])
+  + q(1,'If you may make a second matrix, which cell does each number move to?')
+  + mx([[2,pair(mat(A,{a:'00'},IX),mat([[_,_,1],[_,_,_],[_,_,_]],{a:'02'},IX)),'1: (0, 0) → (0, 2)'],
+        [3,pair(mat(A,{a:'01'},IX),mat([[_,_,1],[_,_,2],[_,_,_]],{a:'12'},IX)),'2: (0, 1) → (1, 2)'],
+        [4,pair(mat(A,{a:'00 01 02'},IX),mat([[_,_,1],[_,_,2],[_,_,3]],{a:'02 12 22'},IX)),'row 0 → column 2'],
+        [5,pair(mat(A,{a:'10 11 12'},IX),mat([[_,4,1],[_,5,2],[_,6,3]],{a:'01 11 21'},IX)),'row 1 → column 1'],
+        [6,pair(mat(A,{},IX),mat(R,{m:'all'},IX)),'row i → column n − 1 − i'],
+        [7,pair(mat(A,{},IX),mat(R,{m:'all'},IX)),'n × n extra cells']])
+  + cards([[6,'new[j][n − 1 − i] = old[i][j]','old row number i becomes column n − 1 − i; old column number j becomes the row','sky'],
+           [7,'but in place is required','a new matrix costs O(n²) extra space; not allowed','coral']]),
+  say:[
+  'Parenthesis i comma j means the position at row i, column j: row first, then column. A new matrix is a second empty grid of the same size that you fill with the answer.',
+  'The question for this scene: if you may make a second matrix, which cell does each number move to?',
+  'Move 1 first. It sits at row 0, column 0, and after rotating it goes to the top-right corner, row 0, column 2.',
+  'Next, move 2. It sits at row 0, column 1, and goes to row 1, column 2.',
+  'Then 3 goes to row 2, column 2. The whole of row 0 drops vertically into column 2, the last column.',
+  'Row 1, which is 4, 5, 6, drops into column 1. The pattern is clear: row i goes to the i-th column from the right.',
+  'As a formula: new at row j, column n minus 1 minus i equals old at row i, column j. The old column j becomes the row, and the old row i becomes column n minus 1 minus i.',
+  'This idea is completely correct, but it uses big O of n squared extra space. The problem requires in place, so it is not allowed.'
+]});
+
+/* ===== 3 Writing in place directly ===== */
+add({ch:3, title:'Writing in place: <em>overwritten</em>', vis:
+  gloss(0,[['overwrite','write a new value into a cell, and the old value there is gone'],['O(1) space','only a few variables; extra space does not grow with n']])
+  + duo(mx([[2,mat([[1,2,1],[4,5,6],[7,8,9]],{c:'02'},IX),'write 1 into (0, 2): <b>3 is lost</b>'],
+            [3,mat([[1,2,1],[4,5,2],[7,8,9]],{c:'02 12'},IX),'write 2 into (1, 2): <b>6 is lost</b>'],
+            [4,mat([[1,2,1],[4,5,2],[7,8,1]],{a:'02',c:'22'},IX),'time to move 3, but (0, 2) holds 1'],
+            [5,mat([[7,4,1],[2,5,2],[1,2,1]],{c:'10 20 21 22'},IX),'finished: 4 cells wrong'],
+            [6,mat([[7,4,1],[2,5,2],[1,2,1]],{c:'10 20 21 22'},IX),'need a move that loses nothing']]),
+    q(1,'Without a new matrix, what happens if you write the formula straight back into matrix?')
+    + cards([[5,'each write destroys a value not yet moved','the lost 3 and 6 were still needed','coral'],
+             [6,'need a move that loses nothing','swap: two cells trade places, nothing is lost','mint']])),
+  say:[
+  'Overwrite means writing a new value into a cell, so the old value there is gone. Big O of 1 space means only a few variables, so extra space does not grow with n.',
+  'The question for this scene: without a new matrix, what happens if you write the formula from before straight back into matrix?',
+  'Step one: write 1 into row 0, column 2. The 3 that was there is lost.',
+  'Step two: write 2 into row 1, column 2, and the old 6 is lost too.',
+  'Step three: time to move 3. You read row 0, column 2, but what you get is the 1 you just wrote. The 3 is gone for good.',
+  'Writing all nine cells this way, 4 cells come out wrong. Each write destroys a value that has not been moved yet.',
+  'So we need a way to move values that loses nothing. The safest one is a swap: two cells trade places at the same time, so nothing is lost.'
+]});
+
+/* ===== 4 Key idea: transpose + reverse ===== */
+add({ch:4, title:'Key idea: <em>transpose + reverse rows</em>', vis:
+  gloss(0,[['main diagonal','the slanted line from top-left to bottom-right: 1, 5, 9'],['transpose','fold along the main diagonal: swap (i, j) with (j, i)'],['reverse a row','flip it left to right: 1 4 7 becomes 7 4 1']])
+  + duo(mx([[2,mat(A,{d:true}),'dashed: main diagonal 1, 5, 9'],[3,mat(T,{d:true}),'transpose: first row becomes first column'],[4,mat(R,{a:'00 01 02'}),'reverse each row: [1, 4, 7] → [7, 4, 1]'],[5,mat(R,{m:'all'}),'exactly the answer']]),
+    q(1,'Is there a way to rotate by 90° using only swaps?')
+    + cards([[3,'step 1: transpose','1 2 3 folds from the first row into the first column','sky'],
+             [4,'step 2: reverse each row','[1, 4, 7] becomes [7, 4, 1], the first row of the answer','sky'],
+             [5,'both steps are only swaps','values only change places, none is lost → in place works','mint']])),
+  say:[
+  'The main diagonal is the slanted line from top-left to bottom-right, here 1, 5, 9. Transpose means folding along the main diagonal, so row i column j trades places with row j column i. Reversing a row means flipping it left to right.',
+  'The question for this scene: is there a way to rotate by 90 degrees using only swaps?',
+  'Start with the original. The dashed cells are the main diagonal, 1, 5, 9.',
+  'Step one: transpose. After folding along the diagonal, the first row 1, 2, 3 has become the first column, and the matrix is 1, 4, 7, then 2, 5, 8, then 3, 6, 9.',
+  'Step two: reverse every row left to right. 1, 4, 7 becomes 7, 4, 1, which is exactly the first row of the answer.',
+  'The result is 7, 4, 1, then 8, 5, 2, then 9, 6, 3. Both steps are only swaps, so values just change places and none is lost. That is why it works in place.'
+]});
+
+/* ===== 5 Why it works ===== */
+add({ch:5, title:'Why it works: <em>follow one cell</em>', vis:
+  gloss(0,[['follow one cell','watch a single number and see where it lands after each step'],['n − 1 − c','when a row is reversed, column c moves to column n − 1 − c']])
+  + duo(mx([[2,mat(A,{a:'01'},IX),'2 is at (0, 1)'],[3,mat(T,{a:'10'},IX),'after transpose: (1, 0)'],[4,mat(R,{a:'12'},IX),'after reverse: (1, 2)'],[5,mat(R,{a:'12'},IX),'same as the formula']]),
+    q(1,'Why does "transpose + reverse each row" always equal a 90° clockwise turn?')
+    + cards([[2,'start at (i, j)','any cell, for example 2 at (0, 1)','sky'],
+             [3,'transpose → (j, i)','row and column swap: 2 moves to (1, 0)','sky'],
+             [4,'reverse that row → (j, n − 1 − i)','column i becomes n − 1 − i: 2 moves to (1, 2)','sky'],
+             [5,'exactly the rotation formula','new[j][n − 1 − i] = old[i][j]: every cell is right, so the whole matrix is right','mint']])),
+  say:[
+  'Following one cell means watching a single number and seeing where it lands after each step. When a row is reversed, column c moves to column n minus 1 minus c.',
+  'The question for this scene: why does transpose plus reversing each row always equal a 90 degree clockwise turn?',
+  'Pick any cell, at position i comma j. For example, 2 sits at row 0, column 1.',
+  'Transpose swaps row and column, so it moves to j comma i. The 2 moves to row 1, column 0.',
+  'Then reverse that row. The row stays, and column i becomes n minus 1 minus i, so it lands at j comma n minus 1 minus i. The 2 lands at row 1, column 2.',
+  'That is exactly the rotation formula from scene two: old at row i, column j goes to new at row j, column n minus 1 minus i. Every cell lands correctly, so the whole matrix is correct.'
+]});
+
+/* ===== 6 Animation 3 × 3 ===== */
+add({ch:6, title:'Animation: <em>3 × 3 step by step</em>', vis:
+  gloss(0,[['swap','a, b = b, a: two cells trade places at once'],['upper triangle','the cells above and to the right of the diagonal, where j is greater than i']])
+  + duo(mx([[2,mat([[1,4,3],[2,5,6],[7,8,9]],{d:true,a:'01 10'}),'swap (0, 1) ↔ (1, 0): <b>2 and 4</b>'],
+            [3,mat([[1,4,7],[2,5,6],[3,8,9]],{d:true,a:'02 20'}),'swap (0, 2) ↔ (2, 0): <b>3 and 7</b>'],
+            [4,mat(T,{d:true,a:'12 21'}),'swap (1, 2) ↔ (2, 1): <b>6 and 8</b>'],
+            [5,mat(T,{d:true}),'transpose done: diagonal 1, 5, 9 never moved'],
+            [6,mat([[7,4,1],[2,5,8],[3,6,9]],{a:'00 01 02'}),'reverse row 0: <b>[7, 4, 1]</b>'],
+            [7,mat([[7,4,1],[8,5,2],[3,6,9]],{a:'10 11 12'}),'reverse row 1: <b>[8, 5, 2]</b>'],
+            [8,mat(R,{m:'all'}),'reverse row 2: <em>done</em>']]),
+    q(1,'On [[1, 2, 3], [4, 5, 6], [7, 8, 9]], do the transpose and the reverse step by step.')
+    + cards([[5,'transpose: 3 swaps','only the 3 cells of the upper triangle','sky'],
+             [8,'reverse: 1 swap per row','the middle column stays put','mint']])),
+  say:[
+  'A swap is a comma b equals b comma a: two cells trade places at once. The upper triangle is the cells above and to the right of the diagonal, where j is greater than i.',
+  'The question for this scene: on the grid of 1 through 9, what does each step of the transpose and the reverse look like?',
+  'First transpose swap: row 0 column 1 with row 1 column 0. 2 and 4 trade places.',
+  'Second swap: row 0 column 2 with row 2 column 0. 3 and 7 trade places.',
+  'Third swap: row 1 column 2 with row 2 column 1. 6 and 8 trade places.',
+  'The transpose is done after three swaps. The diagonal 1, 5, 9 never moved.',
+  'Now reverse. Row 0, which is 1, 4, 7, becomes 7, 4, 1.',
+  'Row 1, which is 2, 5, 8, becomes 8, 5, 2.',
+  'Row 2, which is 3, 6, 9, becomes 9, 6, 3. Done, and it matches the answer exactly.'
+]});
+
+/* ===== 7 Check 4 × 4 ===== */
+add({ch:7, title:'Check: <em>now 4 × 4</em>', vis:
+  gloss(0,[['check','try a bigger example and see whether the conclusion still holds']])
+  + duo(mx([[2,mat(A4,{a:'00 01 02 03'},{sm:true}),'original: first row 5 1 9 11'],
+            [3,mat(T4,{d:true,a:'00 10 20 30'},{sm:true}),'transpose: 5 1 9 11 is now the first column'],
+            [4,mat(R4,{a:'03 13 23 33'},{sm:true}),'reverse: 5 1 9 11 is now the last column'],
+            [5,mat(R4,{m:'all'},{sm:true}),'same as the formula']]),
+    q(1,'4 × 4: [[5, 1, 9, 11], [2, 4, 8, 10], [13, 3, 6, 7], [15, 14, 12, 16]]. Still correct?')
+    + cards([[3,'transpose: 6 swaps','4 × 3 ÷ 2: the upper triangle has exactly 6 cells','sky'],
+             [4,'first row lands in the last column','top to bottom 5, 1, 9, 11: a clockwise turn','sky'],
+             [5,'[[15, 13, 2, 5], [14, 3, 4, 1], [12, 6, 8, 9], [16, 7, 10, 11]]','identical to filling a new matrix with the formula','mint']])),
+  say:[
+  'A check means trying a bigger example and seeing whether the conclusion still holds.',
+  'The question for this scene: with a 4 by 4 matrix, does transpose plus reverse still work?',
+  'The first row of the original is 5, 1, 9, 11.',
+  'Transpose. The upper triangle has 4 times 3 divided by 2, which is 6 cells, so there are 6 swaps. 5, 1, 9, 11 folds into the first column.',
+  'Reverse each row. The first column flips over to the last column, still 5, 1, 9, 11 from top to bottom, exactly what a clockwise 90 degree turn looks like.',
+  'The final result is 15, 13, 2, 5, then 14, 3, 4, 1, then 12, 6, 8, 9, then 16, 7, 10, 11. It is identical to filling a new matrix with the formula.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>two parts, one loop each</em>', vis:
+  gloss(0,[['range(i + 1, n)','j starts at i plus 1: only the cells right of the diagonal'],['row.reverse()','flip this row left to right, in place']])
+  + q(1,'How do you write it? Which step does each part match?')
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def rotate(self, matrix: List[List[int]]) -> None:'],
+    [2,'o','        n = len(matrix)'],
+    [2,'o','        for i in range(n):                 # step 1: transpose'],
+    [3,'hl','            for j in range(i + 1, n):      # upper triangle only'],
+    [2,'o','                matrix[i][j], matrix[j][i] = matrix[j][i], matrix[i][j]'],
+    [4,'o','        for row in matrix:                 # step 2: reverse each row'],
+    [4,'hl','            row.reverse()'],
+    [5,'n','        # no return: we changed the matrix that was passed in']]),
+  say:[
+  'range of i plus 1 to n means j starts at i plus 1, so we only walk the cells right of the diagonal. row dot reverse flips this row left to right, in place.',
+  'The question for this scene: how do you write it, and which step does each part match?',
+  'The first part is the transpose: two loops that swap row i column j with row j column i, with no temporary variable.',
+  'Notice the inner loop: j starts at i plus 1, so it only walks the upper triangle. The next scene explains why that is required.',
+  'The second part is the reverse: loop over every row and call reverse, which flips it in place.',
+  'There is no return at the end. The signature says it returns None, and we changed the matrix that was passed in.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n²)','n times n cells, each touched a constant number of times'],['local variable','a name inside the function; reassigning it does not change the matrix outside']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'time O(n²), space O(1)','transpose does n(n − 1) ÷ 2 swaps, reverse does n ÷ 2 per row','sky'],
+           [3,'pitfall 1: j starts at 0','(0, 1) ↔ (1, 0) swaps once, then (1, 0) swaps it back: nothing changes','coral'],
+           [4,'pitfall 2: steps in the wrong order','reverse each row first, then transpose, and you get counter-clockwise','coral'],
+           [5,'pitfall 3: matrix = new matrix','only rebinds the local name; the matrix outside is unchanged','coral']]),
+  say:[
+  'Big O of n squared means n times n cells, each touched a constant number of times. A local variable is a name inside the function, and reassigning it does not change the matrix outside.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to go wrong?',
+  'Time is big O of n squared: the transpose does n times n minus 1 divided by 2 swaps, and the reverse does n divided by 2 per row. Space is big O of 1, just a few loop variables.',
+  'Pitfall one: the inner j starts at 0. Row 0 column 1 and row 1 column 0 swap once, then when i reaches 1 and j is 0, they swap back. Every pair swaps twice, which is no swap at all, and the matrix stays unchanged.',
+  'Pitfall two: the steps in the wrong order. Reverse each row first and then transpose, and you get 3, 6, 9, then 2, 5, 8, then 1, 4, 7. That is counter-clockwise.',
+  'Pitfall three: writing matrix equals a new matrix. That only changes the local variable, the matrix outside stays the same, and the submission fails.'
+]});
+
+/* ===== 10 Follow-up: counter-clockwise ===== */
+add({ch:10, title:'Follow-up: <em>counter-clockwise</em>', vis:
+  gloss(0,[['counter-clockwise 90°','a quarter turn to the left'],['flip upside down','reverse the order of the rows: swap the first row with the last']])
+  + duo(mx([[2,mat(T,{d:true},IX),'transpose first'],[3,mat(CCW,{m:'all'},IX),'then flip upside down = counter-clockwise'],[4,mat(CCW,{a:'00'},IX),'3: (0, 2) → (2, 0) → (0, 0)'],[5,mat(H180,{m:'all'},IX),'180°']]),
+    q(1,'The interviewer follows up: "How do you turn it 90° counter-clockwise?"')
+    + cards([[3,'transpose + flip upside down','in code: after the transpose, call matrix.reverse()','mint'],
+             [4,'follow one cell','(i, j) → (j, i) → (n − 1 − j, i): the counter-clockwise formula','sky'],
+             [5,'180°','reverse each row + flip upside down, no transpose','amber']])),
+  say:[
+  'Counter-clockwise 90 degrees is a quarter turn to the left. Flipping upside down means reversing the order of the rows, so the first row and the last row trade places, which flips every column top to bottom.',
+  'The question for this scene: the interviewer follows up, how do you turn it 90 degrees counter-clockwise?',
+  'The first step is the same: transpose, giving 1, 4, 7, then 2, 5, 8, then 3, 6, 9.',
+  'Then flip upside down instead, giving 3, 6, 9, then 2, 5, 8, then 1, 4, 7. That is counter-clockwise. The code changes one line: matrix dot reverse.',
+  'Check it by following one cell. 3 sits at row 0, column 2. The transpose moves it to row 2, column 0, and the flip moves it to row 0, column 0. In general, i comma j goes to j comma i, then to n minus 1 minus j comma i, which is exactly the counter-clockwise formula.',
+  'One more: a 180 degree turn needs no transpose. Reverse each row, then flip upside down, and you get 9, 8, 7, then 6, 5, 4, then 3, 2, 1.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud, and start coding once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why not just write with the formula? Why does transpose plus reverse work?"')
+  + flow([[2,'Naive','new[j][n − 1 − i]'],[2,'Problem','in place overwrites'],[3,'Transpose','(i, j) ↔ (j, i)'],[3,'Reverse','each row'],[4,'Complexity','O(n²) / O(1)']])
+  + chips(4,['rotate in place','transpose','main diagonal','reverse each row','O(1) extra space','counter-clockwise: reverse rows order']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and start coding once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why not just write with the formula, and why does transpose plus reverse work?',
+  'Start with the naive idea: a new matrix, where new at row j, column n minus 1 minus i equals old at row i, column j. But writing that in place overwrites values that have not been moved yet.',
+  'Then the trick: transpose along the main diagonal, then reverse each row. Both are swaps, so nothing is lost. Why it works: follow one cell. i comma j transposes to j comma i, and the reverse sends it to j comma n minus 1 minus i, exactly the rotation formula.',
+  'Time is big O of n squared, space is big O of 1. The key words are transpose and reverse each row. If asked for counter-clockwise, change the second step to flipping upside down.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Naive','new matrix'],[0,'Stuck','in place overwrites'],[0,'Transpose','j from i + 1'],[0,'Reverse','each row']])
+  + cards([[1,'1. Writing in place directly overwrites values not yet moved','so use only swaps: two cells trade places, nothing is lost','amber'],
+           [2,'2. Clockwise = transpose + reverse each row','(i, j) → (j, i) → (j, n − 1 − i): the rotation formula','sky'],
+           [3,'3. In the transpose, j starts at i + 1','start at 0 and every pair swaps twice, which is no swap at all','mint']]),
+  say:[
+  'The main line once more: a new matrix; writing in place overwrites; switch to a transpose, then reverse each row.',
+  'One: writing in place directly overwrites values that have not been moved yet. So use only swaps: two cells trade places, and nothing is lost.',
+  'Two: clockwise equals transpose plus reversing each row. Follow one cell: i comma j, to j comma i, then to j comma n minus 1 minus i, which is exactly the rotation formula.',
+  'Three: in the transpose, the inner loop starts j at i plus 1. Start at 0, and every pair swaps twice, which is no swap at all.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/98e700f85854.mp3", "0-1": "a/7777288f57d9.mp3", "0-2": "a/2a8719b29138.mp3", "0-3": "a/0ae688e6ce16.mp3", "1-0": "a/768385c81be3.mp3", "1-1": "a/52ca5c5ce6e0.mp3", "1-2": "a/45b3b57d7c65.mp3", "1-3": "a/f3db12132780.mp3", "1-4": "a/4915e259bd00.mp3", "1-5": "a/eb0129af8a28.mp3", "2-0": "a/b78c6c5606b4.mp3", "2-1": "a/df8b368f01b3.mp3", "2-2": "a/6981e54af39a.mp3", "2-3": "a/dd1f62081c94.mp3", "2-4": "a/b0dec1f68030.mp3", "2-5": "a/b13318bdeca2.mp3", "2-6": "a/f0fb24f26d9a.mp3", "2-7": "a/c262c53a51bf.mp3", "3-0": "a/43e538a27a45.mp3", "3-1": "a/9df62ece9641.mp3", "3-2": "a/01ecca57e1d8.mp3", "3-3": "a/b482b5505389.mp3", "3-4": "a/3dcd492d77b5.mp3", "3-5": "a/89e84684bb15.mp3", "3-6": "a/45651a7cf0ba.mp3", "4-0": "a/7152eb9a5849.mp3", "4-1": "a/7267743a7192.mp3", "4-2": "a/3192d97fac4b.mp3", "4-3": "a/295d50e5ac81.mp3", "4-4": "a/7b8c5ee5a057.mp3", "4-5": "a/6af0decef312.mp3", "5-0": "a/da1e2d313dc1.mp3", "5-1": "a/509341a7ab25.mp3", "5-2": "a/35e7c5cdf937.mp3", "5-3": "a/c13f2070f590.mp3", "5-4": "a/8cd5f7fa3523.mp3", "5-5": "a/f672636219a6.mp3", "6-0": "a/afdce3f6d361.mp3", "6-1": "a/166bbac7af03.mp3", "6-2": "a/9c5a153b8fba.mp3", "6-3": "a/ef4b0230d1bc.mp3", "6-4": "a/d2b9c1ccbfc4.mp3", "6-5": "a/aa099d0c5087.mp3", "6-6": "a/b6fb04150a48.mp3", "6-7": "a/dfc6f6f9f7af.mp3", "6-8": "a/3a7f925e52bc.mp3", "7-0": "a/317c9b0ff840.mp3", "7-1": "a/c1ea9c6867a0.mp3", "7-2": "a/0cdd2bcbdde6.mp3", "7-3": "a/6e0a934ce4e0.mp3", "7-4": "a/b85942247224.mp3", "7-5": "a/948f7c3025b7.mp3", "8-0": "a/9e360e1a3ef3.mp3", "8-1": "a/4e99ffedd25a.mp3", "8-2": "a/287212904d08.mp3", "8-3": "a/54ae49c50701.mp3", "8-4": "a/e0a369496cff.mp3", "8-5": "a/8cf01e7e0fe1.mp3", "9-0": "a/87b07302e472.mp3", "9-1": "a/8bac07fdf8f7.mp3", "9-2": "a/fbf9fae205c1.mp3", "9-3": "a/9e1468fb2115.mp3", "9-4": "a/df925eec41ab.mp3", "9-5": "a/ecdf807b2980.mp3", "10-0": "a/cfb78a16cc99.mp3", "10-1": "a/c3a1bced3717.mp3", "10-2": "a/aa11d854109d.mp3", "10-3": "a/a38153230944.mp3", "10-4": "a/88894e6357f7.mp3", "10-5": "a/dd8da0a6b392.mp3", "11-0": "a/1f7ddf4a4e5b.mp3", "11-1": "a/01f9bc0e4c10.mp3", "11-2": "a/e82a61474286.mp3", "11-3": "a/2063cd57ad32.mp3", "11-4": "a/eb94dd124eba.mp3", "12-0": "a/3486e97f2869.mp3", "12-1": "a/eecc54901c86.mp3", "12-2": "a/43a7638b1066.mp3", "12-3": "a/c897b30ba3f2.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

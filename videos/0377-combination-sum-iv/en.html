@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Order Matters Here</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Order Matters Here', template:'prep', lang:'en', sub:'LeetCode 377 Combination Sum IV · animated walkthrough', key:'lc377envid', doc:'LeetCode 377', blurb:'The name says "combination", but it counts ordered sequences: start from "what was the last number?", which is Climbing Stairs with different step sizes, then see why swapping the two loops turns it into problem 518, which counts combinations only.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: make a total','The problem: order counts','Instinct: list them all','Key: what was the last number','dp[0] = 1 and x ≤ t','Fill the table: [1, 2, 3] to 4','All seven, none missing','Write the code','Follow-up: swap the two loops','Why swapping drops the order','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- dp strip: columns t = 0..T; amber ring = cell being filled, sky rings = cells it adds up ---------- */
+const DCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.cs{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.cs>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.cs>.lb{border:0;background:none;color:var(--dim);font-size:.78em;justify-items:end;padding-right:.3em}
+.cs>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.cs b{font-family:var(--f-display);font-weight:400;font-size:1.35em;color:var(--mint)}
+.cs b.zero{color:var(--coral)}
+.cs b.s:not(.on){opacity:0}
+.cs i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.cs i.src.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--sky);opacity:0!important;transform:none}
+.cs i.ring.s.now,.cs i.src.s.now{opacity:1!important}
+.fr{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:3em;position:relative;margin-top:.5em}
+.fr .s{position:absolute;left:0;right:0}
+.fr .only.s{opacity:0!important} .fr .only.s.now{opacity:1!important}
+.fr b{color:var(--amber);font-weight:400} .fr em{font-style:normal;color:var(--mint)}
+.sq{display:flex;flex-direction:column;gap:6px}
+.sq .w{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sq .w span{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line);background:rgba(10,17,36,.8)}
+.sq .w span.last{border-color:var(--amber);color:var(--amber)}
+.sq .w em{font-style:normal;color:var(--dim);font-size:.85em}
+.sq .w.s:not(.on){opacity:0}
+</style>`;
+// rows: [[label, vals:[[t, v, step]]]], rings: [[step, t]], srcs: [[step, [t...]]], fr: [[step, html]]
+function cs(T, rows, rings=[], srcs=[], fr=[]){
+  let h = DCSS + `<div class="cs" style="grid-template-columns:5.2em repeat(${T+1},2.6em)">`;
+  h += `<div class="lb ix">t</div>` + [...Array(T+1).keys()].map(t=>`<div class="ix">${t}</div>`).join('');
+  rows.forEach(([lab, vals], ri)=>{
+    h += `<div class="lb">${lab}</div>` + [...Array(T+1).keys()].map(t=>{
+      const last = ri===rows.length-1;
+      return `<div>${vals.filter(v=>v[0]===t).map(([,v,s])=>`<b class="s ${v===0?'zero':''}" data-s="${s}">${v}</b>`).join('')}${
+        last?rings.filter(r=>r[1]===t).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join(''):''}${
+        last?srcs.filter(([,ts])=>ts.includes(t)).map(([s])=>`<i class="src s" data-s="${s}"></i>`).join(''):''}</div>`;
+    }).join('');
+  });
+  h += `</div>`;
+  if(fr.length) h += `<div class="fr">${fr.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// sequences: [[step, [parts], note]]; the last part is outlined amber
+const sq = rows => DCSS + `<div class="sq">${rows.map(([s,parts,note])=>`<div class="w s" data-s="${s}">${parts.map((p,i)=>`<span class="${i===parts.length-1?'last':''}">${p}</span>`).join('')}${note?`<em>${note}</em>`:''}</div>`).join('')}</div>`;
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Order Matters Here<br><em>LeetCode 377</em>', vis:
+  gloss(0,[['target','The total you need to make'],['permutation vs combination','Permutation: a different order counts as different; combination: only which numbers you used'],['dp','A dynamic programming table: store the answers to small problems and build the big answer from them']])
+  + flow([[1,'Read','order counts'],[1,'Instinct','list them, too slow'],[2,'Key','what was the last number'],[2,'Fill','[1, 2, 3] to 4 → 7'],[3,'Follow-up','swap loops → 518'],[3,'Code','two loops']]),
+  say:[
+  'This lesson covers LeetCode 377, Combination Sum IV. First, three words. target is the total you need to make. A permutation counts a different order as different, while a combination only cares which numbers you used. dp is a dynamic programming table: store the answers to small problems, and build the big answer from them.',
+  'The most confusing part of this problem is its name. It says combination, but it actually counts permutations: 1, 1, 2 and 1, 2, 1 are two different answers. Once you see that, you are halfway there.',
+  'Then we ask one key question: what was the last number? Once you ask it, you will see this is problem 70, Climbing Stairs, except the step sizes are no longer 1 or 2, but any number in the array.',
+  'Finally, the follow-up interviewers love: swap the two loops, and the answer changes from counting permutations to counting combinations, which is problem 518.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>order counts</em>', vis:
+  gloss(0,[['nums','A list of distinct positive integers; each one can be used any number of times'],['one answer','A sequence of numbers that adds up to exactly target']])
+  + duo(sq([[2,['1','1','2'],''],[2,['1','2','1'],''],[2,['2','1','1'],'three, not one']]),
+    q(1,'nums = [1, 2, 3], target = 4. Are 1 + 1 + 2, 1 + 2 + 1 and 2 + 1 + 1 one answer or three?')
+    + cards([[3,'Three','It is called "combination", but it counts ordered sequences','coral'],
+             [4,'The answer is 7','Every way to make 4, with different orders counted separately','mint']])),
+  say:[
+  'nums is a list of distinct positive integers, and each one can be used any number of times. One answer is a sequence of numbers that adds up to exactly target.',
+  'The question for this scene: nums is 1, 2, 3, and target is 4. Are 1 plus 1 plus 2, 1 plus 2 plus 1, and 2 plus 1 plus 1 one answer or three?',
+  'Look at the three sequences on screen. They all use two 1s and one 2. Only the position of the 2 changes.',
+  'The problem says they are three different answers. It is called combination, but it really counts ordered sequences. This is the easiest thing to misread here.',
+  'With that rule, there are seven ways to make 4. The problem only wants the count, not a list of every one.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Instinct: <em>list them all</em>', vis:
+  gloss(0,[['backtracking','Place numbers one at a time; record a hit when you reach the total, back up when you go over'],['still to make','target minus the numbers already placed']])
+  + q(1,'The natural idea: place a first number, then make the rest. Where does that get slow?')
+  + term('making 4',[
+    [2,'o','make 4: place 1 → 3 left; place 2 → 2 left; place 3 → 1 left'],
+    [3,'o','3 left: place 1 → 2 left; place 2 → 1 left; ...'],
+    [3,'hl','"2 left" is solved 2 times, "1 left" is solved 4 times']])
+  + cards([[4,'target = 20 → over 260,000 calls','The same "still to make" is recomputed again and again','coral']]),
+  say:[
+  'Backtracking means placing numbers one at a time, recording a hit when you reach the total, and backing up when you go over. Still to make is target minus the numbers already placed.',
+  'The question for this scene: the natural idea is to place a first number, then make the rest. Where does that get slow?',
+  'To make 4: place 1 first, and 3 is left. Place 2, and 2 is left. Place 3, and 1 is left. Each branch keeps placing numbers from there.',
+  'But the 3 left branch places a 1, and now 2 is left again. Count it up: 2 left gets solved twice, and 1 left gets solved four times. It is the same problem every time.',
+  'With target only 20, this recursion makes over two hundred sixty thousand calls. The problem is not listing, it is solving the same still to make again and again. So we should store the answer for each total.'
+]});
+
+/* ===== 3 Key ===== */
+add({ch:3, title:'Key: <em>what was the last number</em>', vis:
+  gloss(0,[['dp[t]','How many ordered sequences make the total t'],['Climbing Stairs, 70','The last step is 1 or 2 stairs; here the last step can be any number in nums']])
+  + duo(sq([[2,['1','1','1','1'],''],[2,['2','1','1'],''],[2,['1','2','1'],''],[2,['3','1'],'= dp[3] = 4'],
+            [3,['1','1','2'],''],[3,['2','2'],'= dp[2] = 2'],[4,['1','3'],'= dp[1] = 1']]),
+    q(1,'Group the 7 ways to make 4 by their last number. What groups do you get?')
+    + cards([[5,'dp[t] = Σ dp[t − x]','Sum over every x in nums with x ≤ t; 4 + 2 + 1 = 7','mint']])),
+  say:[
+  'dp of t is how many ordered sequences make the total t. This is just like problem 70, Climbing Stairs: there the last step is 1 or 2 stairs, and here the last step can be any number in nums.',
+  'The question for this scene: group the seven ways to make 4 by their last number. What groups do you get?',
+  'The last number is 1: remove it, and the front part makes 3. However many ways make 3, that is the size of this group: four.',
+  'The last number is 2: the front part makes 2, which has two ways.',
+  'The last number is 3: the front part makes 1, which has only one way.',
+  'The last number cannot be both 1 and 2, so the groups never overlap. Four plus two plus one is seven. The formula: dp of t is the sum of dp of t minus x, for every x that is at most t.'
+]});
+
+/* ===== 4 dp[0] = 1 and x ≤ t ===== */
+add({ch:4, title:'Start at <em>dp[0] = 1</em>, guard with <em>x ≤ t</em>', vis:
+  gloss(0,[['empty sequence','Place no numbers at all: the total is 0'],['x ≤ t','The number cannot be bigger than the total you are making']])
+  + q(1,'Why is dp[0] equal to 1? Why does the formula need x ≤ t?')
+  + cards([[2,'dp[0] = 1','There is exactly one way to make 0: place nothing','mint'],
+           [3,'It is the start of every one-number answer','[3] to make 3: the last number is 3, the front makes 0, so it inherits dp[0] = 1','sky'],
+           [4,'x ≤ t','If x is bigger than t, t − x is negative, there is no such cell, so skip it','amber']]),
+  say:[
+  'The empty sequence means placing no numbers at all, so the total is zero. x at most t means the number cannot be bigger than the total you are making.',
+  'The question for this scene: why is dp of 0 equal to 1, and why does the formula need x at most t?',
+  'There is exactly one way to make zero: place nothing. It sounds odd, but it is the starting point for counting, like the number 1 in multiplication.',
+  'For example, make 3 with a single 3: the last number is 3, and the front part makes zero, so it inherits dp of 0. If dp of 0 were zero, this answer would simply vanish.',
+  'When x is bigger than t, t minus x is negative, and the table has no such cell. In Python a negative index even quietly reads a value from the end. So check x at most t first, and skip it if not.'
+]});
+
+/* ===== 5 Fill the table ===== */
+add({ch:5, title:'Fill the table: <em>[1, 2, 3] to 4</em>', vis:
+  gloss(0,[['orange box','The cell being filled right now'],['blue boxes','The dp[t − x] cells it adds up']])
+  + duo(cs(4,[['dp[t]',[[0,1,2],[1,1,3],[2,2,4],[3,4,5],[4,7,6]]]],
+      [[2,0],[3,1],[4,2],[5,3],[6,4]], [[3,[0]],[4,[1,0]],[5,[2,1,0]],[6,[3,2,1]]],
+      [[2,'dp[0] = <em>1</em>'],[3,'dp[1] = dp[0] = <em>1</em>'],[4,'dp[2] = dp[1] + dp[0] = <em>2</em>'],
+       [5,'dp[3] = dp[2] + dp[1] + dp[0]<br>= 2 + 1 + 1 = <em>4</em>'],[6,'dp[4] = dp[3] + dp[2] + dp[1]<br>= 4 + 2 + 1 = <b>7</b>']]),
+    q(1,'Going right from t = 0, each cell is the sum of the cells 1, 2 and 3 to its left. What is the last cell?')),
+  say:[
+  'The orange box is the cell being filled right now, and the blue boxes are the cells it adds up, which are dp of t minus x.',
+  'The question for this scene: going right from t equals zero, each cell is the sum of the cells one, two and three to its left. What is the last cell?',
+  'First fill dp of 0 with 1: place nothing.',
+  't equals 1: only 1 is at most 1, so add dp of 0, which gives one. 2 and 3 are too big, so skip them.',
+  't equals 2: last number 1 adds dp of 1, and last number 2 adds dp of 0. One plus one is two. 3 is too big, so skip it.',
+  't equals 3: all three numbers fit, so add dp of 2, dp of 1 and dp of 0. Two plus one plus one is four.',
+  't equals 4: add dp of 3, dp of 2 and dp of 1. Four plus two plus one is seven. The answer is seven.'
+]});
+
+/* ===== 6 All seven ===== */
+add({ch:6, title:'All seven, <em>none missing</em>', vis:
+  gloss(0,[['orange border','The last number of each sequence']])
+  + duo(sq([[2,['1','1','1','1'],''],[2,['2','1','1'],''],[2,['1','2','1'],''],[2,['3','1'],'ends in 1: 4 ways'],
+            [3,['1','1','2'],''],[3,['2','2'],'ends in 2: 2 ways'],[4,['1','3'],'ends in 3: 1 way']]),
+    q(1,'List all 7. Do they match the 4 + 2 + 1 from the table?')
+    + cards([[5,'They match','1 + 1 + 2, 1 + 2 + 1 and 2 + 1 + 1 are all here','mint']])),
+  say:[
+  'The orange border marks the last number of each sequence.',
+  'The question for this scene: list all seven. Do they match the four plus two plus one from the table?',
+  'Four that end in 1: 1, 1, 1, 1, then 2, 1, 1, then 1, 2, 1, then 3, 1. The front parts are exactly the four ways to make 3.',
+  'Two that end in 2: 1, 1, 2, and 2, 2. The front parts are the two ways to make 2.',
+  'One that ends in 3: 1, 3. The front part is the one way to make 1.',
+  'Seven in total, so they match. The three sequences from the start, 1, 1, 2, then 1, 2, 1, then 2, 1, 1, each land in a different group, so they are counted three separate times.'
+]});
+
+/* ===== 7 Write the code ===== */
+add({ch:7, title:'Code: <em>total outside, numbers inside</em>', vis:
+  gloss(0,[['outer loop','Fix the total t first'],['inner loop','Then try each number x as the last one']])
+  + term('solution.py',[
+    [2,'o','def combinationSum4(nums, target):'],
+    [2,'o','    dp = [0] * (target + 1)'],
+    [2,'o','    dp[0] = 1                    # place nothing'],
+    [3,'hl','    for t in range(1, target + 1):   # outer: total'],
+    [3,'hl','        for x in nums:               # inner: last number'],
+    [4,'o','            if x <= t:'],
+    [4,'o','                dp[t] += dp[t - x]'],
+    [5,'o','    return dp[target]']])
+  + q(1,'Which step from before does each line of the code match?'),
+  say:[
+  'The outer loop fixes the total t first, and the inner loop then tries each number x as the last one.',
+  'The question for this scene: which step from before does each line of the code match?',
+  'First build a table of length target plus 1, all zeros, and set dp of 0 to 1.',
+  'The outer loop runs t from 1 up to target. For each t, the inner loop tries every number in nums as the last number. Remember this order, because the next scene changes it.',
+  'Whenever x is at most t, add dp of t minus x. Plus equals means putting one more group into this cell\'s running total.',
+  'Finally, return dp of target. Try nums equal to 9 and target equal to 3: 9 is bigger than 1, 2 and 3, so everything is skipped, and it returns zero. Correct.'
+]});
+
+/* ===== 8 Follow-up: swap the loops ===== */
+add({ch:8, title:'Follow-up: <em>swap the two loops</em>', vis:
+  gloss(0,[['518 Coin Change II','Same kind of total, but counts combinations only: 1 + 1 + 2 and 2 + 1 + 1 are one'],['each row','What the table looks like after that coin is done']])
+  + duo(cs(4,[['only 1',[[0,1,2],[1,1,2],[2,1,2],[3,1,2],[4,1,2]]],['add 2',[[0,1,3],[1,1,3],[2,2,3],[3,2,3],[4,3,3]]],['add 3',[[0,1,4],[1,1,4],[2,2,4],[3,3,4],[4,4,4]]]]),
+    q(1,'Put the coins outside and the total inside. What does [1, 2, 3] to make 4 give now?')
+    + term('518.py',[
+      [2,'hl','for x in coins:                # outer: coin'],
+      [2,'hl','    for t in range(x, amount + 1):   # inner: total'],
+      [2,'o','        dp[t] += dp[t - x]']])
+    + cards([[5,'It gives 4','1+1+1+1, 1+1+2, 2+2, 1+3','mint']])),
+  say:[
+  'Problem 518, Coin Change II, also makes a total, but it counts combinations only: 1 plus 1 plus 2 and 2 plus 1 plus 1 are the same one. Each row of the table shows what it looks like after that coin is done.',
+  'The question for this scene: put the coins in the outer loop and the total in the inner loop. With the same 1, 2, 3 making 4, what do we get?',
+  'First use only coin 1: every total has exactly one way, all 1s. The row is one, one, one, one, one.',
+  'Then add coin 2: making 2 gains the way 2, and making 4 gains 2 plus 2 and 1, 1 plus 2. The row is one, one, two, two, three.',
+  'Finally add coin 3: making 3 gains a single 3, and making 4 gains 1 plus 3. The row is one, one, two, three, four.',
+  'The answer is four, not seven: 1, 1, 1, 1, then 1, 1, 2, then 2, 2, then 1, 3. The code only swapped the two loops.'
+]});
+
+/* ===== 9 Why ===== */
+add({ch:9, title:'Why swapping <em>drops the order</em>', vis:
+  gloss(0,[['fixed order','Place all the 1s first, then the 2s, then the 3s']])
+  + q(1,'Only the loop order changed. Why did 7 become 4?')
+  + cards([[2,'Coins outside','Coin 2 comes only after coin 1 is done, and 1 is never used again','sky'],
+           [3,'Each combination is built in only one order','1 + 1 + 2 can appear; 2 + 1 + 1 can never be built','mint'],
+           [4,'Total outside (377)','Each total tries every number as the last one, so different orders count separately','amber']]),
+  say:[
+  'Fixed order means placing all the 1s first, then the 2s, then the 3s, with no cutting in line.',
+  'The question for this scene: only the loop order changed. Why did seven become four?',
+  'With the coins outside, by the time we handle coin 2, coin 1 is completely done, and we never go back to use a 1 again.',
+  'In one sentence: with the coins outside, each combination can only be built in one order, smallest coins first, so it is counted once. 1 plus 1 plus 2 can appear, but 2 plus 1 plus 1 can never be built.',
+  'With the total outside, which is 377, each total tries every number as the last one. A 1 can come after a 2, so different orders get counted separately.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['n','How many numbers are in nums'],['O(target × n)','For each total, try each number once']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(target × n), space O(target)','The table has target + 1 cells, and each cell tries n numbers','sky'],
+           [3,'Loops in the wrong order','Coins outside counts 518 combinations; 377 needs the total outside','coral'],
+           [3,'Forgetting x ≤ t','A negative index does not error in Python; it quietly adds the wrong cell','coral'],
+           [4,'Writing dp[0] = 0','The whole table becomes 0; [9] to 3 giving 0 is right, but [3] to 3 also gives 0','coral']]),
+  say:[
+  'n is how many numbers are in nums. Big O of target times n means that for each total, we try each number once.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to slip?',
+  'Time is big O of target times n. Space is big O of target, which is the table of target plus 1 cells.',
+  'Pitfall one: loops in the wrong order. Coins outside counts the combinations of 518, while 377 needs the total outside. Pitfall two: forgetting x at most t. A negative index does not error in Python, it quietly adds cells from the end.',
+  'Pitfall three: writing dp of 0 as zero, which makes the whole table zero. 9 making 3 giving zero is right, but 3 making 3 would also give zero, when it should be one.'
+]});
+
+/* ===== 11 How to explain it ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "This is called combination, so why do you count permutations? How would you count combinations?"')
+  + flow([[2,'Read','order counts'],[3,'Last number','dp[t] = Σ dp[t − x]'],[3,'Start','dp[0] = 1'],[4,'Loops','total outside'],[4,'Combinations','coins outside → 518']])
+  + chips(4,['permutations, not combinations','dp[t] = sum of dp[t - x]','dp[0] = 1','loop order','518 Coin Change II','O(target × n)']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, this is called combination, so why do you count permutations, and how would you count combinations?',
+  'First the reading: the problem says 1, 1, 2 and 1, 2, 1 are two answers, so it is really permutations.',
+  'Then the state: dp of t is the number of sequences that make t. Grouping by the last number, dp of t is the sum of dp of t minus x over every x at most t, and dp of 0 is 1.',
+  'Then the follow-up: put the coins outside and the total inside, so each combination is built in only one order, and you get the combination count of problem 518. The complexity is big O of target times n. The key phrase is loop order.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Read','it counts permutations'],[0,'Last number','Σ dp[t − x]'],[0,'dp[0] = 1','empty sequence'],[0,'Total outside','377'],[0,'Coins outside','518']])
+  + cards([[1,'① Called combination, counts permutations','1 + 1 + 2, 1 + 2 + 1, 2 + 1 + 1 are three','amber'],
+           [2,'② Ask what the last number was: Climbing Stairs with new step sizes','dp[t] = Σ dp[t − x] (x ≤ t), dp[0] = 1','sky'],
+           [3,'③ Total outside counts permutations, coins outside counts combinations','[1, 2, 3] to 4: 377 gives 7, 518 gives 4','mint']]),
+  say:[
+  'Let\'s review the main thread: read carefully, it counts permutations. Ask what the last number was. dp of 0 is 1. Total outside is 377, and coins outside is 518.',
+  'Number one: it is called combination, but it counts permutations. 1, 1, 2, then 1, 2, 1, then 2, 1, 1 are three answers.',
+  'Number two: ask what the last number was, and it becomes Climbing Stairs with new step sizes. dp of t is the sum of every dp of t minus x, and dp of 0 is 1.',
+  'Number three: total outside counts permutations, coins outside counts combinations. For 1, 2, 3 making 4, 377 gives seven and 518 gives four.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/1977c2d14960.mp3", "0-1": "a/3c70092c810a.mp3", "0-2": "a/98ef80895bb1.mp3", "0-3": "a/063726fd01f1.mp3", "1-0": "a/fdb3fdb4d047.mp3", "1-1": "a/c1f2dd7b6bab.mp3", "1-2": "a/538a32e5e3ea.mp3", "1-3": "a/5114bf668405.mp3", "1-4": "a/8992f6b3f89c.mp3", "2-0": "a/c2e161e015e5.mp3", "2-1": "a/fd0996ffb41a.mp3", "2-2": "a/3f7a87985070.mp3", "2-3": "a/54dc72df143b.mp3", "2-4": "a/2bb4c9686a02.mp3", "3-0": "a/b809f23d3a76.mp3", "3-1": "a/9d5d38d904f6.mp3", "3-2": "a/60a2865ec98f.mp3", "3-3": "a/cd3c637da135.mp3", "3-4": "a/81bd26e9681a.mp3", "3-5": "a/4e40e854ea74.mp3", "4-0": "a/c83088d2ae1e.mp3", "4-1": "a/bdceaab12624.mp3", "4-2": "a/22a99fca81a2.mp3", "4-3": "a/16ea983a25a6.mp3", "4-4": "a/437719b0d579.mp3", "5-0": "a/bf0a53207f64.mp3", "5-1": "a/c79f0e0abdfb.mp3", "5-2": "a/d7f890b7e613.mp3", "5-3": "a/9d50a7a9c729.mp3", "5-4": "a/a2bebcde83e9.mp3", "5-5": "a/c2f280d9e742.mp3", "5-6": "a/582710a090c7.mp3", "6-0": "a/1f9f8b3f0a13.mp3", "6-1": "a/3e71519db18f.mp3", "6-2": "a/4c31a1915004.mp3", "6-3": "a/0c0766d8420f.mp3", "6-4": "a/671c23041a95.mp3", "6-5": "a/224386666e1d.mp3", "7-0": "a/17333c8bb17e.mp3", "7-1": "a/3648916c753c.mp3", "7-2": "a/088689bca87d.mp3", "7-3": "a/5aaaee518469.mp3", "7-4": "a/57fab219b42c.mp3", "7-5": "a/6238168172a6.mp3", "8-0": "a/f94527408db8.mp3", "8-1": "a/1a7b198de97a.mp3", "8-2": "a/adf962c798b9.mp3", "8-3": "a/f75ecef81874.mp3", "8-4": "a/26944df29b7d.mp3", "8-5": "a/88df4fd6205a.mp3", "9-0": "a/7e83af49d128.mp3", "9-1": "a/a8828252b80d.mp3", "9-2": "a/f7c44a27210f.mp3", "9-3": "a/0fd7a784d357.mp3", "9-4": "a/ea5a76a2cb41.mp3", "10-0": "a/99740d6a3ee4.mp3", "10-1": "a/681a557d92a6.mp3", "10-2": "a/bf33e61c8c62.mp3", "10-3": "a/2d30d7ee65f4.mp3", "10-4": "a/4f8fb3edf8fb.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/9ac02a2adb0e.mp3", "11-2": "a/bcf3bf44ec30.mp3", "11-3": "a/51be0d0fcd2e.mp3", "11-4": "a/51fe61ece694.mp3", "12-0": "a/ea72656b47b9.mp3", "12-1": "a/3030760cad69.mp3", "12-2": "a/8af430a0b144.mp3", "12-3": "a/6639d4a19aff.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

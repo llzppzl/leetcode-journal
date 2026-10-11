@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>散会最早</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'散会最早', template:'prep', sub:'LeetCode 435 Non-overlapping Intervals · 算法动画', key:'lc435vid', doc:'LeetCode 435 题', blurb:'先把问题翻过来："删最少"就是"留最多"。按开始时间排会被 [1, 100] 坑；按结束时间排，永远留最早散会的那一个，因为它给后面留下最多的空闲时间。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：一排会议','读题：碰边不算重叠','翻过来问：留最多','直觉：按开始时间排','关键：留最早散会的','为什么最早结束不亏','走一遍：[[1,2],[2,3],[3,4],[1,3]]','碰边和重复','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- timeline: one bar per interval; green = kept, red = removed, amber line = current end, mint zone = free time ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tl{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.tl .s:not(.on){opacity:0}
+.tl .only.s{opacity:0!important} .tl .only.s.now{opacity:1!important}
+.tl rect.bar{fill:var(--term);stroke:var(--sky);stroke-width:2}
+.tl rect.keep{fill:rgba(98,224,180,.45);stroke:var(--mint);stroke-width:2}
+.tl rect.drop{fill:rgba(255,122,107,.4);stroke:var(--coral);stroke-width:2;stroke-dasharray:5 4}
+.tl rect.ring{fill:none;stroke:var(--amber);stroke-width:3}
+.tl rect.free{fill:rgba(98,224,180,.12);stroke:none}
+.tl line.ax{stroke:var(--dim);stroke-width:1.5}
+.tl line.tick{stroke:var(--dim);stroke-width:1}
+.tl line.end{stroke:var(--amber);stroke-width:2.5;stroke-dasharray:6 4}
+.tl text{fill:var(--paper);font-family:var(--f-mono);font-size:12px;text-anchor:middle;dominant-baseline:central}
+.tl text.tk{fill:var(--dim);font-size:11px}
+.tl text.el{fill:var(--amber);font-size:12px}
+.tl text.fl{fill:var(--mint);font-family:var(--f-body);font-size:12px}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow i{font-style:normal;color:var(--coral)}
+</style>`;
+// o: {bars:[[s,e]], T, mark:[[step,idx,'keep'|'drop',only]], ring:[[step,idx]], endl:[[step,v]], free:[[step,v]], st:[[step,html]]}
+function tl(o){
+  const T=o.T, X0=24, W=292, RH=32, TOP=26, n=o.bars.length;
+  const x=t=>X0+t*W/T, cx=t=>t>T?X0+W+14:x(t);
+  const H=TOP+n*RH+30, axY=TOP+n*RH+4;
+  const box=i=>{ const [s,e]=o.bars[i]; return {x:x(s), y:TOP+i*RH+5, w:cx(e)-x(s), h:RH-10}; };
+  let h=TCSS+`<svg class="tl" viewBox="0 0 340 ${H}" role="img" aria-label="区间时间轴">`;
+  (o.free||[]).forEach(([st,v])=>{ const a=cx(v); h+=`<g class="only s" data-s="${st}"><rect class="free" x="${a}" y="${TOP}" width="${Math.max(0,X0+W+20-a)}" height="${n*RH}"/>${v<T?`<text class="fl" x="${X0+W+18}" y="${TOP-14}" style="text-anchor:end">空闲</text>`:''}</g>`; });
+  h+=`<line class="ax" x1="${X0}" y1="${axY}" x2="${X0+W+20}" y2="${axY}"/>`;
+  for(let t=0;t<=T;t++) h+=`<line class="tick" x1="${x(t)}" y1="${axY}" x2="${x(t)}" y2="${axY+5}"/><text class="tk" x="${x(t)}" y="${axY+14}">${t}</text>`;
+  o.bars.forEach(([s,e],i)=>{ const b=box(i);
+    h+=`<rect class="bar" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="5"/>`;
+    (o.mark||[]).filter(m=>m[1]===i).forEach(([st,,cls,only])=>h+=`<rect class="${cls} s${only?' only':''}" data-s="${st}" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="5"/>`);
+    (o.ring||[]).filter(r=>r[1]===i).forEach(([st])=>h+=`<rect class="ring only s" data-s="${st}" x="${b.x-4}" y="${b.y-4}" width="${b.w+8}" height="${b.h+8}" rx="7"/>`);
+    h+=`<text x="${b.x+b.w/2}" y="${b.y+b.h/2}">[${s}, ${e}]${e>T?' …':''}</text>`;
+  });
+  (o.endl||[]).forEach(([st,v])=>{ const a=cx(v); h+=`<g class="only s" data-s="${st}"><line class="end" x1="${a}" y1="${TOP-6}" x2="${a}" y2="${axY}"/><text class="el" x="${Math.min(a,X0+W)}" y="${TOP-14}">end = ${v}</text></g>`; });
+  h+=`</svg>`;
+  if(o.st) h+=`<div class="qrow">${o.st.map(([st,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return h;
+}
+const EX = [[1,2],[2,3],[3,4],[1,3]];          // original order
+const EXS = [[1,2],[2,3],[1,3],[3,4]];         // sorted by end
+const BIG = [[1,100],[2,3],[4,5]];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'散会最早<br><em>LeetCode 435</em>', vis:
+  gloss(0,[['区间 interval','[start, end]：从 start 开始、到 end 结束的一段时间'],['重叠 overlap','两段时间有一段共同的时间'],['贪心 greedy','每一步只做眼前最好的选择，不回头']])
+  + flow([[1,'翻过来','删最少 = 留最多'],[1,'直觉','按开始排：被坑'],[2,'关键','按结束排'],[2,'图像','最早散会，空闲最多'],[3,'走一遍','end 往右推'],[3,'代码','排序 + 一次扫描']]),
+  say:[
+  '这节课讲力扣 435 题，无重叠区间。先认三个词：区间，是从 start 开始、到 end 结束的一段时间。重叠，是两段时间有一段共同的时间。贪心，是每一步只做眼前最好的选择，不回头。',
+  '第一步先把问题翻过来：删得最少，就是留得最多。然后试最自然的做法，按开始时间排，看它在哪个例子上被坑。',
+  '接着是这道题的关键：按结束时间排，永远先留最早散会的那一个。我们用"这场会散了以后还剩多少空闲时间"来理解它为什么对。',
+  '最后在时间轴上走一遍例子，讲碰边的细节，写出代码。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>碰边不算重叠</em>', vis:
+  gloss(0,[['互不重叠','任意两个区间都没有共同的时间'],['碰边','一个结束的时刻，正好是另一个开始的时刻']])
+  + duo(tl({bars:EX, T:5, mark:[[3,3,'drop']]}),
+    q(1,'[[1, 2], [2, 3], [3, 4], [1, 3]]：最少删掉几个，剩下的就互不重叠？')
+    + cards([[2,'[1, 3] 是麻烦','它和 [1, 2]、[2, 3] 都重叠','coral'],
+             [3,'删掉 [1, 3] → 答案 1','剩下三个一个接一个','mint'],
+             [4,'[1, 2] 和 [2, 3] 只碰边','2 点散会、2 点开会：不算重叠','amber']])),
+  say:[
+  '互不重叠，是任意两个区间都没有共同的时间。碰边，是一个区间结束的时刻，正好是另一个开始的时刻。',
+  '这一幕要回答的是：1 到 2，2 到 3，3 到 4，1 到 3，最少删掉几个，剩下的就互不重叠？',
+  '看时间轴，1 到 3 这一条是麻烦：它和 1 到 2 重叠，也和 2 到 3 重叠。',
+  '把 1 到 3 删掉，剩下三个一个接一个，答案是 1。',
+  '注意 1 到 2 和 2 到 3 只是碰边：一场会 2 点散，另一场 2 点开，不冲突，不算重叠。这一点后面写代码时会决定用大于等于。'
+]});
+
+/* ===== 2 翻过来问 ===== */
+add({ch:2, title:'翻过来问：<em>最多能留几个</em>', vis:
+  gloss(0,[['n','区间的总个数'],['kept','留下来的区间个数']])
+  + q(1,'"最少删几个"不好下手。怎么换个问法？')
+  + cards([[2,'删得最少 = 留得最多','总数固定，留得越多，删得越少','sky'],
+           [3,'删掉的个数 = n − kept','只要算出最多能留几个','mint'],
+           [4,'例子：4 − 3 = 1','最多留 [1, 2]、[2, 3]、[3, 4] 三个','amber']]),
+  say:[
+  'n 是区间的总个数，kept 是留下来的区间个数。',
+  '这一幕要回答的是：最少删几个，不好下手，怎么换个问法？',
+  '删掉的和留下的加起来是 n，总数是固定的。所以留得越多，删得越少。删得最少，就是留得最多。',
+  '于是答案就是 n 减 kept。我们只要想清楚：最多能留几个互不重叠的区间。',
+  '拿刚才的例子：最多能留 1 到 2、2 到 3、3 到 4 这三个，4 减 3 等于 1，和上一幕对上了。'
+]});
+
+/* ===== 3 直觉：按开始排 ===== */
+add({ch:3, title:'直觉：<em>按开始时间排</em>', vis:
+  gloss(0,[['按开始时间排','开始得早的排前面，再从前往后能放就放'],['end','最后一个留下的区间在哪个时刻结束']])
+  + duo(tl({bars:BIG, T:6, mark:[[3,0,'keep'],[4,1,'drop'],[4,2,'drop']], ring:[[3,0]], endl:[[3,100],[4,100]],
+      st:[[2,'按开始排：[1,100] [2,3] [4,5]'],[3,'留 <em>[1, 100]</em>，<b>end = 100</b>'],[4,'2 &lt; 100、4 &lt; 100：<i>都删</i>'],[5,'删了 <i>2</i> 个'],[6,'删了 <i>2</i> 个']]}),
+    q(1,'最自然的想法：按开始时间排，能放就放。[[1, 100], [2, 3], [4, 5]] 会怎样？')
+    + cards([[5,'删 2 个，可答案是 1','只删 [1, 100]，[2, 3] 和 [4, 5] 都能留','coral'],
+             [6,'开始得早，不代表好','[1, 100] 一直占到 100，把后面全堵死了','amber']])),
+  say:[
+  '按开始时间排，就是开始得早的排前面，再从前往后，能放就放。end 记的是最后一个留下的区间在哪个时刻结束。',
+  '这一幕要回答的是：最自然的想法是按开始时间排、能放就放。1 到 100，2 到 3，4 到 5，会怎样？',
+  '按开始时间排，顺序是 1 到 100，2 到 3，4 到 5。',
+  '第一个 1 到 100，前面什么都没有，留下。end 变成 100。',
+  '2 到 3 开始于 2，小于 100，重叠，删掉。4 到 5 开始于 4，也小于 100，删掉。',
+  '结果删了 2 个。可是只删 1 到 100 这一个，剩下 2 到 3 和 4 到 5 互不冲突，正确答案是 1。',
+  '问题出在这里：1 到 100 开始得最早，却一直占到 100，把后面的全堵死了。开始得早不代表好，要看的是它什么时候结束。'
+]});
+
+/* ===== 4 关键：按结束排 ===== */
+add({ch:4, title:'关键：<em>留最早散会的那个</em>', vis:
+  gloss(0,[['结束时间','区间的第二个数，会议散会的时刻'],['空闲时间','这场会散了以后，还能安排别的会的时间']])
+  + duo(tl({bars:BIG, T:6, mark:[[3,1,'keep'],[4,2,'keep'],[4,0,'drop']], ring:[[2,0],[3,1]], endl:[[2,100],[3,3],[4,5]], free:[[2,100],[3,3],[4,5]],
+      st:[[2,'先留 [1, 100]：空闲从 <b>100</b> 才开始'],[3,'先留 <em>[2, 3]</em>：空闲从 <b>3</b> 开始'],[4,'[4, 5] 放进空闲里：留 <em>2</em> 个'],[5,'留 <em>2</em> 个，删 <i>1</i> 个']]}),
+    q(1,'第一个留谁，才能给后面留下最多的地方？')
+    + cards([[5,'永远先留结束最早的','按结束时间排序，从前往后能放就放','mint']])),
+  say:[
+  '结束时间是区间的第二个数，也就是会议散会的时刻。空闲时间，是这场会散了以后，还能安排别的会的时间。',
+  '这一幕要回答的是：第一个留谁，才能给后面留下最多的地方？',
+  '想象你在排会议室。如果先留 1 到 100，会要开到 100 才散，空闲时间从 100 才开始，2 到 3 和 4 到 5 都排不进去。',
+  '如果先留 2 到 3，3 点就散会，空闲时间从 3 开始，绿色这一大片都能用。',
+  '4 到 5 开始于 4，正好落在空闲里，留下。1 到 100 和它们冲突，删掉。留 2 个，删 1 个，对了。',
+  '所以规则是：永远先留结束最早的那个，因为它散会最早，给后面留下的空闲最多。做法就是按结束时间排序，从前往后能放就放。'
+]});
+
+/* ===== 5 为什么不亏 ===== */
+add({ch:5, title:'为什么<em>最早结束一定不亏</em>', vis:
+  gloss(0,[['最优留法','能留下最多区间的一种留法'],['替换','把留法里的一个区间换成另一个']])
+  + q(1,'凭什么"先留结束最早的"，一定能留到最多？')
+  + cards([[2,'拿任意一种最优留法','看它最早的那个区间，叫它 A','sky'],
+           [3,'把 A 换成结束最早的 B','B 结束得不比 A 晚','sky'],
+           [4,'后面的区间都在 A 散会后开始','所以也在 B 散会后开始：不冲突，个数不变','mint'],
+           [5,'先留 B 不亏，剩下的重复同样的道理','每一步都不亏，最后就是最多','amber']]),
+  say:[
+  '最优留法，是能留下最多区间的一种留法。替换，是把留法里的一个区间换成另一个。',
+  '这一幕要回答的是：凭什么先留结束最早的，一定能留到最多？',
+  '随便拿一种最优留法，看它时间上最早的那个区间，叫它 A。',
+  '把 A 换成所有区间里结束最早的那个，叫它 B。B 结束得不会比 A 晚。',
+  '留法里其他的区间，都在 A 散会以后才开始，那它们也都在 B 散会以后开始。换完不冲突，个数也没变，还是最优。',
+  '所以先留 B 不亏。去掉和 B 冲突的区间，剩下的又是同一个问题，同样的道理再用一次。每一步都不亏，最后留下的就是最多。'
+]});
+
+/* ===== 6 走一遍 ===== */
+add({ch:6, title:'走一遍：<em>end 一路往右推</em>', vis:
+  gloss(0,[['绿色','留下'],['红色虚线','删掉'],['橙框','正在看的区间'],['橙色竖线','当前的 end']])
+  + duo(tl({bars:EXS, T:5, mark:[[3,0,'keep'],[4,1,'keep'],[5,2,'drop'],[6,3,'keep']], ring:[[3,0],[4,1],[5,2],[6,3]], endl:[[3,2],[4,3],[5,3],[6,4]],
+      st:[[2,'按结束排好　<b>end = −∞</b>'],[3,'1 ≥ −∞ <em>留</em>　<b>end = 2</b>'],[4,'2 ≥ 2 碰边 <em>留</em>　<b>end = 3</b>'],[5,'1 &lt; 3 <i>删</i>　<b>end 不变</b>'],[6,'3 ≥ 3 <em>留</em>　<b>end = 4</b>'],[7,'kept = <em>3</em>　删 4 − 3 = <i>1</i>']]}),
+    q(1,'[[1, 2], [2, 3], [3, 4], [1, 3]] 按结束时间排好，一个个看：留几个，删几个？')
+    + cards([[7,'留 3 个，删 1 个 → 1','只删了 [1, 3]','mint']])),
+  say:[
+  '绿色是留下的，红色虚线是删掉的，橙框是正在看的区间，橙色竖线是当前的 end。',
+  '这一幕要回答的是：这四个区间按结束时间排好，一个个看，留几个，删几个？',
+  '按结束时间排好，顺序是 1 到 2，2 到 3，1 到 3，3 到 4。一开始还没留任何区间，end 是负无穷。',
+  '看 1 到 2：开始的 1 大于等于负无穷，留下，end 变成 2。',
+  '看 2 到 3：开始的 2 大于等于 end 的 2，只是碰边，留下，end 变成 3。',
+  '看 1 到 3：开始的 1 小于 3，和已经留下的重叠，删掉。end 不变，还是 3。',
+  '看 3 到 4：3 大于等于 3，又是碰边，留下，end 变成 4。',
+  '一共留了 3 个，删掉 4 减 3 等于 1 个，答案是 1。删掉的正是 1 到 3。'
+]});
+
+/* ===== 7 碰边和重复 ===== */
+add({ch:7, title:'碰边和重复：<em>写 >=</em>', vis:
+  gloss(0,[['>=','大于等于：开始时刻等于 end 也能留']])
+  + q(1,'碰边的区间算不算冲突？几个一模一样的区间呢？')
+  + cards([[2,'[[1, 2], [2, 3]] → 0','2 ≥ 2：碰边不冲突，两个都留','mint'],
+           [3,'写成 > 就错了','2 > 2 不成立，会把 [2, 3] 删掉，返回 1','coral'],
+           [4,'[[1, 2], [1, 2], [1, 2]] → 2','留第一个，end = 2；后两个 1 < 2，都删','sky']]),
+  say:[
+  '大于等于的意思是，一个区间的开始时刻等于 end，也能留下。',
+  '这一幕要回答的是：碰边的区间算不算冲突？几个一模一样的区间呢？',
+  '1 到 2，2 到 3：留下 1 到 2，end 是 2。2 到 3 开始于 2，2 大于等于 2，留下。两个都留，删 0 个。',
+  '如果把条件写成大于，2 大于 2 不成立，2 到 3 就被删了，返回 1，错了。碰边不算重叠，一定写大于等于。',
+  '三个 1 到 2：留下第一个，end 是 2。后面两个都从 1 开始，1 小于 2，都删掉。删 2 个，答案是 2。'
+]});
+
+/* ===== 8 写代码 ===== */
+add({ch:8, title:'代码：<em>排序，再扫一遍</em>', vis:
+  gloss(0,[['key=lambda x: x[1]','排序时按每个区间的第二个数，也就是结束时间'],["float('-inf')",'负无穷：比任何数都小']])
+  + term('solution.py',[
+    [2,'o','def eraseOverlapIntervals(intervals):'],
+    [2,'hl','    intervals.sort(key=lambda x: x[1])   # 按结束时间排'],
+    [3,'o',"    end = float('-inf')                  # 最后一个留下的区间何时结束"],
+    [3,'o','    kept = 0'],
+    [4,'o','    for s, e in intervals:'],
+    [4,'hl','        if s >= end:                     # 不冲突，碰边也算不冲突'],
+    [4,'o','            kept += 1'],
+    [4,'o','            end = e'],
+    [5,'hl','    return len(intervals) - kept         # 删掉的 = n − 留下的']])
+  + q(1,'代码的每一段，对应前面哪一幕？'),
+  say:[
+  'key 等于 lambda x 冒号 x 方括号 1，意思是排序时按每个区间的第二个数，也就是结束时间。float 负无穷，是一个比任何数都小的数。',
+  '这一幕要回答的是：代码的每一段，对应前面哪一幕？',
+  '第一行，按结束时间排序。这就是关键那一幕：结束最早的排前面，先被考虑。',
+  'end 从负无穷开始，表示还没留任何区间，第一个区间一定能留。kept 从 0 开始数。',
+  '循环里只有一个判断：开始时刻大于等于 end，就不冲突，留下，kept 加一，end 更新成它的结束时间。否则什么都不做，等于删掉。',
+  '最后返回 n 减 kept，这就是翻过来问那一幕：删掉的个数等于总数减留下的个数。'
+]});
+
+/* ===== 9 复杂度和易错点 ===== */
+add({ch:9, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(n log n)','排序的代价；排完只扫一遍，是 O(n)']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n log n)，空间 O(1)','排序最慢；除了排序，只用 end 和 kept 两个变量','sky'],
+           [3,'按开始时间排','[[1, 100], [2, 3], [4, 5]] 会返回 2，答案是 1','coral'],
+           [4,'碰边写成 >','[[1, 2], [2, 3]] 会返回 1，答案是 0','coral'],
+           [4,'返回了 kept','题目要的是删几个：n − kept','coral']]),
+  say:[
+  'O n log n 是排序的代价。排完以后只扫一遍，是 O n。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n log n，排序最慢。空间 O 一：除了排序本身，只用了 end 和 kept 两个变量。',
+  '坑一：按开始时间排。1 到 100，2 到 3，4 到 5 会返回 2，正确答案是 1。',
+  '坑二：碰边写成大于，1 到 2、2 到 3 会返回 1，正确答案是 0。坑三：返回了 kept。题目问的是删几个，要返回 n 减 kept。'
+]});
+
+/* ===== 10 面试怎么讲 ===== */
+add({ch:10, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："为什么按结束时间排，不按开始时间排？"')
+  + flow([[2,'翻过来','删最少 = 留最多'],[3,'排序','按结束时间'],[3,'扫描','s >= end 就留'],[4,'答案','n − kept'],[4,'复杂度','O(n log n)']])
+  + chips(4,['interval scheduling','greedy','sort by end time','exchange argument','touching is not overlapping','452 Minimum Arrows']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，为什么按结束时间排，不按开始时间排？',
+  '先讲做法：删最少等于留最多，答案是 n 减 kept。我按结束时间排序，从前往后扫，开始时刻大于等于当前 end 就留下，并更新 end。',
+  '再讲为什么：开始得早的区间可能拖得很长，比如 1 到 100，会堵住后面所有区间。结束最早的区间给后面留下的空闲最多；任何最优留法的第一个区间，都能换成它而不冲突，所以先留它不亏。',
+  '复杂度 O n log n。英文关键词是 interval scheduling 和 exchange argument；452 题用最少的箭射爆气球，是同一个套路。'
+]});
+
+/* ===== 11 收尾 ===== */
+add({ch:11, title:'三句<em>必记</em>', vis:
+  flow([[0,'翻过来','删最少 = 留最多'],[0,'排序','按结束时间'],[0,'扫描','s >= end 就留'],[0,'答案','n − kept']])
+  + cards([[1,'① 删得最少 = 留得最多','答案是 n − kept','amber'],
+           [2,'② 按结束时间排，先留最早散会的','它给后面留下的空闲最多；按开始排会被 [1, 100] 坑','sky'],
+           [3,'③ 碰边不算重叠：s >= end','[[1, 2], [2, 3]] → 0','mint']]),
+  say:[
+  '回顾一遍主线：把删最少翻成留最多；按结束时间排序；开始时刻大于等于 end 就留下；最后返回 n 减 kept。',
+  '第一句：删得最少，就是留得最多，答案是 n 减 kept。',
+  '第二句：按结束时间排，永远先留最早散会的那个，因为它给后面留下的空闲最多。按开始时间排，会被 1 到 100 这种长会议坑。',
+  '第三句：碰边不算重叠，条件写开始时刻大于等于 end。1 到 2、2 到 3，一个都不用删。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/aeb78969b71e.mp3", "0-1": "a/5d0b70066c78.mp3", "0-2": "a/3c65a654ad6e.mp3", "0-3": "a/00cc93e54a2d.mp3", "1-0": "a/9e1c4c6bd3ad.mp3", "1-1": "a/94df39afdb37.mp3", "1-2": "a/b4d246bf04ac.mp3", "1-3": "a/9437ae2af5e5.mp3", "1-4": "a/6722a17dd156.mp3", "2-0": "a/5cd18b5ea0be.mp3", "2-1": "a/d63b1762dc4a.mp3", "2-2": "a/8cf9b2c784fa.mp3", "2-3": "a/5c5b4f210fbf.mp3", "2-4": "a/2d455ec7b74d.mp3", "3-0": "a/b075c5a36be2.mp3", "3-1": "a/d178b281903a.mp3", "3-2": "a/768c82e33c72.mp3", "3-3": "a/69c44199dd0a.mp3", "3-4": "a/f08ceb6f07e8.mp3", "3-5": "a/e5bc4ccb853d.mp3", "3-6": "a/c6a7582e2299.mp3", "4-0": "a/7932c76acf0c.mp3", "4-1": "a/fbe96d34d722.mp3", "4-2": "a/1af5de281359.mp3", "4-3": "a/fb2b85b5b365.mp3", "4-4": "a/627edfb0ae0e.mp3", "4-5": "a/fa9a063f864e.mp3", "5-0": "a/c5059f198e30.mp3", "5-1": "a/9dc9b1f88cd7.mp3", "5-2": "a/bf891ac63956.mp3", "5-3": "a/0c9b2d386950.mp3", "5-4": "a/fa90741a6387.mp3", "5-5": "a/9b8e114f0ccd.mp3", "6-0": "a/a19c8b1d41d6.mp3", "6-1": "a/32888ebd6273.mp3", "6-2": "a/8819462812ec.mp3", "6-3": "a/e64bc0c8ac11.mp3", "6-4": "a/f8b4c1135fd3.mp3", "6-5": "a/e5dd099605b7.mp3", "6-6": "a/4298b76c8a06.mp3", "6-7": "a/5736f767ddd9.mp3", "7-0": "a/17392bb655a6.mp3", "7-1": "a/011a92509638.mp3", "7-2": "a/428e6b7e4e66.mp3", "7-3": "a/f792896a4e35.mp3", "7-4": "a/504c4b57e0b0.mp3", "8-0": "a/f77fb93abb51.mp3", "8-1": "a/cc4b84856d96.mp3", "8-2": "a/3c42bbad7352.mp3", "8-3": "a/5fe590cb366b.mp3", "8-4": "a/6eca042ab048.mp3", "8-5": "a/2965e8545a03.mp3", "9-0": "a/6de081c7dd51.mp3", "9-1": "a/20e48a3e9070.mp3", "9-2": "a/4c0e8bfd603d.mp3", "9-3": "a/fbcdd161458b.mp3", "9-4": "a/574e93d9b491.mp3", "10-0": "a/d20e68caeba7.mp3", "10-1": "a/f1a10ce22219.mp3", "10-2": "a/7776250e3fb4.mp3", "10-3": "a/2675c74b66d8.mp3", "10-4": "a/4c81046ab9d6.mp3", "11-0": "a/16e62eb829cf.mp3", "11-1": "a/bb063421094c.mp3", "11-2": "a/280ef0b0ef70.mp3", "11-3": "a/3451f44e1a9c.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fishing for Words</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Fishing for Words', template:'prep', lang:'en', sub:'LeetCode 212 Word Search II · animated walkthrough', key:'lc212envid', doc:'LeetCode 212', blurb:'Review how problem 79 finds one word on a board, see why searching once per word is slow, then put every word into a trie and walk the board and the trie together, so one search finds them all.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: finding words on a board','The problem: four words','Review 79: one path to the end','Natural idea: search once per word','Trie: each prefix stored once','Key idea: walk board and trie together','Animation: finding oath','Animation: scanning the whole board','Write the code','Second example: abcb','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- board + trie drawing ---------- */
+const BOARD = [['o','a','a','n'],['e','t','a','e'],['i','h','k','r'],['i','f','l','v']];
+const SMALL = [['a','b'],['c','d']];
+const WCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.bd{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.bc{position:relative;height:2.7em;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:rgba(10,17,36,.85)}
+.bc b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.4em;color:var(--paper)}
+.bc .ov{position:absolute;inset:0;z-index:0;border-radius:7px;display:flex;align-items:flex-start;justify-content:flex-end;padding:1px 4px;font-family:var(--f-mono);font-size:.62em;font-style:normal;color:var(--paper);transform:none}
+.bc .ov.s:not(.on){opacity:0}
+.bc .ov.s.now{box-shadow:none}
+.bc .ov.only.s{opacity:0!important} .bc .ov.only.s.now{opacity:1!important}
+.bc .ov.p{background:rgba(255,184,77,.32)}
+.bc .ov.c{background:rgba(255,184,77,.32);box-shadow:inset 0 0 0 3px var(--amber)!important}
+.bc .ov.x{background:rgba(255,122,107,.38)}
+.bc .ov.g{background:rgba(98,224,180,.5)}
+.tr{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.tr .s:not(.on){opacity:0}
+.tr .only.s{opacity:0!important} .tr .only.s.now{opacity:1!important}
+.tr line{stroke:var(--sky);stroke-width:2.5}
+.tr line.p{stroke:var(--amber);stroke-width:4}
+.tr circle{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.tr circle.end{fill:none;stroke:var(--mint);stroke-width:2;stroke-dasharray:3 3}
+.tr circle.p{fill:rgba(255,184,77,.35);stroke:var(--amber);stroke-width:3}
+.tr circle.c{fill:none;stroke:var(--amber);stroke-width:4}
+.tr circle.g{fill:rgba(98,224,180,.45);stroke:var(--mint);stroke-width:3}
+.tr rect.cut{fill:rgba(10,17,36,.78);stroke:var(--coral);stroke-width:1.5;stroke-dasharray:4 3}
+.tr text{fill:var(--paper);font-family:var(--f-display);font-size:17px;text-anchor:middle;dominant-baseline:central}
+.tr text.w{font-family:var(--f-mono);font-size:12px;fill:var(--mint)}
+.tr text.cutl{font-family:var(--f-body);font-size:12px;fill:var(--coral)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:8px}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+// st: [[step, [[r,c,cls,txt]...], statusText]] (only that step); ov: [[step,r,c,cls,txt]] (stays)
+function bd(G, o={}){
+  const n = G[0].length;
+  let h = WCSS + `<div class="bd" style="grid-template-columns:repeat(${n},2.7em)">`;
+  G.forEach((row,r)=>row.forEach((ch,c)=>{
+    let ov = '';
+    (o.ov||[]).forEach(([s,rr,cc,k,t])=>{ if(rr===r&&cc===c) ov+=`<i class="ov s ${k}" data-s="${s}">${t||''}</i>`; });
+    (o.st||[]).forEach(([s,cells])=>cells.forEach(([rr,cc,k,t])=>{ if(rr===r&&cc===c) ov+=`<i class="ov only s ${k}" data-s="${s}">${t||''}</i>`; }));
+    h += `<div class="bc"><b>${ch}</b>${ov}</div>`;
+  }));
+  h += `</div>`;
+  if((o.st||[]).some(x=>x[2])) h += `<div class="qrow">${o.st.filter(x=>x[2]).map(([s,,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// trie of oath, pea, eat, rain
+const COLS = {o:46, p:128, e:212, r:294};
+const LV = [24, 72, 118, 164, 210];
+const TW = ['oath','pea','eat','rain'];
+const TP = {root:[170, LV[0]]};
+TW.forEach(w=>{ for(let i=1;i<=w.length;i++) TP[w.slice(0,i)] = [COLS[w[0]], LV[i]]; });
+const NR = 15;
+const par = id => id.length===1 ? 'root' : id.slice(0,-1);
+function seg(a, b, cls=''){
+  const [x1,y1]=TP[a], [x2,y2]=TP[b], dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  return `<line class="${cls}" x1="${(x1+ux*NR).toFixed(1)}" y1="${(y1+uy*NR).toFixed(1)}" x2="${(x2-ux*NR).toFixed(1)}" y2="${(y2-uy*NR).toFixed(1)}"/>`;
+}
+// show: {word: step} (chain appears at that step; omit = always); lab: step for word labels (null = always);
+// st: [[step, pathIds, curId, curCls]] (only); cut: [[step, firstLetter]] (stays)
+function tr(o={}){
+  let s = WCSS + `<svg class="tr" viewBox="0 0 340 250" role="img" aria-label="trie"><circle cx="170" cy="24" r="${NR}"/><text x="170" y="24" style="font-size:11px">root</text>`;
+  TW.forEach(w=>{
+    let g = '';
+    for(let i=1;i<=w.length;i++){
+      const id=w.slice(0,i), [x,y]=TP[id];
+      g += seg(par(id), id) + `<circle cx="${x}" cy="${y}" r="${NR}"/><text x="${x}" y="${y}">${w[i-1]}</text>`;
+    }
+    const [ex,ey]=TP[w];
+    g += `<circle class="end" cx="${ex}" cy="${ey}" r="${NR+5}"/>`;
+    const lab = `<text class="w" x="${ex}" y="${ey+30}">"${w}"</text>`;
+    g += (o.lab!=null) ? `<g class="s" data-s="${o.lab}">${lab}</g>` : lab;
+    s += (o.show&&o.show[w]!=null) ? `<g class="s" data-s="${o.show[w]}">${g}</g>` : g;
+  });
+  (o.st||[]).forEach(([st,path,cur,cc])=>{
+    let g = '';
+    path.forEach(id=>{ const [x,y]=TP[id]; g += seg(par(id), id, 'p') + `<circle class="p" cx="${x}" cy="${y}" r="${NR}"/><text x="${x}" y="${y}">${id.slice(-1)}</text>`; });
+    if(cur){ const [x,y]=TP[cur]; g += `<circle class="${cc||'c'}" cx="${x}" cy="${y}" r="${NR+5}"/>`; }
+    s += `<g class="only s" data-s="${st}">${g}</g>`;
+  });
+  (o.cut||[]).forEach(([st,l])=>{
+    const w = TW.find(x=>x[0]===l), x = COLS[l];
+    s += `<g class="s" data-s="${st}"><rect class="cut" x="${x-24}" y="${LV[1]-22}" width="48" height="${LV[w.length]-LV[1]+60}" rx="8"/><text class="cutl" x="${x}" y="${LV[1]-32}">cut</text></g>`;
+  });
+  return s + `</svg>`;
+}
+const ALL12 = []; BOARD.forEach((row,r)=>row.forEach((ch,c)=>{ if(!'oer'.includes(ch)) ALL12.push([r,c,'x','']); }));
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Fishing for Words<br><em>LeetCode 212</em>', vis:
+  gloss(0,[['board','A table of letters, with rows and columns'],['backtracking','Walk into a path; if it fails, step back and erase your tracks'],['Trie','A tree that stores words one letter per level; shared beginnings are stored once'],['prefix','The beginning part of a word, for example oa is a prefix of oath']])
+  + flow([[1,'Review 79','find one word'],[1,'Natural idea','search once per word'],[2,'Why slow','same path walked many times'],[2,'Trie','each prefix stored once'],[3,'Walk together','board + trie'],[3,'Code','one search finds all']]),
+  say:[
+  'This lesson covers LeetCode 212, Word Search II. First, four words. A board is a table of letters. Backtracking means stepping back when a path fails and erasing your tracks. A trie stores words one letter per level. A prefix is the beginning of a word, like oa for oath.',
+  'The route: first review how problem 79 finds a single word, then look at the natural idea of searching once for every word.',
+  'It is slow because words that start the same way walk the same path many times. The fix is to put all the words into a trie.',
+  'Then we walk the board and the trie together, and one search finds every word. Finally we write the code and cover complexity and the interview pitch.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>which of four words are on the board</em>', vis:
+  gloss(0,[['adjacent','Up, down, left or right; diagonals do not count'],['no reusing a cell','While spelling one word, each cell can be used at most once']])
+  + duo(bd(BOARD,{ov:[[3,0,0,'g','1'],[3,0,1,'g','2'],[3,1,1,'g','3'],[3,2,1,'g','4'],[4,1,3,'p','1'],[4,1,2,'p','2'],[4,1,1,'p','3']]}),
+    q(1,'A 4 × 4 board, words = ["oath", "pea", "eat", "rain"]. Which words can be spelled in one stroke along adjacent cells?')
+    + cards([[2,'Rule: cell after cell, up, down, left, right','Within one word, each cell is used at most once','amber'],
+             [3,'oath ✓　eat ✓','pea: there is no p on the board; rain: no a next to r','mint'],
+             [4,'Answer ["eat", "oath"]','Any order; our code outputs ["oath", "eat"], which is also correct','sky']])),
+  say:[
+  'Adjacent means up, down, left or right, not diagonal. No reusing a cell means that while spelling one word, each cell is used at most once.',
+  'The question for this scene: on a four by four board, with the words oath, pea, eat and rain, which words can be spelled in one stroke along adjacent cells?',
+  'The rule: start from some cell, and each time move to an adjacent cell; the letters form the word. You cannot step on a cell you already used.',
+  'oath works: the o in the top left, the a to its right, the t below, then the h below that. eat works too. pea does not, there is no p. rain does not, r has no a next to it.',
+  'So the answer is eat and oath. The problem allows any order. Our code finds oath first and outputs oath, eat, which is also correct.'
+]});
+
+/* ===== 2 Review 79 ===== */
+add({ch:2, title:'Review 79: <em>follow one path to the end</em>', vis:
+  gloss(0,[['DFS, depth-first search','Pick a direction and keep going; if it fails, step back and try another'],['visited mark','Temporarily change a used cell to #, so this path never steps on it again']])
+  + duo(bd(BOARD,{st:[
+      [2,[[1,0,'c','e']],'find e: the first e is at <b>(1, 0)</b>'],
+      [3,[[1,0,'x','e'],[2,0,'x',''],[0,0,'x',''],[1,1,'x','']],'neighbors i, o, t are not a → <b>back</b>'],
+      [4,[[1,3,'p','#'],[1,2,'c','a']],'next e at (1, 3): mark #, neighbor <b>a</b> ✓'],
+      [5,[[1,3,'p','#'],[1,2,'p','a'],[1,1,'g','t']],'a\'s neighbors: e is #, skip; <b>t</b> ✓ → <em>True</em>'],
+      [6,[],'on the way back, # turns into letters: <em>board restored</em>']]}),
+    q(1,'Problem 79: find just one word, "eat". How would you search the board?')
+    + cards([[6,'Backtracking = erase the mark when you step back','The # belongs to this path only; restore it, other paths still need these cells','mint']])),
+  say:[
+  'DFS means depth-first search: pick a direction and keep going, and if it fails, step back and try another. A visited mark temporarily changes a used cell to a hash sign, so this path never steps on it again.',
+  'The question for this scene: in problem 79, we look for just one word, eat. How would you search the board?',
+  'Start from every cell and look for the first letter, e. The first e is at row one, column zero.',
+  'Next we need an a. Its neighbors are i, o and t, none of them is a. This path fails, so we step back.',
+  'Move on to the next e, at row one, column three. Mark it with a hash sign and check its four neighbors. The one on the left is a, so we go there.',
+  'Among a\'s neighbors, the e on the right is already a hash sign, so we cannot step on it. The one on the left is t, exactly what we need. All three letters are spelled, so return true.',
+  'The key step: when we step back, we change the hash signs back to the original letters. The mark belongs to this one path only, and other starting cells still need those cells. That is backtracking.'
+]});
+
+/* ===== 3 Natural idea ===== */
+add({ch:3, title:'Natural idea: <em>search once per word</em>', vis:
+  gloss(0,[['exist(board, w)','The function from problem 79: is w on the board']])
+  + term('naive.py',[
+    [2,'o','def exist(board, word):'],
+    [2,'o','    def dfs(r, c, i):'],
+    [2,'o','        if i == len(word): return True'],
+    [2,'o','        if out of bounds or board[r][c] != word[i]: return False'],
+    [2,'hl',"        board[r][c] = '#'            # mark"],
+    [2,'o','        found = dfs(..., i + 1) in any of 4 directions'],
+    [2,'hl','        board[r][c] = word[i]        # backtrack: erase'],
+    [2,'o','        return found'],
+    [2,'o','    return any(dfs(r, c, 0) for every cell)'],
+    [3,'e','res = [w for w in words if exist(board, w)]']])
+  + q(1,'Problem 212 has many words. Can we just call 79 once for each word? Where is it slow?')
+  + cards([[4,'4 words = scan the board 4 times','Each word restarts from all 16 cells: 64 starts in total','coral'],
+           [5,'oath and oat: o → a → t walked twice','Words with the same beginning repeat the same path','coral']]),
+  say:[
+  'exist of board and w is the function from problem 79: it tells whether the word w is on the board.',
+  'The question for this scene: problem 212 has many words. Can we just call 79 once for each word? Where is it slow?',
+  'Here is the code for 79: out of bounds or a wrong letter returns false. Otherwise mark the cell with a hash sign, look for the next letter in four directions, and erase the mark on the way back.',
+  'The most natural idea is this last line: call exist for each word in the list, and keep the ones that are found. The result is correct.',
+  'But with 4 words, we scan the board 4 times. Each word restarts from all 16 cells, 64 starts in total. With up to 30 thousand words, we would scan the board 30 thousand times.',
+  'Worse: if the list has both oath and oat, both searches walk o, a, t. Words with the same beginning repeat the same path. What we want is one walk that checks all the words at once.'
+]});
+
+/* ===== 4 Trie ===== */
+add({ch:4, title:'Trie: <em>each prefix stored once</em>', vis:
+  gloss(0,[['node','A circle in the tree, standing for "the prefix spelled so far"'],['root','The empty node at the top, before any letter'],['children','The edges going down from a node: letter → next node']])
+  + duo(tr({show:{oath:2,pea:3,eat:3,rain:3}, lab:4, st:[[5,['e','ea'],'ea','c']]}),
+    q(1,'How should we store these 4 words, so we can check in one step whether some letters start a word?')
+    + cards([[2,'One letter, one edge','Walk down from the root; create the edge if it is missing','sky'],
+             [4,'The end node stores the whole word','Dashed ring: reaching here spells a complete word','mint'],
+             [5,'Check a prefix: follow the edges','e → a works; e → i has no edge: starts no word','amber']])),
+  say:[
+  'A node is a circle in the tree, standing for the prefix spelled so far. The root is the empty node at the top. Children are the edges going down from a node, one letter on each edge.',
+  'The question for this scene: how should we store these 4 words, so we can check in one step whether some letters are the start of a word?',
+  'First insert oath. From the root there is no o edge, so create an o node. Then create a, t and h below it. One letter, one edge.',
+  'Then insert pea, eat and rain; each grows its own branch. If we also inserted oat, it would follow the existing o, a, t, with no new nodes. A shared beginning is stored only once.',
+  'The last node of each word stores the whole word. The dashed ring means: reaching here spells a complete word.',
+  'Checking a prefix means following the edges. e then a works, so ea starts some word. From e, look for i: there is no such edge, so ei starts no word, and we give up right away.'
+]});
+
+/* ===== 5 Key idea ===== */
+add({ch:5, title:'Key idea: <em>walk the board and the trie together</em>', vis:
+  gloss(0,[['current node','The trie node for the prefix spelled by the current path']])
+  + q(1,'With a trie, how do we search the board only once and check every word?')
+  + flow([[2,'Start','from every cell, holding the root'],[3,'Step','letter has a child → one cell on the board, one level in the trie'],[4,'No child','starts no word → stop now'],[5,'End node','stores a word → record it, set to None']])
+  + cards([[6,'One DFS checks all words at once','The o → a → t shared by oath and oat is walked only once','mint']]),
+  say:[
+  'The current node is the trie node for the prefix spelled by the current path.',
+  'The question for this scene: with a trie, how do we search the board only once and check every word?',
+  'Start from every cell of the board, holding the root of the trie.',
+  'Step into a cell and look at its letter. If the current node has a child for that letter, move one cell on the board and one level down in the trie.',
+  'If there is no such child, the current path is not the start of any word, and going further is wasted work, so stop right away. This step cuts out most of the search.',
+  'If the node we reach stores a word, we have spelled a complete word. Record it, then set it to None, so it is never recorded twice.',
+  'So one DFS checks all the words at once. The path o, a, t, shared by oath and oat, is walked only once.'
+]});
+
+/* ===== 6 Animation: oath ===== */
+add({ch:6, title:'Animation: <em>finding oath</em>', vis:
+  gloss(0,[['amber','The current path: cells walked on the board, and the matching trie nodes'],['green','A complete word has been spelled']])
+  + duo(bd(BOARD,{st:[
+      [2,[[0,0,'c','1']],'o: the root has o ✓'],
+      [3,[[0,0,'p','#'],[1,0,'x',''],[0,1,'c','2']],'e: o has no e → stop; <b>a</b> ✓'],
+      [4,[[0,0,'p','#'],[0,1,'p','#'],[1,1,'c','3']],'t: oa has t ✓'],
+      [5,[[0,0,'p','#'],[0,1,'p','#'],[1,1,'p','#'],[2,1,'g','4']],'h ✓ node stores "oath" → <em>res = ["oath"]</em>'],
+      [6,[],'back out: every # becomes a letter · <em>res = ["oath"]</em>']]})
+    + tr({st:[[2,['o'],'o'],[3,['o','oa'],'oa'],[4,['o','oa','oat'],'oat'],[5,['o','oa','oat','oath'],'oath','g']]}),
+    q(1,'Starting from the o in the top left, how do the board and the trie move together, step by step?')),
+  say:[
+  'Amber is the current path: the cells walked on the board, and the matching nodes in the trie. Green means a complete word has been spelled.',
+  'The question for this scene: starting from the o in the top left, how do the board and the trie move together, step by step?',
+  'Step one: the cell is o. The root has an o child, so we step into this cell, move to the o node, and mark the cell with a hash sign.',
+  'The code tries the neighbor below first, e. The o node only has a, not e, so we stop at once. Then it tries the a on the right; o has a, so we go there.',
+  'From a, it tries below first, and that is t. The oa node has t, so we continue. The prefix is now oat.',
+  'Below t is h, and oat has h, so we step in. This node stores the word oath. Record it, then set it to None.',
+  'Then we back all the way out, and each step back turns the hash sign into the original letter. The answer now holds oath.'
+]});
+
+/* ===== 7 Animation: rest of the board ===== */
+add({ch:7, title:'Animation: <em>scanning the whole board</em>', vis:
+  gloss(0,[['cut','Once every word on a branch is found, delete that branch from the trie']])
+  + duo(bd(BOARD,{st:[
+      [2,ALL12,'12 starts: the root has no such letter → <b>stop at once</b>'],
+      [3,[[1,0,'c','e'],[2,0,'x',''],[0,0,'x',''],[1,1,'x','']],'(1, 0) e: neighbors i, o, t; e only has a → stop'],
+      [4,[[1,3,'p','#'],[1,2,'p','#'],[1,1,'g','3']],'(1, 3) e → a → t ✓ → <em>res = ["oath", "eat"]</em>'],
+      [5,[[2,3,'c','r'],[3,3,'x',''],[1,3,'x',''],[2,2,'x','']],'(2, 3) r: neighbors v, e, k; r only has a → stop'],
+      [6,[],'scan done → <em>["oath", "eat"]</em>']]})
+    + tr({st:[[3,['e'],'e'],[4,['e','ea','eat'],'eat','g'],[5,['r'],'r']], cut:[[0,'o'],[6,'e']]}),
+    q(1,'After oath is found, how does the rest of the board go? What is the final answer?')
+    + cards([[6,'Output ["oath", "eat"]','A different order from the expected ["eat", "oath"]; any order is accepted','mint']])),
+  say:[
+  'Cut means that once every word on a branch is found, we delete that branch from the trie. After oath was found, the o branch was already cut.',
+  'The question for this scene: after oath is found, how does the rest of the board go? What is the final answer?',
+  'The root now only has p, e and r. The other 12 starting cells have letters that are not among them, so they stop at once, without even marking.',
+  'The e at row one, column zero: the root has e. Its neighbors are i, o and t, but e only has an a child, so each one stops at once.',
+  'The e at row one, column three: to its left is a, then t, spelling eat. Record it. The answer is now oath, eat.',
+  'The r at row two, column three: the root has r, but r only has an a child. Its neighbors are v, e and k, with no a, so stop.',
+  'The whole board is scanned, and the output is oath, eat. The expected answer is written as eat, oath. The order differs, but any order is accepted.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>build the trie, then walk together</em>', vis:
+  gloss(0,[['setdefault','Return the value for this key; if it is missing, insert a new one first'],['nxt','The trie child for the current cell\'s letter']])
+  + term('solution.py',[
+    [2,'o','class TrieNode:'],
+    [2,'o','    def __init__(self):'],
+    [2,'o','        self.children = {}   # letter → child node'],
+    [2,'o','        self.word = None     # word spelled at this node'],
+    [2,'o','def findWords(board, words):'],
+    [2,'o','    root = TrieNode()'],
+    [2,'o','    for w in words:'],
+    [2,'o','        node = root'],
+    [2,'o','        for ch in w:'],
+    [2,'o','            node = node.children.setdefault(ch, TrieNode())'],
+    [2,'hl','        node.word = w'],
+    [3,'o','    m, n = len(board), len(board[0])'],
+    [3,'o','    res = []'],
+    [3,'o','    def dfs(r, c, node):'],
+    [3,'o','        ch = board[r][c]'],
+    [3,'o','        nxt = node.children.get(ch)'],
+    [3,'hl','        if nxt is None:      # starts no word'],
+    [3,'o','            return'],
+    [4,'o','        if nxt.word:'],
+    [4,'o','            res.append(nxt.word)'],
+    [4,'hl','            nxt.word = None  # avoid duplicates'],
+    [5,'o',"        board[r][c] = '#'"],
+    [5,'o','        for nr, nc in ((r + 1, c), (r - 1, c), (r, c + 1), (r, c - 1)):'],
+    [5,'o','            if 0 <= nr < m and 0 <= nc < n:'],
+    [5,'o','                dfs(nr, nc, nxt)'],
+    [5,'hl','        board[r][c] = ch'],
+    [6,'o','        if not nxt.children and nxt.word is None:'],
+    [6,'o','            del node.children[ch]   # optional: prune'],
+    [7,'o','    for r in range(m):'],
+    [7,'o','        for c in range(n):'],
+    [7,'o','            dfs(r, c, root)'],
+    [7,'o','    return res']])
+  + q(1,'Which step of the animation does each part of the code match?'),
+  say:[
+  'setdefault returns the value for a key, and if the key is missing, it inserts a new one first. nxt is the trie child for the current cell\'s letter.',
+  'The question for this scene: which step of the animation does each part of the code match?',
+  'Part one builds the trie. Each node has a children dictionary, from letter to child node, and a word, the word spelled at this node. Inserting walks one level per letter, creating nodes as needed, and the end node stores the whole word.',
+  'Part two is the start of the DFS: take the cell\'s letter and look for that child in the current node. If it is missing, return right away. A hash sign never has a child either, so used cells are never stepped on again.',
+  'If the child exists, check whether it stores a word. If so, add it to the answer and set it to None, so the same word is never recorded twice.',
+  'Then it is the same as 79: mark the cell with a hash sign, try four directions passing nxt down, and when all four are done, put the original letter back.',
+  'These two lines are the optional pruning: if the node has no children left and its word is already recorded, delete it from its parent, so later searches stop earlier.',
+  'Finally, start a DFS from every cell, holding the root, and return the answer.'
+]});
+
+/* ===== 9 Second example ===== */
+add({ch:9, title:'Second example: <em>abcb</em>', vis:
+  gloss(0,[['[ ]','An empty list: no word was found']])
+  + duo(bd(SMALL,{st:[
+      [2,[[0,0,'c','1']],'a: the root has a ✓'],
+      [3,[[0,0,'p','#'],[0,1,'c','2']],'b: a has b ✓'],
+      [4,[[0,0,'p','#'],[0,1,'p','#'],[1,1,'x',''],[1,0,'x','']],'need c: b\'s neighbors are d and #(a) → <b>stop</b>'],
+      [5,[],'starts b, c, d: the root only has a → stop · <em>[ ]</em>']]}),
+    q(1,'board = [["a","b"],["c","d"]], words = ["abcb"]. What is the output?')
+    + cards([[5,'Output []','c is diagonal to b, not adjacent; also abcb needs b twice, and the board has only one b','coral']])),
+  say:[
+  'An empty list means no word was found.',
+  'The question for this scene: a two by two board with a, b, c, d, and the only word is abcb. What is the output?',
+  'Start from the a in the top left. The root has a, so step in and mark it with a hash sign.',
+  'To the right is b, and a has b, so step in and mark it too.',
+  'Next we need c. b\'s only neighbors are d below and the a on the left, which is already a hash sign. Neither is c, so stop. c is diagonal to b, which does not count as adjacent.',
+  'The other starts, b, c and d, stop at once, because the root only has a. So the output is an empty list. Even if c were next to b, abcb needs b twice, and the board has only one b.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['m × n','The number of cells on the board'],['L','The length of the longest word'],['K','The total number of letters in all words']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(K + m × n × 3^L)','Build O(K); each start walks at most L steps, at most 3 directions after the first. Space O(K)','sky'],
+           [3,'Forgetting to set None','A word that can be spelled along two paths enters the answer twice','coral'],
+           [4,'Forgetting to turn # back into a letter','Other starts and other words can no longer use those cells','coral'],
+           [5,'Correct without pruning, faster with it','Delete finished branches, and later searches stop earlier','amber']]),
+  say:[
+  'm times n is the number of cells, L is the length of the longest word, and K is the total number of letters in all words.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Building the trie is big O of K. Each start walks at most L steps: four directions for the first, then at most three, since we cannot go back. So time is big O of K plus m times n times 3 to the power L, and far less in practice because a broken prefix stops at once. Space is big O of K for the trie.',
+  'Pitfall one: forgetting to set the word to None after finding it. If a word can be spelled along two different paths, it enters the answer twice.',
+  'Pitfall two: forgetting to turn the hash sign back into a letter when stepping back. Those cells stay blocked, and other starts and other words cannot use them.',
+  'Pitfall three is not a bug but a speedup: the result is correct without pruning, but deleting finished branches makes later searches stop earlier.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud, and code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why not run 79 once per word? What exactly does the trie save?"')
+  + flow([[2,'Naive','one DFS per word'],[2,'Problem','prefixes walked again'],[3,'Build','all words into a trie'],[3,'Walk together','no child, stop'],[4,'Dedupe','set word to None'],[4,'Speedup','prune']])
+  + chips(4,['Trie','prefix tree','backtracking','DFS','pruning','79 Word Search','208 Implement Trie']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and start coding once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why not run 79 once per word? What exactly does the trie save?',
+  'First the naive way and its problem: running 79 once per word scans the board many times, and words with the same beginning walk the same path again and again.',
+  'Then the improvement: put all words into a trie, and run a DFS from every cell, one cell on the board and one level in the trie. If the current node has no such child, stop right away.',
+  'Finally the details: the end node stores the word, and we set it to None after finding it to avoid duplicates. Finished branches can be pruned for speed. The key words are trie and backtracking; problem 208 is all about implementing a trie.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'79','mark, 4 directions, erase'],[0,'Build','all words into a trie'],[0,'Walk together','no child, stop'],[0,'Record','store word, set None']])
+  + cards([[1,'① Backtracking: mark #, try 4 directions, restore the letter on the way back','Never step twice on one path; other paths can still use the cells','amber'],
+           [2,'② Many words → build a trie, walk the board and the trie together','If the current node has no such child, it starts no word: stop now','sky'],
+           [3,'③ The end node stores the word; set it to None once found','No duplicates; prune finished branches so later searches stop earlier','mint']]),
+  say:[
+  'The main line once more: problem 79 is mark, try four directions, and erase on the way back. With many words, build a trie first and walk together, stopping when there is no child. At an end node, record the word and set it to None.',
+  'First: backtracking means marking with a hash sign, trying four directions, and restoring the letter on the way back. One path never steps on a cell twice, and other paths can still use it.',
+  'Second: with many words, put them in a trie and walk the board and the trie together. If the current node has no child for this letter, the path starts no word, so stop right away.',
+  'Third: the end node stores the whole word, and once found, set it to None to avoid duplicates. Finished branches can be pruned so later searches stop earlier.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/a6c835eafebc.mp3", "0-1": "a/a5f3753e1b68.mp3", "0-2": "a/869fe321834f.mp3", "0-3": "a/8af1ba4acab5.mp3", "1-0": "a/553e9b188495.mp3", "1-1": "a/4377c39085a5.mp3", "1-2": "a/be7197813dea.mp3", "1-3": "a/9d04c2d28c40.mp3", "1-4": "a/950789fe9c82.mp3", "2-0": "a/9281b6c3cfdc.mp3", "2-1": "a/eef884f7941d.mp3", "2-2": "a/ebf576853103.mp3", "2-3": "a/cfe4e80679f9.mp3", "2-4": "a/849172cc1438.mp3", "2-5": "a/961944ee1f6e.mp3", "2-6": "a/0301f613e48e.mp3", "3-0": "a/63379fc6884c.mp3", "3-1": "a/d10fa6528ac4.mp3", "3-2": "a/aad743445467.mp3", "3-3": "a/de538f24c3d3.mp3", "3-4": "a/5cbdb6b222d8.mp3", "3-5": "a/66b74082d961.mp3", "4-0": "a/c69f357b2a06.mp3", "4-1": "a/5207fc89bb28.mp3", "4-2": "a/7fb9f10bd20f.mp3", "4-3": "a/2e6496b7866c.mp3", "4-4": "a/ecdef5fc010f.mp3", "4-5": "a/7f654aad1408.mp3", "5-0": "a/27b0117042ee.mp3", "5-1": "a/648725797eb9.mp3", "5-2": "a/7e9ce716404d.mp3", "5-3": "a/9850dcfca79e.mp3", "5-4": "a/67c5834613d1.mp3", "5-5": "a/7293000bd736.mp3", "5-6": "a/84e353c5d834.mp3", "6-0": "a/e61197d45402.mp3", "6-1": "a/f86914bac377.mp3", "6-2": "a/ee769aa29f3e.mp3", "6-3": "a/bb9bb2efed97.mp3", "6-4": "a/461bfd776cdb.mp3", "6-5": "a/d5b2a99a0ec9.mp3", "6-6": "a/aab793d2694f.mp3", "7-0": "a/3e86ed4bae7c.mp3", "7-1": "a/cff3e6b311c5.mp3", "7-2": "a/4d464afdc01e.mp3", "7-3": "a/13a4db8a9d0f.mp3", "7-4": "a/40b06c52c2ed.mp3", "7-5": "a/9b40dceaf2fe.mp3", "7-6": "a/f80e0610749c.mp3", "8-0": "a/0bf8067930d5.mp3", "8-1": "a/49a350dcfd7f.mp3", "8-2": "a/d11078c9adad.mp3", "8-3": "a/5a90facfad5a.mp3", "8-4": "a/5ff765e11678.mp3", "8-5": "a/94e8a9433c9c.mp3", "8-6": "a/c464c1c9fa87.mp3", "8-7": "a/30a09df8f63a.mp3", "9-0": "a/5f82beb9ad4d.mp3", "9-1": "a/7fdf8d86e439.mp3", "9-2": "a/5c36b736b1e5.mp3", "9-3": "a/54fb7368138f.mp3", "9-4": "a/6d55b4b84e14.mp3", "9-5": "a/cc3765e55393.mp3", "10-0": "a/f3db4d594228.mp3", "10-1": "a/7c35137176fb.mp3", "10-2": "a/0b077af8ec92.mp3", "10-3": "a/15ec7a677eb1.mp3", "10-4": "a/64f0808690bf.mp3", "10-5": "a/8a262dbf6e77.mp3", "11-0": "a/dd4e4ee16c68.mp3", "11-1": "a/0beb6e23c3cd.mp3", "11-2": "a/2b0b8c3ecf27.mp3", "11-3": "a/343ff7870409.mp3", "11-4": "a/316c8009bb88.mp3", "12-0": "a/6ede9952871e.mp3", "12-1": "a/91d8e76f34bc.mp3", "12-2": "a/72435312bc03.mp3", "12-3": "a/2b5cc8e4abb5.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

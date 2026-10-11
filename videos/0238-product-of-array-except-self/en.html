@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Squeeze From Both Sides</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Squeeze From Both Sides', template:'prep', lang:'en', sub:'LeetCode 238 Product of Array Except Self · animated walkthrough', key:'lc238envid', doc:'LeetCode 238', blurb:'Start from "total product divided by yourself" and watch it break on a zero; then split "everything except me" into left product times right product, fill the answer in two passes, and finally drop the right array for a single variable.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: everything except me','The problem: [1, 2, 3, 4]','Instinct: total ÷ self','It breaks on 0','Split it: left × right','Pass one: left products','Pass two: right products','Save space: one right variable','Check: an array with a 0','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- product grid: one column per index; value rows fill in step by step ---------- */
+const PCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.pg{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.pg>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.pg>.lb{border:0;background:none;color:var(--dim);font-size:.78em;justify-items:end;padding-right:.3em}
+.pg>.ix{border:0;background:none;height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.pg b{grid-area:1/1;position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.3em}
+.pg .val b{color:var(--mint)}
+.pg .val b.x{color:var(--coral)}
+.pg .val b.s:not(.on){opacity:0}
+.pg .val b.s.on ~ b.s{opacity:0!important}
+.pg i.mk{position:absolute;inset:0;border-radius:7px;transform:none}
+.pg i.mk.s:not(.on){opacity:0}
+.pg i.mk.only.s{opacity:0!important} .pg i.mk.only.s.now{opacity:1!important}
+.pg i.mk.s.now{box-shadow:none}
+.pg i.lt{background:rgba(127,180,255,.32)}
+.pg i.rt{background:rgba(98,224,180,.3)}
+.pg i.zr{background:rgba(255,122,107,.38)}
+.pg i.ring{inset:-4px;border-radius:10px;background:none}
+.pg i.ring.s.now{box-shadow:0 0 0 3px var(--amber)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:.5em}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const R = (a, b) => [...Array(b - a + 1).keys()].map(x => x + a);
+// rows: [[label, {k: [[value, step, cls?], ...]}]] (oldest first); marks: [[steps, row, k, cls]] (row -1 = nums); st: [[step, html]]
+function pg(nums, o={}){
+  const n = nums.length, rows = o.rows||[], marks = o.marks||[];
+  const mk = (row, k) => marks.filter(m=>m[1]===row && m[2]===k).map(([st,,,cls])=>
+    [].concat(st).map(s=>`<i class="mk s ${cls}" data-s="${s}"></i>`).join('')).join('');
+  let h = PCSS + `<div class="pg" style="grid-template-columns:4.4em repeat(${n},2.7em)">`;
+  h += `<div class="lb ix">i</div>` + nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += `<div class="lb">nums</div>` + nums.map((v,k)=>`<div><b>${v}</b>${mk(-1,k)}</div>`).join('');
+  rows.forEach(([lb,cells],r)=>{
+    h += `<div class="lb">${lb}</div>` + nums.map((_,k)=>`<div class="val">${
+      [...(cells[k]||[])].reverse().map(([v,s,cls])=>`<b class="s bare ${cls||''}" data-s="${s}">${v}</b>`).join('')}${mk(r,k)}</div>`).join('');
+  });
+  h += `</div>`;
+  if(o.st) h += `<div class="qrow">${o.st.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const all = (vals, s, cls) => Object.fromEntries(vals.map((v,k)=>[k,[[v,s,cls]]]));
+const A = [1,2,3,4], Z = [-1,1,0,-3,3];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Squeeze From Both Sides<br><em>LeetCode 238</em>', vis:
+  gloss(0,[['product','The result of multiplying several numbers together'],['left product','The product of every number to the left of position i'],['right product','The product of every number to the right of position i']])
+  + flow([[1,'Read','product of everything except me'],[1,'Instinct','total ÷ self'],[2,'Breaks on 0','division by zero'],[2,'Split it','left × right'],[3,'Two passes','from the left, from the right'],[3,'Save space','one right variable']]),
+  say:[
+  'This lesson covers LeetCode 238, Product of Array Except Self. First, three words. A product is the result of multiplying several numbers together. The left product is the product of every number to the left of position i. The right product is the product of every number to its right.',
+  'Here is the route. First we read the problem, then we try your first instinct: the total product divided by yourself. On the example, it is completely correct.',
+  'Then we switch to an array with a zero and see exactly where it breaks. We split everything except me into left product times right product, and sweep once from the left and once from the right.',
+  'Finally we drop the right array for a single variable, write the code, and cover complexity, pitfalls, and how to explain it in an interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>multiply everything except me</em>', vis:
+  gloss(0,[['answer[i]','The product of every number except nums[i] itself'],['O(n)','Sweep the array a fixed number of times, looking at n numbers each time']])
+  + duo(pg(A,{rows:[['answer',all([24,12,8,6],2)]], marks:[[2,-1,0,'zr only']]}),
+    q(1,'nums = [1, 2, 3, 4]. What is answer?')
+    + cards([[2,'answer = [24, 12, 8, 6]','Cover the 1: 2 × 3 × 4 = 24; cover the 2: 1 × 3 × 4 = 12, and so on','mint'],
+             [3,'Two constraints','No division; time O(n)','coral']])),
+  say:[
+  'answer of i is the product of every number except nums of i itself. Big O of n means you may only sweep the array a fixed number of times, looking at n numbers each time.',
+  'The question for this scene: nums is 1, 2, 3, 4. What is answer?',
+  'Cover index zero, the 1, and what is left is 2 times 3 times 4, which is 24. Cover the 2, and 1 times 3 times 4 is 12. Cover the 3 to get 8, cover the 4 to get 6. The answer is 24, 12, 8, 6.',
+  'The problem adds two constraints: no division, and time must be big O of n. Keep them in mind; we hit them in the next scene.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'First instinct: <em>total ÷ self</em>', vis:
+  gloss(0,[['total product','Every number multiplied together']])
+  + duo(pg(A,{rows:[['total ÷',all([24,12,8,6],3)]]}),
+    q(1,'Ignoring the constraints for now, what is your first instinct?')
+    + cards([[2,'total = 1 × 2 × 3 × 4 = 24','One sweep gets it','sky'],
+             [3,'24 ÷ 1, 24 ÷ 2, 24 ÷ 3, 24 ÷ 4','= 24, 12, 8, 6','sky'],
+             [4,'All correct, and O(n)','Looks perfect...','mint']])),
+  say:[
+  'The total product is every number multiplied together.',
+  'The question for this scene: ignoring the constraints for now, what is your first instinct?',
+  'The most natural idea: multiply everything first. 1 times 2 times 3 times 4 gives a total product of 24, in a single sweep.',
+  'The product of everything except me is just the total divided by me, right? 24 divided by 1 is 24, by 2 is 12, by 3 is 8, by 4 is 6.',
+  'That matches the answer exactly, in two sweeps, big O of n. It looks perfect. In the next scene we change the array, and it falls apart.'
+]});
+
+/* ===== 3 It breaks on 0 ===== */
+add({ch:3, title:'It breaks on 0: <em>division by zero</em>', vis:
+  gloss(0,[['division by zero','Using 0 as the divisor: it has no meaning, and Python raises ZeroDivisionError'],['brute force','For each position, multiply all the other numbers again from scratch']])
+  + duo(pg(Z,{rows:[['total ÷',{0:[[0,3]],1:[[0,3]],2:[['✗',3,'x']],3:[[0,3]],4:[[0,3]]}],['correct',all([0,0,9,0,0],4)]],
+      marks:[[R(2,5),-1,2,'zr']]}),
+    q(1,'Switch to [-1, 1, 0, -3, 3]. Does total ÷ self still work?')
+    + cards([[2,'total = 0','A single 0 wipes the whole product to 0','coral'],
+             [4,'Index 2 should be 9','-1 × 1 × -3 × 3 = 9, and you cannot divide it back out of 0','coral'],
+             [5,'No division allowed; brute force O(n²) is too slow','We need a way with no division that does not fear 0','amber']])),
+  say:[
+  'Division by zero means using 0 as the divisor. It has no meaning in math, and Python raises an error. Brute force means that for each position, you multiply all the other numbers again from scratch.',
+  'The question for this scene: switch to minus 1, 1, 0, minus 3, 3. Does total divided by self still work?',
+  'There is a 0 in the array, so the total product becomes 0 right away. Minus 1 times 1 times 0 times minus 3 times 3 is 0.',
+  '0 divided by minus 1, by 1, by minus 3, and by 3 is always 0. But at index 2 we need 0 divided by 0, and the program crashes.',
+  'And the correct answer at index 2 is 9. Cover that 0, and minus 1 times 1 times minus 3 times 3 is 9. That 9 was wiped out by the 0, and you can never divide it back out of the total.',
+  'On top of that, the problem bans division anyway. Brute force multiplies again for every position, which is big O of n squared, too slow. We need a way that uses no division and does not fear 0.'
+]});
+
+/* ===== 4 Split it ===== */
+add({ch:4, title:'Split it: <em>left product × right product</em>', vis:
+  gloss(0,[['left product','The product of every number to the left of position i'],['right product','The product of every number to the right of position i']])
+  + duo(pg(A,{marks:[[R(2,5),-1,2,'ring only'],[R(2,5),-1,0,'lt only'],[R(2,5),-1,1,'lt only'],[R(3,5),-1,3,'rt only']],
+      st:[[2,'left: 1 × 2 = <b>2</b>'],[3,'left <b>2</b>　right: <em>4</em>'],[4,'<b>2</b> × <em>4</em> = 8 ✓'],[5,'answer[i] = <b>left</b> × <em>right</em>']]}),
+    q(1,'Without division, how else can you split "everything except me"?')
+    + cards([[4,'You sit in the middle','So you are skipped naturally, with nothing to divide out','sky'],
+             [5,'answer[i] = left product × right product','Only multiplication: no division, and a 0 just gets multiplied in','mint']])),
+  say:[
+  'The left product is the product of every number to the left of position i. The right product is the product of every number to its right.',
+  'The question for this scene: without division, how else can you split the words everything except me?',
+  'Look at index 2, the number 3. The numbers other than it fall into exactly two pieces. The left piece is 1 and 2, whose product is 2.',
+  'The right piece is just 4, whose product is 4.',
+  'Left product times right product, 2 times 4, is 8, which is exactly the answer. You sit in the middle, so you are skipped naturally, with nothing to divide out.',
+  'That is the key: answer of i equals left product times right product. It is all multiplication, no division. When a 0 shows up, it just gets multiplied in, and nothing crashes.'
+]});
+
+/* ===== 5 Pass one: left products ===== */
+add({ch:5, title:'Pass one: <em>left to right, left products</em>', vis:
+  gloss(0,[['empty product = 1','With no numbers at all, the product is 1: multiplying by 1 changes nothing'],['left[i]','= left[i − 1] × nums[i − 1]']])
+  + duo(pg(A,{rows:[['left',{0:[[1,2]],1:[[1,3]],2:[[2,4]],3:[[6,5]]}]],
+      marks:[[2,0,0,'ring only'],[3,0,1,'ring only'],[4,0,2,'ring only'],[5,0,3,'ring only'],[3,-1,0,'lt only'],[4,-1,1,'lt only'],[5,-1,2,'lt only']],
+      st:[[2,'left[0] = <b>1</b>　nothing on the left'],[3,'left[1] = 1 × 1 = <b>1</b>'],[4,'left[2] = 1 × 2 = <b>2</b>'],[5,'left[3] = 2 × 3 = <b>6</b>'],[6,'left = <em>[1, 1, 2, 6]</em>']]}),
+    q(1,'Do we multiply from scratch for every position\'s left product?')
+    + cards([[6,'No: each cell is the previous cell times one more number','One sweep from the left, O(n)','mint']])),
+  say:[
+  'The empty product is 1: when there are no numbers at all, the product counts as 1, because multiplying by 1 changes nothing. The recurrence is left of i equals left of i minus 1, times nums of i minus 1.',
+  'The question for this scene: do we multiply from scratch to get every position\'s left product?',
+  'Index 0 has no numbers on its left, so it is the empty product: left of 0 is 1.',
+  'Index 1: the previous left product 1, times the number right next to it on the left, which is 1, gives 1.',
+  'Index 2: the previous 1, times nums of 1, which is 2, gives 2.',
+  'Index 3: the previous 2, times nums of 2, which is 3, gives 6.',
+  'No need to start over: each cell is just the previous cell times one more number. One sweep from the left gives 1, 1, 2, 6, in big O of n.'
+]});
+
+/* ===== 6 Pass two: right products ===== */
+add({ch:6, title:'Pass two: <em>right to left, right products</em>', vis:
+  gloss(0,[['right[i]','= right[i + 1] × nums[i + 1]: the mirror of the left product']])
+  + duo(pg(A,{rows:[['left',all([1,1,2,6],0)],['right',{3:[[1,2]],2:[[4,3]],1:[[12,4]],0:[[24,5]]}],['answer',all([24,12,8,6],6)]],
+      marks:[[2,1,3,'ring only'],[3,1,2,'ring only'],[4,1,1,'ring only'],[5,1,0,'ring only'],[3,-1,3,'rt only'],[4,-1,2,'rt only'],[5,-1,1,'rt only']],
+      st:[[2,'right[3] = <em>1</em>　nothing on the right'],[3,'right[2] = 1 × 4 = <em>4</em>'],[4,'right[1] = 4 × 3 = <em>12</em>'],[5,'right[0] = 12 × 2 = <em>24</em>'],[6,'answer[i] = left[i] × right[i]']]}),
+    q(1,'How do we get the right products? And how do we assemble the answer?')
+    + cards([[6,'Multiply each column top to bottom','1×24, 1×12, 2×4, 6×1 = 24, 12, 8, 6','mint']])),
+  say:[
+  'The right product is the mirror of the left product: sweep from right to left, and right of i equals right of i plus 1, times nums of i plus 1.',
+  'The question for this scene: how do we get the right products? And how do we assemble the answer?',
+  'The last index has nothing on its right, so it is the empty product: right of 3 is 1.',
+  'Index 2: 1 times nums of 3, which is 4, gives 4.',
+  'Index 1: 4 times nums of 2, which is 3, gives 12.',
+  'Index 0: 12 times nums of 1, which is 2, gives 24. The right products are 24, 12, 4, 1.',
+  'Finally, multiply each column top to bottom: 1 times 24 is 24, 1 times 12 is 12, 2 times 4 is 8, 6 times 1 is 6. The answer is 24, 12, 8, 6, the same as when we read the problem.'
+]});
+
+/* ===== 7 Save space ===== */
+add({ch:7, title:'Save space: <em>one right variable</em>', vis:
+  gloss(0,[['extra space','Space you allocate beyond the output array; the problem says the output does not count'],['right variable','A single number: the product of everything to the right of the current position']])
+  + duo(pg(A,{rows:[['answer',{0:[[1,2],[24,6]],1:[[1,2],[12,5]],2:[[2,2],[8,4]],3:[[6,2],[6,3]]}]],
+      marks:[[3,0,3,'ring only'],[4,0,2,'ring only'],[5,0,1,'ring only'],[6,0,0,'ring only']],
+      st:[[2,'answer holds left products　right = <em>1</em>'],[3,'answer[3] = 6 × 1 = <b>6</b>　right → <em>4</em>'],[4,'answer[2] = 2 × 4 = <b>8</b>　right → <em>12</em>'],
+          [5,'answer[1] = 1 × 12 = <b>12</b>　right → <em>24</em>'],[6,'answer[0] = 1 × 24 = <b>24</b>　right → <em>24</em>'],[7,'multiply into answer first, then update right']]}),
+    q(1,'The follow-up asks for O(1) extra space. Can we drop the left and right arrays?')
+    + cards([[7,'Order: answer[i] *= right first, then right *= nums[i]','Flip it, and you multiply yourself in too','amber']])),
+  say:[
+  'Extra space is the space you allocate beyond the output array, and the problem says the output array does not count. The right variable is a single number that holds the product of everything to the right of the current position.',
+  'The question for this scene: the follow-up asks for big O of 1 extra space. Can we drop the left and right arrays?',
+  'Pass one stays the same: sweep from the left and write the left products straight into answer. answer is now 1, 1, 2, 6. right starts at 1.',
+  'Pass two goes from right to left. At i equals 3, answer of 3 is 6 times 1, still 6. Then right is multiplied by nums of 3 and becomes 4.',
+  'At i equals 2, answer of 2 is 2 times 4, which is 8. right is multiplied by 3 and becomes 12.',
+  'At i equals 1, answer of 1 is 1 times 12, which is 12. right is multiplied by 2 and becomes 24.',
+  'At i equals 0, answer of 0 is 1 times 24, which is 24. right is multiplied by 1 and stays 24. The answer is 24, 12, 8, 6.',
+  'The order matters: first multiply right into answer, then multiply nums of i into right. Flip it, and you multiply yourself in too. The whole thing uses just one extra variable, so the extra space is big O of 1.'
+]});
+
+/* ===== 8 Check ===== */
+add({ch:8, title:'Check: <em>[-1, 1, 0, -3, 3]</em>', vis:
+  gloss(0,[['negative times negative','Multiplying two negative numbers gives a positive number']])
+  + duo(pg(Z,{rows:[['left',all([1,-1,-1,0,0],2)],['right',all([0,0,-9,3,1],3)],['answer',all([0,0,9,0,0],4)]],
+      marks:[[R(0,5),-1,2,'zr'],[5,2,2,'ring only']]}),
+    q(1,'The total-product idea broke here. What about left product × right product?')
+    + cards([[4,'answer = [0, 0, 9, 0, 0]','Index 2: -1 × -9 = 9','mint'],
+             [5,'The 0 itself is skipped','The left product stops before the 0, the right product starts after it; no division means no division by zero','sky']])),
+  say:[
+  'Negative times negative is positive: multiplying two negative numbers gives a positive number.',
+  'The question for this scene: for minus 1, 1, 0, minus 3, 3, the total-product idea broke. What about left product times right product?',
+  'Left products, from the left: 1. Times minus 1 gives minus 1. Times 1 is still minus 1. Times 0 becomes 0, and it stays 0 after that. We get 1, minus 1, minus 1, 0, 0.',
+  'Right products, from the right: 1. Times 3 gives 3. Times minus 3 gives minus 9. Times 0 becomes 0, and it stays 0 after that. We get 0, 0, minus 9, 3, 1.',
+  'Multiply top to bottom: 0, 0, minus 1 times minus 9 equals 9, then 0, 0. The answer is 0, 0, 9, 0, 0, all correct.',
+  'Look at column 2, where the 0 sits. The left product only multiplies up to just before the 0, and the right product only starts just after it. The 0 itself is skipped, so the 9 survives. No division means no division by zero.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>two loops, one variable</em>', vis:
+  gloss(0,[['ans[i] *= right','Multiply right into ans[i], the same as ans[i] = ans[i] * right'],['range(n − 1, −1, −1)','Count down from n − 1 to 0']])
+  + term('solution.py',[
+    [2,'o','def productExceptSelf(nums):'],
+    [2,'o','    n = len(nums)'],
+    [2,'hl','    ans = [1] * n                    # ans[0] = 1: empty product'],
+    [3,'o','    for i in range(1, n):'],
+    [3,'hl','        ans[i] = ans[i - 1] * nums[i - 1]   # left product'],
+    [4,'o','    right = 1                        # right product, starts empty'],
+    [4,'o','    for i in range(n - 1, -1, -1):'],
+    [4,'hl','        ans[i] *= right              # multiply into answer first'],
+    [4,'hl','        right *= nums[i]             # then fold yourself into right'],
+    [5,'o','    return ans']])
+  + q(1,'Which earlier scene does each part of the code match?'),
+  say:[
+  'ans of i times-equals right means multiply right into ans of i. range of n minus 1, minus 1, minus 1 counts down from n minus 1 to 0.',
+  'The question for this scene: which earlier scene does each part of the code match?',
+  'ans starts filled with 1. ans of 0 equals 1 is the empty product to the left of index 0.',
+  'The first loop goes left to right: ans of i equals ans of i minus 1 times nums of i minus 1. What it writes is the left product, which matches pass one.',
+  'The second loop goes right to left, with right starting at 1. First multiply right into ans of i, then multiply nums of i into right. The order cannot be flipped. This matches the save-space scene.',
+  'Finally, return ans. The whole function never divides once, and the only extra storage is the single variable right.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(1) extra space','No matter how long the array is, you only use a fixed few extra variables']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(n), extra space O(1)','Two sweeps; the output array does not count as extra space','sky'],
+           [3,'Starting from nums[0]','Index 0 has nothing on its left: it is the empty product, so it must be 1','coral'],
+           [4,'Updating right before multiplying','That multiplies nums[i] itself in too','coral'],
+           [4,'Sneaking in total ÷ self','It crashes on a 0, and the problem bans it outright','coral']]),
+  say:[
+  'Big O of 1 extra space means that no matter how long the array is, you only use a fixed few extra variables.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to slip?',
+  'Two sweeps, so time is big O of n. The only extra storage is the variable right, so extra space is big O of 1; by the problem\'s rules, the output array does not count.',
+  'Pitfall one: starting from nums of 0. Index 0 has nothing on its left, so it is the empty product and must be 1. Get the start wrong, and every cell after it is wrong too.',
+  'Pitfall two: in the second loop, updating right before multiplying, which multiplies nums of i itself in too. Pitfall three: sneaking in total divided by self. It crashes on a 0, and the problem bans it outright.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why not just divide the total product by each number?"')
+  + flow([[2,'Why not divide','banned; 0 crashes it'],[2,'Split it','left × right'],[3,'Pass one','left products into ans'],[3,'Pass two','right sweeps from the right'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['prefix product','suffix product','no division','running product','O(1) extra space']),
+  say:[
+  'The habit in interviews is approach first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why not just divide the total product by each number?',
+  'First say why not: the problem bans division, and when the array has a 0, the total becomes 0, the position of that 0 would need a division by 0, and its answer can never be recovered. So I split everything except me into left product times right product.',
+  'Then describe the method: pass one goes left to right and writes the left products into the answer array. Pass two goes right to left with a single variable right that holds the right product; multiply it into the answer first, then update right.',
+  'It is all multiplication, so a 0 is no problem. Time is big O of n, extra space is big O of 1. The key English terms are prefix product and suffix product.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Instinct','total ÷ self'],[0,'Breaks on 0','and division is banned'],[0,'Split it','left × right'],[0,'Two passes','from the left, from the right'],[0,'Save space','one right']])
+  + cards([[1,'1. answer[i] = left product × right product','You sit in the middle and are skipped naturally; no division, no fear of 0','amber'],
+           [2,'2. Both sides start from the empty product 1','Each cell is the previous cell times one more number','sky'],
+           [3,'3. ans holds the left products, right sweeps from the right','First ans[i] *= right, then right *= nums[i]','mint']]),
+  say:[
+  'One more pass over the main line: total divided by self crashes on a 0, and the problem bans it anyway. Split everything except me into left times right. Sweep twice. Then drop the right array for a single variable.',
+  'Number one: answer of i equals left product times right product. You sit in the middle and are skipped naturally, with no division and no fear of 0.',
+  'Number two: both sides start from the empty product 1, and each cell is just the previous cell times one more number.',
+  'Number three: the answer array first holds the left products, then a single variable right sweeps from the right. Multiply it into the answer first, then update right.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/ebc90f15ab21.mp3", "0-1": "a/34c58f491bda.mp3", "0-2": "a/89d2c3ccbdce.mp3", "0-3": "a/c6f610c7a96c.mp3", "1-0": "a/c19efeadaac1.mp3", "1-1": "a/2a9bd785d416.mp3", "1-2": "a/6286c1e05523.mp3", "1-3": "a/c87623bfe77a.mp3", "2-0": "a/0bcd2816fa61.mp3", "2-1": "a/88fe459c6163.mp3", "2-2": "a/8d52b715adf6.mp3", "2-3": "a/7049f43deea1.mp3", "2-4": "a/3b718c47044d.mp3", "3-0": "a/c2f6df379b66.mp3", "3-1": "a/467a7b6a4d0b.mp3", "3-2": "a/a0b501b3d850.mp3", "3-3": "a/e5568493dd7b.mp3", "3-4": "a/0a7d5e38ec66.mp3", "3-5": "a/c8a4662369d0.mp3", "4-0": "a/e84ed960d4b2.mp3", "4-1": "a/b89e91ce95d8.mp3", "4-2": "a/d4a6cd08e513.mp3", "4-3": "a/6b3a14d7147a.mp3", "4-4": "a/5e88d676ee1f.mp3", "4-5": "a/bd635281e291.mp3", "5-0": "a/daeb67584f25.mp3", "5-1": "a/782e4f9858c1.mp3", "5-2": "a/ef2ae605d981.mp3", "5-3": "a/06971840bfd5.mp3", "5-4": "a/62be118f6861.mp3", "5-5": "a/ab093874c36a.mp3", "5-6": "a/c17cdff143d5.mp3", "6-0": "a/b8408f9d683c.mp3", "6-1": "a/66500be16216.mp3", "6-2": "a/e325003666be.mp3", "6-3": "a/80c26748a2a3.mp3", "6-4": "a/a34119dd04b5.mp3", "6-5": "a/1d6752d5d063.mp3", "6-6": "a/cd04deb004f3.mp3", "7-0": "a/5c32352b226e.mp3", "7-1": "a/31c2717ea717.mp3", "7-2": "a/16813c219685.mp3", "7-3": "a/2bf4d148179c.mp3", "7-4": "a/4838d26b3822.mp3", "7-5": "a/50e6ada37035.mp3", "7-6": "a/16f11415bddd.mp3", "7-7": "a/03735360b121.mp3", "8-0": "a/f5ab2ba58aab.mp3", "8-1": "a/d8faf29b7f8c.mp3", "8-2": "a/7e4ef422067c.mp3", "8-3": "a/d68674f44626.mp3", "8-4": "a/6a3df3edc089.mp3", "8-5": "a/330abf2b3936.mp3", "9-0": "a/9ec892018958.mp3", "9-1": "a/65caef4c7586.mp3", "9-2": "a/97c4f38edb3c.mp3", "9-3": "a/6672b1b6a470.mp3", "9-4": "a/a62af6b2715b.mp3", "9-5": "a/5018698f1462.mp3", "10-0": "a/1fac07f8e3dd.mp3", "10-1": "a/fab3f43d53e1.mp3", "10-2": "a/d6c05aa9ef8c.mp3", "10-3": "a/b644e1692fb3.mp3", "10-4": "a/7489b48c1469.mp3", "11-0": "a/71ee1bdaf668.mp3", "11-1": "a/aac0f0acb13b.mp3", "11-2": "a/42d0dfd72189.mp3", "11-3": "a/c9eb7d0321df.mp3", "11-4": "a/bd091cd894f6.mp3", "12-0": "a/4da04d36cfa2.mp3", "12-1": "a/bea82b5a8e1c.mp3", "12-2": "a/c65405c9edb6.mp3", "12-3": "a/597e4eedbb6e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

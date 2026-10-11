@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Numbers in a Row</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Numbers in a Row', template:'prep', lang:'en', sub:'LeetCode 128 Longest Consecutive Sequence · animated walkthrough', key:'lc128envid', doc:'LeetCode 128', blurb:'Sorting is too slow, and counting upward from every number recounts the same run; count only from the start of a run (x − 1 is not in the set), so every number is counted once, O(n).'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: scattered numbers','The problem: values next to each other','First idea: sort','Hash set: one-step lookup','Second idea: count up from every number','Key insight: count only from a start','Why it is O(n)','Walk through: [100, 4, 200, 1, 3, 2]','Duplicates: loop over the set','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a strip of numbers: tag above (start / skip), green tint = walked over, amber ring = current x ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ls{display:grid;gap:4px;justify-content:center;margin:0 auto .3em}
+.ls>.tg{position:relative;height:1.4em;font-family:var(--f-mono);font-size:.72em;text-align:center;white-space:nowrap}
+.ls>.tg .s{position:absolute;left:-1em;right:-1em;transform:none}
+.ls>.tg .s:not(.on){opacity:0}
+.ls .st{color:var(--amber)} .ls .sk{color:var(--dim)} .ls .du{color:var(--coral)}
+.ls>.v{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.ls>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.15em}
+.ls .tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(98,224,180,.35);transform:none}
+.ls .tint.s:not(.on){opacity:0}
+.ls .bad.s{position:absolute;inset:0;border-radius:7px;background:rgba(255,122,107,.4);transform:none}
+.ls .bad.s:not(.on){opacity:0}
+.ls i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.ls i.ring.s.now{opacity:1!important}
+.lrow{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-bottom:.4em}
+.lrow .s{position:absolute;left:0;right:0}
+.lrow .only.s{opacity:0!important} .lrow .only.s.now{opacity:1!important}
+.lrow b{color:var(--amber)} .lrow em{font-style:normal;color:var(--mint)}
+.lcap{font-size:.8em;color:var(--dim);text-align:center;margin:.2em 0}
+.tri{display:grid;grid-template-columns:3.6em repeat(5,minmax(0,2.2em)) 4.2em;gap:4px;justify-content:center;margin:0 auto;font-family:var(--f-mono)}
+.tri>.r{display:contents}
+.tri .r.s:not(.on)>*{opacity:0}
+.tri .lb{color:var(--dim);font-size:.78em;align-self:center;text-align:right}
+.tri .c{height:1.9em;border-radius:6px;display:grid;place-items:center}
+.tri .c.f{background:rgba(98,224,180,.3);border:1px solid var(--mint)}
+.tri .n{color:var(--amber);font-size:.8em;align-self:center}
+</style>`;
+// o: {tag:{k:[step,text,cls]}, tint:{k:step}, bad:{k:step}, ring:[[step,k]], info:[[step,html]], cap}
+function ls(vals, o={}){
+  const n = vals.length;
+  let h = LCSS + (o.cap?`<div class="lcap">${o.cap}</div>`:'') + `<div class="ls" style="grid-template-columns:repeat(${n},minmax(0,2.6em))">`;
+  h += vals.map((_,k)=>{ const t=(o.tag||{})[k]; return `<div class="tg">${t?`<span class="s ${t[2]||''}" data-s="${t[0]}">${t[1]}</span>`:''}</div>`; }).join('');
+  h += vals.map((v,k)=>`<div class="v"><b>${v}</b>${(o.tint||{})[k]!=null?`<i class="tint s" data-s="${o.tint[k]}"></i>`:''}${(o.bad||{})[k]!=null?`<i class="bad s" data-s="${o.bad[k]}"></i>`:''}${(o.ring||[]).filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  h += `</div>`;
+  if(o.info) h += `<div class="lrow">${o.info.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// rows: [[step, start]] on 1..5, each row walks start..5
+function tri(rows){
+  let h = LCSS + `<div class="tri">`;
+  rows.forEach(([st,a])=>{
+    h += `<div class="r s" data-s="${st}"><span class="lb">from ${a}</span>`;
+    for(let v=1; v<=5; v++) h += `<span class="c ${v>=a?'f':''}">${v>=a?v:''}</span>`;
+    h += `<span class="n">${6-a} steps</span></div>`;
+  });
+  return h + `</div>`;
+}
+const EX = [100,4,200,1,3,2];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Numbers in a Row<br><em>LeetCode 128</em>', vis:
+  gloss(0,[['consecutive sequence','Numbers that go up by one each time, like 1, 2, 3, 4'],['hash set','A container that tells you in one step whether a number is in it'],['start','The smallest number of a run: the number before it, x − 1, is missing']])
+  + flow([[1,'Problem','values next to each other'],[1,'Sort','O(n log n), too slow'],[2,'Count up','recounts, O(n²)'],[2,'Only from starts','x − 1 missing'],[3,'Walk through','[100, 4, 200, 1, 3, 2]'],[3,'Code','loop over the set, O(n)']]),
+  say:[
+  'This lesson covers LeetCode 128, Longest Consecutive Sequence. Three words first. A consecutive sequence is a run of numbers that goes up by one each time. A hash set is a container that tells you in one step whether a number is in it. A start is the smallest number of a run, the one whose previous number is missing.',
+  'We will try the two most natural ideas first: sorting, which is too slow, and counting upward from every number, which counts the same run over and over.',
+  'The key move is a single sentence: only start counting from the start of a run. Then every number is counted once, which is big O of n.',
+  'Then we walk through 100, 4, 200, 1, 3, 2 in full, look at an example with duplicates, and finally write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>values next to each other</em>', vis:
+  gloss(0,[['length','How many numbers are in the run'],['unsorted','The array is in random order, so position says nothing about size']])
+  + duo(ls(EX,{tint:{3:2,4:2,5:2,1:2}}),
+    q(1,'nums = [100, 4, 200, 1, 3, 2]. How long is the longest consecutive sequence?')
+    + cards([[2,'1, 2, 3, 4 → length 4','They do not have to sit together in the array: only values matter','mint'],
+             [3,'100 and 200 are each a run of length 1','99, 101, 199 and 201 are all missing','sky']])),
+  say:[
+  'Length means how many numbers are in the run. Unsorted means the array is in random order, so a position tells you nothing about size.',
+  'The question for this scene: in 100, 4, 200, 1, 3, 2, how long is the longest consecutive sequence?',
+  'The answer is 4: 1, 2, 3, 4 form a run. They are scattered around the array, and that is fine. Only the values have to be next to each other.',
+  '100 and 200 are each a run on their own, with length 1, because 99, 101, 199 and 201 are not in the array.'
+]});
+
+/* ===== 2 First idea: sort ===== */
+add({ch:2, title:'First idea: <em>sort it</em>', vis:
+  gloss(0,[['O(n)','The number of steps grows in proportion to n, the count of numbers'],['O(n log n)','The steps sorting needs: an extra factor of log n on top of O(n)']])
+  + duo(ls([1,2,3,4,100,200],{tint:{0:3,1:3,2:3,3:3},tag:{0:[3,'1','st'],1:[3,'2','st'],2:[3,'3','st'],3:[3,'4','st'],4:[3,'1','sk'],5:[3,'1','sk']},cap:'after sorting'}),
+    q(1,'Sort first, then count from left to right. Does that work?')
+    + cards([[2,'Sorted: 1, 2, 3, 4, 100, 200','Consecutive numbers now really sit together','sky'],
+             [3,'One scan: differ by 1, extend','4 to 100 breaks, restart at 1; longest is 4','sky'],
+             [4,'Right answer, but too slow','Sorting alone is O(n log n); the problem asks for O(n)','coral']])),
+  say:[
+  'Big O of n means the number of steps grows in proportion to n, the count of numbers. Big O of n log n is what sorting needs, an extra factor of log n.',
+  'The question for this scene: sort first, then count from left to right. Does that work?',
+  'After sorting we get 1, 2, 3, 4, 100, 200. Consecutive numbers now really sit next to each other.',
+  'Scan from left to right. If a number is one more than the previous one, extend the run by one. 4 to 100 breaks, so restart the count at one. The longest run is 4.',
+  'The answer is right, but sorting alone costs big O of n log n. The problem clearly asks for big O of n, so the sort already goes over budget. We need a way to know whether the next number exists without sorting.'
+]});
+
+/* ===== 3 Hash set ===== */
+add({ch:3, title:'Hash set: <em>find it in one step</em>', vis:
+  gloss(0,[['hash function','A formula that turns a number into a slot number'],['O(1)','A fixed number of steps, no matter how many numbers there are']])
+  + q(1,'Without sorting, how do you know in one step whether x + 1 is there?')
+  + cards([[2,'Search a list: look one by one','Worst case you look at all n numbers, O(n)','coral'],
+           [3,'Put it in a set: compute the slot first','To store x, the hash function gives a slot number and x goes there; to look up x, compute the same number and check that one slot','sky'],
+           [4,'One lookup O(1), building the set O(n)','set(nums) places each of the n numbers once; duplicates are kept only once','mint']]),
+  say:[
+  'A hash function is a formula that turns a number into a slot number. Big O of 1 means a fixed number of steps, no matter how many numbers there are.',
+  'The question for this scene: without sorting, how do you know in one step whether x plus 1 is there?',
+  'If you search a list, you can only look at the numbers one by one. In the worst case that is all n of them, big O of n. Doing that for every lookup is far too slow.',
+  'A set works like a wall of lockers. To store x, the hash function computes a locker number, and x goes into that locker. To look up x, you compute the same number and check that one locker directly, without searching from the beginning.',
+  'So one lookup is big O of 1. Building the set places each of the n numbers once, which is big O of n. And there is a bonus: a duplicate number is kept only once in the set.'
+]});
+
+/* ===== 4 Second idea: count up from every number ===== */
+add({ch:4, title:'Second idea: <em>count up from every number</em>', vis:
+  gloss(0,[['count up','Starting at x, check x + 1, x + 2, and so on, until the run breaks'],['O(n²)','Steps on the order of n times n: double n, and the steps go up four times']])
+  + duo(tri([[2,1],[3,2],[4,3],[4,4],[4,5]]),
+    q(1,'With a set, count up from every number and keep the longest. How many steps does [1, 2, 3, 4, 5] take?')
+    + cards([[5,'5 + 4 + 3 + 2 + 1 = 15 steps','The same run gets recounted from every position','coral'],
+             [6,'n numbers → n(n + 1) / 2 → O(n²)','100,000 consecutive numbers take 5 billion steps','coral']])),
+  say:[
+  'Counting up means starting at x and checking x plus 1, x plus 2, and so on, until the run breaks. Big O of n squared means steps on the order of n times n: double n, and the steps go up four times.',
+  'The question for this scene: with a set, count up from every number and keep the longest. How many steps does 1, 2, 3, 4, 5 take?',
+  'Starting from 1, we count 1, 2, 3, 4, 5. That is five steps and length 5, which is already the answer.',
+  'But the program does not know that. It starts again from 2 and counts 2, 3, 4, 5, four more steps.',
+  'Starting from 3, 4 and 5, it counts three, two and one more steps.',
+  'That is five plus four plus three plus two plus one, fifteen steps. The same run gets recounted from every position, and that is where the waste is.',
+  'For n numbers it is n times n plus 1, over 2, which is big O of n squared. With 100,000 consecutive numbers that is 5 billion steps, which will time out.'
+]});
+
+/* ===== 5 Key insight ===== */
+add({ch:5, title:'Key insight: <em>count only from a start</em>', vis:
+  gloss(0,[['start','An x whose x − 1 is not in the set: nobody comes before it']])
+  + duo(ls([1,2,3,4,5],{tag:{0:[2,'start','st'],1:[3,'skip','sk'],2:[3,'skip','sk'],3:[3,'skip','sk'],4:[3,'skip','sk']},tint:{0:2,1:2,2:2,3:2,4:2},ring:[[2,0],[3,1],[3,2],[3,3],[3,4]]}),
+    q(1,'In the last scene, why were the four steps counted from 2 always wasted?')
+    + cards([[2,'1: 0 is missing → start, count up','1, 2, 3, 4, 5, length 5','mint'],
+             [3,'2: 1 is there → skip','Counting from 1 is always longer than from 2; same for 3, 4, 5','sky'],
+             [4,'5 steps, not 15','Rule: only count from x when x − 1 is missing','amber']])),
+  say:[
+  'A start is an x whose x minus 1 is not in the set. Nobody comes before it.',
+  'The question for this scene: in the last scene, why were the four steps counted from 2 always wasted?',
+  'Look at 1 first. Is 0 in the set? No, so 1 is a start. Counting up from it gives 1, 2, 3, 4, 5, length 5.',
+  'Now look at 2. Is 1 in the set? Yes. Then counting from 1 is always longer than counting from 2, and it already includes 2. So skip 2 entirely. 3, 4 and 5 also have their previous number in the set, so skip them all.',
+  'That takes five steps, not fifteen. The whole rule is one sentence: only count up from x when x minus 1 is not in the set.'
+]});
+
+/* ===== 6 Why it is O(n) ===== */
+add({ch:6, title:'Why it is <em>O(n)</em>', vis:
+  gloss(0,[['run','A stretch of consecutive numbers that cannot be extended at either end'],['amortized','Instead of how long one loop is, count the total steps of all loops together']])
+  + duo(ls([1,2,3,4,100,200],{tag:{0:[2,'start','st'],4:[2,'start','st'],5:[2,'start','st']},tint:{0:3,1:3,2:3,3:3,4:3,5:3},cap:'laid out by size, for easy reading'}),
+    q(1,'There is a while loop inside a for loop. Why is it not O(n²)?')
+    + cards([[2,'Each number belongs to one run','Each run has one start: 1, 100, 200','sky'],
+             [3,'Only starts count up','Each number is reached once, by its own run\'s start: 4 + 1 + 1 = 6','mint'],
+             [4,'Total steps ≤ 2n → O(n)','Each number checks x − 1 once, and is counted once','amber']])),
+  say:[
+  'A run is a stretch of consecutive numbers that cannot be extended at either end. Amortized means that instead of asking how long one loop is, we count the total steps of all loops together.',
+  'The question for this scene: there is a while loop inside a for loop. Why is it not big O of n squared?',
+  'Split the numbers into runs. Each number belongs to exactly one run, and each run has exactly one start. Here there are three runs, starting at 1, 100 and 200.',
+  'Only a start counts up, and only through its own run. So each number is reached exactly once, by the start of its own run: four plus one plus one, exactly six steps, the count of numbers.',
+  'Add one check of x minus 1 for every number, and the total is at most two times n. One while loop can be long, but all of them together take only n steps, so it is big O of n.'
+]});
+
+/* ===== 7 Walk through ===== */
+add({ch:7, title:'Walk through: <em>[100, 4, 200, 1, 3, 2]</em>', vis:
+  gloss(0,[['orange box','The x we are looking at'],['green','Numbers reached while counting up'],['best','The longest length found so far']])
+  + duo(ls(EX,{
+      tag:{0:[2,'start','st'],1:[3,'skip','sk'],2:[4,'start','st'],3:[5,'start','st'],4:[6,'skip','sk'],5:[6,'skip','sk']},
+      tint:{0:2,2:4,3:5,5:5,4:5,1:5},
+      ring:[[2,0],[3,1],[4,2],[5,3],[6,4],[6,5]],
+      info:[[2,'99 missing → count <em>100</em>, len 1&nbsp;&nbsp; best = <b>1</b>'],
+            [3,'3 is there → skip&nbsp;&nbsp; best = <b>1</b>'],
+            [4,'199 missing → count <em>200</em>, len 1&nbsp;&nbsp; best = <b>1</b>'],
+            [5,'0 missing → <em>1→2→3→4</em>, len 4&nbsp;&nbsp; best = <b>4</b>'],
+            [6,'2 there, 1 there → skip both&nbsp;&nbsp; best = <b>4</b>'],
+            [7,'answer best = <b>4</b>']]}),
+    q(1,'For each number, first ask "is x − 1 there?" Which ones are starts? What is best at the end?')
+    + cards([[7,'Starts are only 100, 200, 1 → answer 4','Counting up takes 6 steps in total, one per number','mint']])),
+  say:[
+  'The orange box is the x we are looking at, green marks numbers reached while counting up, and best is the longest length found so far. The order of a set is not fixed, so we go in the order of the original array. The result is the same.',
+  'The question for this scene: for each number, first ask whether x minus 1 is there. Which ones are starts, and what is best at the end?',
+  'Look at 100. 99 is missing, so it is a start. Check 101 above it: missing. Length 1, and best becomes 1.',
+  'Look at 4. 3 is in the set, so 4 is not a start. Skip it and count nothing.',
+  'Look at 200. 199 is missing, so it is a start. 201 is missing, length 1, and best stays 1.',
+  'Look at 1. 0 is missing, so it is a start. Count up: 2 is there, 3 is there, 4 is there, 5 is missing. We reach 4, length 4, and best becomes 4. Notice that 2, 3 and 4 are scattered across the array, yet the set finds each one in a single step.',
+  'Look at 3 and 2. Their previous numbers, 2 and 1, are both there, so skip them both.',
+  'The only starts are 100, 200 and 1. Counting up took six steps in total, exactly one per number. The answer is 4.'
+]});
+
+/* ===== 8 Duplicates ===== */
+add({ch:8, title:'Duplicates: <em>loop over the set, not the list</em>', vis:
+  gloss(0,[['duplicate','The same number appears more than once in the array'],['iterate','Use a for loop to take items out of a container one by one']])
+  + ls([0,3,7,2,5,8,4,6,0,1],{tag:{0:[2,'×2','du'],8:[2,'×2','du']},bad:{0:2,8:2},cap:'list: 10 numbers'})
+  + `<div class="s" data-s="3">${ls([0,1,2,3,4,5,6,7,8],{tag:{0:[4,'start','st']},tint:{0:4,1:4,2:4,3:4,4:4,5:4,6:4,7:4,8:4},cap:'set: 9 numbers (laid out by size)'})}</div>`
+  + q(1,'In [0, 3, 7, 2, 5, 8, 4, 6, 0, 1], 0 appears twice. Should the for loop go over the list or over the set?')
+  + cards([[5,'Over the list: 0 is a start twice','0 to 8 gets counted twice in full; the more copies of a start, the closer to O(n²)','coral'],
+           [6,'Over the set: each start comes once','for x in s, answer 9','mint']]),
+  say:[
+  'A duplicate is a number that appears more than once in the array. To iterate means to use a for loop to take the items out of a container one by one.',
+  'The question for this scene: in 0, 3, 7, 2, 5, 8, 4, 6, 0, 1, the number 0 appears twice. Should the for loop go over the list or over the set?',
+  'Look at the list first: ten numbers in total, and 0 appears twice.',
+  'After going into the set, the duplicate 0 is kept only once, leaving nine numbers: 0 through 8.',
+  'The number before 0 is minus 1, which is missing, so 0 is the only start. Count from 0 all the way up to 8, length 9. The other eight numbers all have a number before them, so they are all skipped.',
+  'If the for loop went over the list, 0 would be treated as a start twice, and 0 through 8 would be counted twice in full. The more copies a start has, the more recounting there is, and in the worst case it falls back to big O of n squared.',
+  'So the for loop goes over the set, written as for x in s. Each start comes up only once, and the answer is 9.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>one set, one check</em>', vis:
+  gloss(0,[['s','The set built from nums'],['y','The number we reach while counting up; y − x + 1 is the length of the run']])
+  + term('solution.py',[
+    [2,'o','def longestConsecutive(nums):'],
+    [2,'hl','    s = set(nums)                  # "is it there?" costs O(1)'],
+    [2,'o','    best = 0'],
+    [3,'hl','    for x in s:                    # loop over the set: duplicates come once'],
+    [3,'hl','        if x - 1 not in s:         # x is the start of a run'],
+    [4,'o','            y = x'],
+    [4,'o','            while y + 1 in s:      # count up'],
+    [4,'o','                y += 1'],
+    [4,'o','            best = max(best, y - x + 1)'],
+    [5,'o','    return best']])
+  + q(1,'Which earlier scene does each part of the code match?'),
+  say:[
+  's is the set built from nums. y is the number we reach while counting up, and y minus x plus 1 is the length of the run.',
+  'The question for this scene: which earlier scene does each part of the code match?',
+  'The first part builds the set, matching the hash set scene, so every later lookup is big O of 1. best starts at zero.',
+  'The for loop goes over the set, matching the duplicates scene. The if right after it is the key move: x is a start only when x minus 1 is missing.',
+  'Only a start enters the while loop to count up: while y plus 1 is there, step forward by one. When it stops, update best with y minus x plus 1.',
+  'Finally return best. When the array is empty, the set is empty too, the loop never runs, and it returns zero.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['space','The extra memory the program uses']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(n)','Each number is checked once and counted once; the set holds n numbers','sky'],
+           [3,'Forgetting the start check','Every number counts up, back to O(n²), and it times out','coral'],
+           [4,'Looping over the list, not the set','Repeated starts count the same run many times','coral'],
+           [4,'Sorting first','Right answer, but O(n log n) breaks the requirement','coral']]),
+  say:[
+  'Space is the extra memory the program uses.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to go wrong?',
+  'Time is big O of n: each number checks its previous number once, and is counted up at most once. Space is big O of n: the set holds n numbers.',
+  'Pitfall one: forgetting the check that x minus 1 is missing. Every number counts up, it falls back to big O of n squared, and large inputs time out.',
+  'Pitfall two: looping over the list instead of the set, so repeated starts count the same run many times. Pitfall three: sorting first. The answer is right, but big O of n log n breaks the requirement.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the method out loud first, and write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "The while is inside the for. How can that be O(n)?"')
+  + flow([[2,'Set','set(nums), O(1) lookup'],[3,'Start','count only if x − 1 missing'],[3,'Count up','while y + 1 in s'],[4,'Once each','total steps ≤ 2n'],[4,'Complexity','O(n) / O(n)']])
+  + chips(4,['hash set','O(1) lookup','start of a sequence','x - 1 not in set','amortized O(n)','iterate the set']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, the while loop is inside the for loop, so how can that be big O of n?',
+  'First explain the approach: sorting is big O of n log n, which breaks the requirement. I put every number into a hash set, so checking whether a number is there is big O of 1.',
+  'Then I only count up from starts, where a start is a number whose x minus 1 is not in the set. Any number that is not a start is skipped right away.',
+  'Then explain why it is big O of n: each number belongs to one run, and each run is counted only once, from its start, so all the while loops together take only n steps. The key English phrases are hash set and start of a sequence.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Sort','O(n log n), too slow'],[0,'Set','O(1) lookup'],[0,'Start','x − 1 missing'],[0,'Count up','once per number']])
+  + cards([[1,'① In a set, "is it there?" is O(1)','The hash function computes the slot directly, no searching from the start','amber'],
+           [2,'② Count only from a start: x − 1 missing','Every number is counted once, O(n) in total','sky'],
+           [3,'③ Loop over the set, not the list','Repeated starts are never recounted','mint']]),
+  say:[
+  'One more pass over the main line: sorting is too slow; in a set, a lookup becomes big O of 1; count up only from starts; every number is counted once.',
+  'Number one: put the numbers in a hash set, and checking whether one is there is big O of 1, because the hash function computes the slot directly, with no searching from the start.',
+  'Number two: only count up from a start, which is a number whose x minus 1 is not in the set. That way every number is counted once, big O of n in total.',
+  'Number three: the for loop goes over the set, not the list, so repeated starts never count the same run several times.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/1852a70d3ecf.mp3", "0-1": "a/dd10b87bc687.mp3", "0-2": "a/6501cff72fb1.mp3", "0-3": "a/bb9e67811a81.mp3", "1-0": "a/c7d6a390a6e8.mp3", "1-1": "a/3293a0d45512.mp3", "1-2": "a/246a00efc9ee.mp3", "1-3": "a/65566148bbce.mp3", "2-0": "a/696cac942315.mp3", "2-1": "a/b2fcbe9af196.mp3", "2-2": "a/03dcc10fcd7c.mp3", "2-3": "a/3d691732acd2.mp3", "2-4": "a/4dd19dce96aa.mp3", "3-0": "a/18c13ffdd129.mp3", "3-1": "a/36098ed3e008.mp3", "3-2": "a/da7e44a2d203.mp3", "3-3": "a/b573a996b7b7.mp3", "3-4": "a/10c03228e090.mp3", "4-0": "a/92d5deb08e9b.mp3", "4-1": "a/ef5e991b087a.mp3", "4-2": "a/923cf54f2726.mp3", "4-3": "a/e0fa48ff0960.mp3", "4-4": "a/d480b3018acb.mp3", "4-5": "a/2443e1ff5a3a.mp3", "4-6": "a/ed5e1cda8f48.mp3", "5-0": "a/0c93c752ae7a.mp3", "5-1": "a/03143a9a4039.mp3", "5-2": "a/3fcb036b5344.mp3", "5-3": "a/b8d160148f2f.mp3", "5-4": "a/73c5c6dc8dbf.mp3", "6-0": "a/92225c871e21.mp3", "6-1": "a/21d0cc812401.mp3", "6-2": "a/a36350b51325.mp3", "6-3": "a/d75d65604890.mp3", "6-4": "a/f1cead24f223.mp3", "7-0": "a/bd7df5ff5b12.mp3", "7-1": "a/0e013a78767d.mp3", "7-2": "a/0dd963a54979.mp3", "7-3": "a/07c74c467fea.mp3", "7-4": "a/c20dfc625acd.mp3", "7-5": "a/89e14367d9dc.mp3", "7-6": "a/ea5c0d152748.mp3", "7-7": "a/88dcbae7de34.mp3", "8-0": "a/892573d47e53.mp3", "8-1": "a/c62161dc11a5.mp3", "8-2": "a/3149d223d2b0.mp3", "8-3": "a/1d11d4427368.mp3", "8-4": "a/ef08635dea86.mp3", "8-5": "a/2cbf72b2e0e9.mp3", "8-6": "a/ec12b18af3f3.mp3", "9-0": "a/cbab39f7e1ee.mp3", "9-1": "a/65caef4c7586.mp3", "9-2": "a/0051f653d003.mp3", "9-3": "a/fcd18b204cb4.mp3", "9-4": "a/eda104906056.mp3", "9-5": "a/b0ea0a134c5c.mp3", "10-0": "a/387ba557c42a.mp3", "10-1": "a/8bac07fdf8f7.mp3", "10-2": "a/c0e6503edf79.mp3", "10-3": "a/db7a87a8e5ea.mp3", "10-4": "a/2400236d01e4.mp3", "11-0": "a/10e437cfb5da.mp3", "11-1": "a/3cc19b0d87cd.mp3", "11-2": "a/54a55979350e.mp3", "11-3": "a/d68b4602b5cb.mp3", "11-4": "a/283e9f230144.mp3", "12-0": "a/d9885b0a4a2a.mp3", "12-1": "a/d15c081d0c4f.mp3", "12-2": "a/742c3d81843e.mp3", "12-3": "a/0a617880a206.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Sliding Window</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Sliding Window', template:'prep', lang:'en', sub:'LeetCode 424 Longest Repeating Character Replacement · animated walkthrough', key:'lc424envid', doc:'LeetCode 424', blurb:'Start from one rule, a substring can be fixed when its length minus the count of its most frequent letter is at most k, see why checking every substring is slow, walk a sliding window that grows on the right and moves left by one, and finally see why never lowering maxf still gives the right answer.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: how many letters to change','The problem: AABABBA, one change','Fixable or not: one subtraction','Instinct: check every substring','Sliding window: grow right, move left','Walk through: the window grows','Walk through: the window slides','The puzzle: why maxf never drops','Write the code','Check two more examples','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- letter strip: green = current window, amber ring = letter right just added, red = letter left just dropped ---------- */
+const WCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.sw{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.sw>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.sw>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.sw>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.sw>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.sw i.s{position:absolute;inset:0;border-radius:7px;transform:none}
+.sw i.win{background:rgba(98,224,180,.32)}
+.sw i.out{background:rgba(255,122,107,.42)}
+.sw i.ring{inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)}
+.sw .only.s{opacity:0!important} .sw .only.s.now{opacity:1!important}
+.sw>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.sw .mk span.s{position:absolute;transform:none}
+.sw .mk .L{color:var(--sky)} .sw .mk .R{color:var(--coral)}
+.swst{font-family:var(--f-mono);font-size:.82em;line-height:1.5;text-align:center;color:var(--dim);min-height:6em;position:relative;margin-top:.5em}
+.swst .s{position:absolute;left:0;right:0;transform:none}
+.swst .only.s{opacity:0!important} .swst .only.s.now{opacity:1!important}
+.swst b{color:var(--amber);font-weight:400} .swst em{font-style:normal;color:var(--mint)} .swst u{text-decoration:none;color:var(--coral)}
+</style>`;
+// st: [[step, left, right, droppedIndex|null, statusHtml]]; mk=false hides the L / R markers
+function sw(str, st=[], mk=true){
+  const a = [...str], n = a.length;
+  let h = WCSS + `<div class="sw" style="grid-template-columns:repeat(${n},2.5em)">`;
+  h += a.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += a.map((c,k)=>`<div class="v"><b>${c}</b>${st.map(([s,l,r,d])=>
+      (k>=l&&k<=r?`<i class="win only s" data-s="${s}"></i>`:'')
+    + (k===d?`<i class="out only s" data-s="${s}"></i>`:'')
+    + (mk&&k===r?`<i class="ring only s" data-s="${s}"></i>`:'')).join('')}</div>`).join('');
+  if(mk) h += a.map((_,k)=>`<div class="mk">${st.map(([s,l,r])=>{
+    const t = [k===l?'<span class="L">L</span>':'', k===r?'<span class="R">R</span>':''].filter(Boolean).join(' ');
+    return t?`<span class="only s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div>`;
+  const tx = st.filter(x=>x[4]);
+  if(tx.length) h += `<div class="swst">${tx.map(([s,,,,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const STR = 'AABABBA';
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Sliding Window<br><em>LeetCode 424</em>', vis:
+  gloss(0,[['substring','A continuous piece of a string'],['sliding window','Two indexes, left and right, frame a substring: it grows on the right and shrinks on the left'],['maxf','How many times the most frequent letter in the window appears']])
+  + flow([[1,'Read','k changes, longest same-letter run'],[1,'Rule','length − maxf ≤ k'],[2,'Instinct','check every substring, O(n²)'],[2,'Window','grow right, move left by one'],[3,'Puzzle','maxf never drops, still right'],[3,'Code','O(n)']]),
+  say:[
+  'This lesson covers LeetCode 424, Longest Repeating Character Replacement. First, three words. A substring is a continuous piece of a string. A sliding window uses two indexes, left and right, to frame a substring. And maxf is how many times the most frequent letter in the window appears.',
+  'First we read the problem and find its core rule: if the length minus maxf is at most k, the substring can be fixed.',
+  'Then we start from the most direct idea, checking every substring, and see where it gets slow. We turn it into a sliding window that grows on the right and moves left by one.',
+  'Finally we solve the most confusing part of this problem: maxf is never lowered, so why is the answer still right? Then we write the code and cover complexity and pitfalls.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>AABABBA, one change</em>', vis:
+  gloss(0,[['k','The most letters you are allowed to replace'],['replace','Change one letter into any uppercase letter']])
+  + duo(sw(STR,[[2,0,3,null,''],[3,2,5,null,'']],false),
+    q(1,'"AABABBA", k = 1. After the changes, how long is the longest substring made of one repeated letter?')
+    + cards([[2,'Change the B at index 2 into A','AABA → AAAA, length 4','mint'],
+             [3,'BABB works too','change the A into B → BBBB, also 4','sky'],
+             [4,'Length 5 is impossible','AABAB, ABABB and BABBA each need 2 changes','coral']])),
+  say:[
+  'k is the most letters you are allowed to replace. To replace means to change one letter into any uppercase letter.',
+  'The question for this scene: the string is AABABBA and k is 1. After the changes, how long is the longest substring made of one repeated letter?',
+  'Look at the first four letters, AABA. Change the B at index 2 into A, and you get AAAA, length 4.',
+  'BABB, from index 2 to 5, works too. Change the A in the middle into B, and you get BBBB, also length 4.',
+  'Length 5 is impossible. The three substrings of length 5, AABAB, ABABB and BABBA, each need two changes, but we only get one. So the answer is 4.'
+]});
+
+/* ===== 2 Fixable or not ===== */
+add({ch:2, title:'Fixable or not: <em>one subtraction</em>', vis:
+  gloss(0,[['majority letter','The letter that appears the most times in the window'],['fixable','With at most k changes, it can become one repeated letter']])
+  + q(1,'Given a substring, how can you tell right away whether k changes can make it all the same letter?')
+  + cards([[2,'Only change the letters that are not the majority','keep the most common letter, so you change the fewest','sky'],
+           [3,'Changes needed = length − maxf','if length − maxf ≤ k, it is fixable','amber'],
+           [4,'AABA: 4 − 3 = 1 ≤ 1 → fixable','A appears 3 times, change just 1 B','mint'],
+           [5,'AABAB: 5 − 3 = 2 > 1 → not fixable','A 3 times, B 2 times, needs 2 changes','coral']]),
+  say:[
+  'The majority letter is the letter that appears the most times in the window. Fixable means that with at most k changes, it can become one repeated letter.',
+  'The question for this scene: given a substring, how can you tell right away whether k changes can make it all the same letter?',
+  'To change as few letters as possible, keep the letter that appears the most, and change every other letter into it.',
+  'So the number of changes is the length minus maxf. If that is at most k, the substring is fixable. This is the core rule of the whole problem.',
+  'AABA has length 4, and A appears three times. 4 minus 3 is 1, which is at most 1, so it is fixable.',
+  'AABAB has length 5, and A still appears three times. 5 minus 3 is 2, which is more than 1, so it is not fixable.'
+]});
+
+/* ===== 3 Instinct: check every substring ===== */
+add({ch:3, title:'Instinct: <em>check every substring</em>', vis:
+  gloss(0,[['O(n²)','n is the string length; the work is about n times n'],['start','The index where a substring begins']])
+  + q(1,'The most direct way: check every single substring. Where is it slow?')
+  + term('try it by hand',[
+    [2,'o','start 0: A ✓  AA ✓  AAB ✓  AABA ✓'],
+    [2,'e','         AABAB ✗  stop'],
+    [3,'o','start 1: A  AB  ABA  ABAB …'],
+    [3,'n','         counting from scratch again']])
+  + cards([[4,'n = 10⁵ means about 5 billion substrings','O(n²), time limit exceeded','coral'],
+           [5,'Where the waste is','we already counted these letters a moment ago','mint']]),
+  say:[
+  'Big O of n squared means that, with n as the string length, the work is about n times n. The start is the index where a substring begins.',
+  'The question for this scene: the most direct way is to check every single substring. Where is it slow?',
+  'Try it by hand. From start 0, add one letter at a time to the right. A, AA, AAB and AABA are all fixable. At AABAB it is not fixable, so we stop.',
+  'Then we move to start 1 and count again from A, one letter at a time: A, AB, ABA, ABAB. We already counted all of these letters.',
+  'The string can be up to one hundred thousand letters long, which means about five billion substrings. Big O of n squared will time out.',
+  'That is where the waste is: when we change the start, we throw away the letters we just counted and count them again. Can we keep going from the last window without going back?'
+]});
+
+/* ===== 4 Sliding window ===== */
+add({ch:4, title:'Sliding window: <em>grow right, move left by one</em>', vis:
+  gloss(0,[['left, right','Two indexes that frame the window s[left..right]'],['window length','right − left + 1'],['best','The longest fixable length found so far']])
+  + q(1,'At the moment AABAB stops being fixable, how do we keep going without going back?')
+  + cards([[2,'right moves one step each time','the new letter enters the window: its count plus 1','sky'],
+           [3,'Not fixable? left moves one step','the leftmost letter leaves: its count minus 1','coral'],
+           [4,'One step is enough','the length goes back to the last step, which equals best','amber'],
+           [5,'Each letter enters once and leaves at most once','O(n) in total','mint']]),
+  say:[
+  'left and right are two indexes, and the piece between them is the window. The window length is right minus left plus 1. best is the longest fixable length found so far.',
+  'The question for this scene: at the moment AABAB stops being fixable, how do we keep going without going back?',
+  'Rule one: right moves one step to the right each time. The new letter enters the window, and its count goes up by one.',
+  'Rule two: if the window is not fixable after that, move left one step to the right. The leftmost letter leaves the window, and its count goes down by one.',
+  'Why only one step? After it, the length goes back to the previous step, which is exactly the current record. We only want windows longer than the record, so there is no need to shrink it further.',
+  'This way each letter enters the window once and leaves at most once. That is big O of n in total.'
+]});
+
+/* ===== 5 Walk through: the window grows ===== */
+add({ch:5, title:'Walk through: <em>the window grows</em>', vis:
+  gloss(0,[['green','The current window'],['amber box','The letter that right just added'],['L, R','Where left and right are']])
+  + duo(sw(STR,[
+      [2,0,0,null,'L=0 R=0  window <b>A</b>  len 1<br>A:1 B:0  maxf 1<br>1 − 1 = 0 ≤ 1 <em>✓</em>  best 1'],
+      [3,0,1,null,'L=0 R=1  window <b>AA</b>  len 2<br>A:2 B:0  maxf 2<br>2 − 2 = 0 ≤ 1 <em>✓</em>  best 2'],
+      [4,0,2,null,'L=0 R=2  window <b>AAB</b>  len 3<br>A:2 B:1  maxf 2<br>3 − 2 = 1 ≤ 1 <em>✓</em>  best 3'],
+      [5,0,3,null,'L=0 R=3  window <b>AABA</b>  len 4<br>A:3 B:1  maxf 3<br>4 − 3 = 1 ≤ 1 <em>✓</em>  best 4'],
+      [6,0,3,null,'L=0 R=3  window <b>AABA</b>  len 4<br>A:3 B:1  maxf 3<br>best <em>4</em>']]),
+    q(1,'"AABABBA", k = 1: in the first four steps, how does the window grow?')
+    + cards([[6,'Grows to 4, best = 4','AABA is the first answer of length 4','mint']])),
+  say:[
+  'Green is the current window. The amber box is the letter that right just added. L and R mark where left and right are.',
+  'The question for this scene: for AABABBA with k equal to 1, how does the window grow in the first four steps?',
+  'right is 0, and A enters. The window is A, A appears once, and maxf is 1. 1 minus 1 is 0, so it is fixable, and best is 1.',
+  'right is 1, and another A enters. A appears twice, and maxf is 2. 2 minus 2 is 0, so it is fixable, and best is 2.',
+  'right is 2, and B enters. A appears twice, B once, and maxf is still 2. 3 minus 2 is 1, which is at most 1, so it is fixable, and best is 3.',
+  'right is 3, and A enters. A appears three times, so maxf becomes 3. 4 minus 3 is 1, so it is fixable, and best is 4.',
+  'So far, left has not moved once, and the window has grown to 4. AABA is the first answer of length 4.'
+]});
+
+/* ===== 6 Walk through: the window slides ===== */
+add({ch:6, title:'Walk through: <em>the window slides</em>', vis:
+  gloss(0,[['red','The letter that left just took out'],['slide','left and right both move one step right; the length stays the same']])
+  + duo(sw(STR,[
+      [2,1,4,0,'add B: AABAB  5 − 3 = 2 > 1 <u>✗</u><br>L=1 R=4  window <b>ABAB</b>  len 4<br>A:2 B:2  maxf <u>3</u>  best 4'],
+      [3,2,5,1,'add B: ABABB  5 − 3 = 2 > 1 <u>✗</u><br>L=2 R=5  window <b>BABB</b>  len 4<br>A:1 B:3  maxf 3  best 4'],
+      [4,3,6,2,'add A: BABBA  5 − 3 = 2 > 1 <u>✗</u><br>L=3 R=6  window <b>ABBA</b>  len 4<br>A:2 B:2  maxf <u>3</u>  best 4'],
+      [5,3,6,null,'L=3 R=6  window <b>ABBA</b>  len 4<br>return best = <em>4</em>']]),
+    q(1,'Each of the last three steps is not fixable. How does the window move, and what is the answer?')
+    + cards([[5,'Return best = 4','the window keeps length 4; nothing longer appears','mint']])),
+  say:[
+  'Red is the letter that left just took out. To slide means left and right both move one step to the right, so the length stays the same.',
+  'The question for this scene: each of the last three steps is not fixable. How does the window move, and what is the answer?',
+  'right is 4, and B enters, making AABAB. 5 minus 3 is 2, more than 1, so it is not fixable. left moves one step and takes out an A, so the window is ABAB. Notice: the real top count is only two, but maxf still says 3.',
+  'right is 5, and B enters, making ABABB. B appears three times, and 5 minus 3 is 2, so it is not fixable. left moves one step and takes out an A, so the window is BABB.',
+  'right is 6, and A enters, making BABBA. 5 minus 3 is 2, so it is not fixable. left moves one step and takes out a B, so the window is ABBA.',
+  'That is the end. In the last three steps the window only slid, keeping length 4, and nothing longer appeared. We return best, which is 4.'
+]});
+
+/* ===== 7 The puzzle: why maxf never drops ===== */
+add({ch:7, title:'The puzzle: <em>why maxf never drops</em>', vis:
+  gloss(0,[['stale','The saved number is bigger than the real one, because letters were taken out later'],['record','best, the longest fixable length seen so far']])
+  + q(1,'In ABAB only 2 As are left, yet maxf still says 3, and the code never lowers it. Why is the answer still right?')
+  + cards([[2,'The window never gets shorter','it only grows or slides; its length always equals best','sky'],
+           [3,'A stale maxf only makes the window slide','the length stays, the answer stays; AABA already proved length 4','amber'],
+           [4,'To grow, maxf must get bigger','length 4 → 5: 5 − maxf ≤ 1 → maxf ≥ 4','coral'],
+           [5,'The moment maxf grows, it is real','some letter really reached 4 in the current window','mint']]),
+  say:[
+  'Stale means the saved number is bigger than the real one, because letters were taken out later. The record is best, the longest fixable length seen so far.',
+  'The question for this scene: in ABAB only two As are left, yet maxf still says 3, and the code never lowers it. Why is the answer still right?',
+  'Start with one fact: the window never gets shorter. Each step it either grows or slides, so the window length always equals the record, best.',
+  'What does a stale maxf do? The window may really be unfixable, like ABAB, but we just slide it along. The length stays the same, so the answer stays the same. Length 4 was already truly proven by AABA.',
+  'To break the record, the window must go from 4 to 5. That needs 5 minus maxf to be at most 1, so maxf must be at least 4, bigger than the old 3. With a stale 3, the window can never grow.',
+  'maxf only grows when some letter really reaches 4 in the current window. At that moment the number is real, and that window of length 5 really is fixable. So a stale maxf can never create a wrong, bigger answer.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>copy the window moves directly</em>', vis:
+  gloss(0,[['count','A dictionary: how many times each letter appears in the window'],['enumerate(s)','Gives the index right and the letter ch together']])
+  + term('solution.py',[
+    [2,'o','def characterReplacement(s, k):'],
+    [2,'o','    count = {}            # how many times each letter is in the window'],
+    [2,'o','    left = maxf = best = 0'],
+    [3,'o','    for right, ch in enumerate(s):'],
+    [3,'o','        count[ch] = count.get(ch, 0) + 1'],
+    [3,'hl','        maxf = max(maxf, count[ch])      # only goes up'],
+    [4,'o','        if right - left + 1 - maxf > k:  # not fixable'],
+    [4,'o','            count[s[left]] -= 1'],
+    [4,'hl','            left += 1                     # move by one only'],
+    [5,'o','        best = max(best, right - left + 1)'],
+    [5,'hl','    return best']])
+  + q(1,'Which window move does each part of the code match?'),
+  say:[
+  'count is a dictionary that records how many times each letter appears in the window. enumerate of s gives the index right and the letter ch together.',
+  'The question for this scene: which window move does each part of the code match?',
+  'Setup at the top: an empty count, and left, maxf and best all start at zero.',
+  'Inside the loop, right moves one step each time. The new letter count goes up by one, and we use it to update maxf. maxf only goes up.',
+  'Then we check: if the length minus maxf is more than k, the window is not fixable. We lower the count of the leftmost letter by one, and add one to left. It moves by one step only.',
+  'Finally we update best with the current window length. When the loop ends, we return best.'
+]});
+
+/* ===== 9 Check two more examples ===== */
+add({ch:9, title:'Check <em>two more examples</em>', vis:
+  gloss(0,[['verify','Run another example and see whether the result is right']])
+  + q(1,'"ABAB", k = 2; "AAAA", k = 0. Are both answers 4?')
+  + term('run it twice',[
+    [2,'o','"ABAB", k = 2'],
+    [2,'o','R=0 A     len 1  maxf 1  1 − 1 = 0'],
+    [2,'o','R=1 AB    len 2  maxf 1  2 − 1 = 1'],
+    [2,'o','R=2 ABA   len 3  maxf 2  3 − 2 = 1'],
+    [3,'hl','R=3 ABAB  len 4  maxf 2  4 − 2 = 2 ≤ 2 → 4'],
+    [4,'o','"AAAA", k = 0'],
+    [4,'hl','every step  length − maxf = 0 ≤ 0 → 4']])
+  + cards([[5,'left never moved','the window grew to the whole string, so the answer is its length, 4','mint']]),
+  say:[
+  'To verify means to run another example and see whether the result is right.',
+  'The question for this scene: ABAB with k equal to 2, and AAAA with k equal to 0. Are both answers 4?',
+  'ABAB with k equal to 2. The first three steps: 1 minus 1 is 0, 2 minus 1 is 1, 3 minus 2 is 1. All are at most 2.',
+  'Step four adds B. A and B each appear twice, and 4 minus 2 is 2, exactly k, so it is still fixable. The answer is 4: change both Bs into A.',
+  'AAAA with k equal to 0, so no changes at all. Every window is all A, so the length minus maxf is always 0, which is at most 0. The answer is 4.',
+  'In both examples left never moved. The window grew to the whole string, so the answer is the string length, 4.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Each letter enters and leaves the window at most once'],['O(1) space','Only uppercase letters: count has at most 26 keys']])
+  + q(1,'What are the time and space? Where do people go wrong most?')
+  + cards([[2,'Time O(n), space O(1)','right takes n steps, each with a few additions','sky'],
+           [3,'Pitfall one: left moved, count did not drop','count[s[left]] -= 1 must come before left += 1','coral'],
+           [4,'Pitfall two: length off by one','the window length is right − left + 1','coral'],
+           [5,'Pitfall three: thinking maxf must be exact','recomputing max(count.values()) also works, but looks at 26 letters every step','amber']]),
+  say:[
+  'Big O of n means each letter enters and leaves the window at most once. Big O of 1 space is because there are only uppercase letters, so count has at most 26 keys.',
+  'The question for this scene: what are the time and space? Where do people go wrong most?',
+  'Time is big O of n: right takes n steps, and each step does a few additions and comparisons. Space is big O of 1.',
+  'Pitfall one: left moved, but the count was not lowered. Lower the count of s of left first, then add one to left. In the other order, you lower the wrong letter.',
+  'Pitfall two: the length is off by one. The window includes both ends, left and right, so the length is right minus left plus 1.',
+  'Pitfall three: thinking maxf must be exact, and recomputing the max every step. That also works, but it looks at 26 letters each step. The last scene showed that a maxf that never drops is enough.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, and write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "maxf never drops. Will that not give a wrong result?"')
+  + flow([[2,'Rule','length − maxf ≤ k'],[2,'Window','right adds a letter'],[3,'Not fixable','left moves by one'],[4,'maxf','only goes up, still right'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['sliding window','two pointers','most frequent count','window never shrinks','O(n)','1004 Max Consecutive Ones III']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, maxf never drops, so will that not give a wrong result?',
+  'First the approach: a substring is fixable if and only if its length minus the count of its most frequent letter is at most k. I use a sliding window, and right adds one letter each step.',
+  'If the window is not fixable after that, left moves by just one step, so the window never gets shorter, and its length always equals the best answer so far.',
+  'Then the answer: for the result to grow, maxf must grow first, and the moment maxf grows it is a real count. A stale maxf only makes the window slide. The complexity is big O of n. A similar problem is 1004.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Rule','length − maxf ≤ k'],[0,'Grow','right adds a letter'],[0,'Move','not fixable: left + 1'],[0,'Answer','the longest window']])
+  + cards([[1,'① Fixable ⟺ length − maxf ≤ k','change every letter that is not the majority','amber'],
+           [2,'② right grows; if not fixable, left moves by one','the window never shrinks, its length is best','sky'],
+           [3,'③ maxf only going up is still right','the answer grows only when maxf grows, and then maxf is real','mint']]),
+  say:[
+  'One more pass over the main line: a window is fixable when its length minus maxf is at most k. right adds one letter each step. If it is not fixable, left moves by one. The longest window is the answer.',
+  'Number one: fixable means the length minus maxf is at most k, because you change every letter that is not the majority letter.',
+  'Number two: right keeps growing, and when the window is not fixable, left moves by just one. The window never shrinks, and its length is the answer.',
+  'Number three: a maxf that only goes up is still right. For the answer to grow, maxf must grow first, and at that moment it is real.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/3d7f83ec8980.mp3", "0-1": "a/9f5f4202d469.mp3", "0-2": "a/768a22303920.mp3", "0-3": "a/3e94fed429cb.mp3", "1-0": "a/22d9cad94b48.mp3", "1-1": "a/573bbe43a46b.mp3", "1-2": "a/318ad872434a.mp3", "1-3": "a/22d4a95db3b4.mp3", "1-4": "a/52cb823cf332.mp3", "2-0": "a/a4f1db2943dc.mp3", "2-1": "a/7f5067f26989.mp3", "2-2": "a/0a968c8b80b0.mp3", "2-3": "a/232ddbbb6263.mp3", "2-4": "a/346905d2fd64.mp3", "2-5": "a/b6d27a093ee7.mp3", "3-0": "a/bb6020c0e46e.mp3", "3-1": "a/47421e7e7ce1.mp3", "3-2": "a/c4369de4c6f8.mp3", "3-3": "a/2330c451980a.mp3", "3-4": "a/1f325dd98b35.mp3", "3-5": "a/137bf192ee01.mp3", "4-0": "a/8cfcd44ea56e.mp3", "4-1": "a/87407368382d.mp3", "4-2": "a/20da08b8a260.mp3", "4-3": "a/f8ca51143997.mp3", "4-4": "a/cd631a1ddfbe.mp3", "4-5": "a/641d3a5bffa7.mp3", "5-0": "a/f0a49f987b4d.mp3", "5-1": "a/8f086fd03009.mp3", "5-2": "a/545771d259ca.mp3", "5-3": "a/bcc43ce17d8d.mp3", "5-4": "a/87e24e744231.mp3", "5-5": "a/e812518f78ba.mp3", "5-6": "a/1ac8b51bc8d4.mp3", "6-0": "a/015895f0979c.mp3", "6-1": "a/60d0cd0e46de.mp3", "6-2": "a/7a6486ceacf8.mp3", "6-3": "a/9ca47704dfed.mp3", "6-4": "a/24501b3d704d.mp3", "6-5": "a/0418cd0eaa49.mp3", "7-0": "a/3a24073fb79d.mp3", "7-1": "a/127e795d2245.mp3", "7-2": "a/517764d0ccfe.mp3", "7-3": "a/e33381ab06af.mp3", "7-4": "a/5b4e327f8a50.mp3", "7-5": "a/21fb7298b999.mp3", "8-0": "a/357f549757df.mp3", "8-1": "a/fba6792db249.mp3", "8-2": "a/bd7df46b5f69.mp3", "8-3": "a/0e9dabd66dd7.mp3", "8-4": "a/61e274cc5c42.mp3", "8-5": "a/3aeca67c9eff.mp3", "9-0": "a/d0e906c7f520.mp3", "9-1": "a/cc87b4e6d48d.mp3", "9-2": "a/4b38a7df2f33.mp3", "9-3": "a/1bcad38d7a18.mp3", "9-4": "a/a64c8485a3d1.mp3", "9-5": "a/78cc3ee5ba67.mp3", "10-0": "a/21683eff14a7.mp3", "10-1": "a/82ca695cd678.mp3", "10-2": "a/f45e94fffc58.mp3", "10-3": "a/c89cb7466cb1.mp3", "10-4": "a/d80a9f0014d8.mp3", "10-5": "a/368ab59d20b3.mp3", "11-0": "a/536b11ae75d3.mp3", "11-1": "a/ac4141841b2c.mp3", "11-2": "a/3f71862f86c6.mp3", "11-3": "a/f6d21e34e906.mp3", "11-4": "a/a7aa57bd723e.mp3", "12-0": "a/b652cc03e319.mp3", "12-1": "a/c44cd4003820.mp3", "12-2": "a/76304fa8d358.mp3", "12-3": "a/b61d22f9934e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

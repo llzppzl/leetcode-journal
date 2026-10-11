@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Stretchy Window</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Stretchy Window', template:'prep', lang:'en', sub:'LeetCode 76 Minimum Window Substring · animated walkthrough', key:'lc76envid', doc:'LeetCode 76', blurb:'Start from checking every substring and see why it is too slow; then use a window that stretches and shrinks: grow the right side until it covers t, shrink the left side until it stops covering, and use a need counter plus one missing number to tell at a glance whether it is enough.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a stretchy window','The problem: what covers means','Counter: a dictionary that counts','Instinct: check every substring','The key: grow right, shrink left','missing: enough at a glance','Walk through: the first two covers','Walk through: shrinking to BANC','Write the code','Two tiny examples','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- letter strip: window [L, R] tinted per step (green = covers t, blue = not yet), L / R markers, status line ---------- */
+const WCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.sw{display:grid;gap:3px;margin:0 auto;width:100%;max-width:30em}
+.sw>div{position:relative;display:grid;place-items:center;border-radius:6px}
+.sw>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.7em}
+.sw>.v{height:2.3em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.sw>.v b{position:relative;z-index:1;font-family:var(--f-mono);font-size:1.05em;font-weight:700;color:var(--dim)}
+.sw>.v.want b{color:var(--amber)}
+.sw .s{transform:none;box-shadow:none!important}
+.sw i.win{position:absolute;inset:0;border-radius:5px;background:color-mix(in srgb,var(--sky) 32%,transparent)}
+.sw i.win.ok{background:rgba(98,224,180,.38)}
+.sw .only.s{opacity:0!important} .sw .only.s.now{opacity:1!important}
+.sw>.mk{height:1.5em;font-family:var(--f-mono);font-size:.75em;font-weight:700}
+.sw .mk>span{position:absolute;white-space:nowrap}
+.sw .mk .L{color:var(--sky)} .sw .mk .R{color:var(--coral)}
+.swst{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:4.6em;position:relative;margin-top:4px}
+.swst .s{position:absolute;left:0;right:0;transform:none;box-shadow:none!important}
+.swst .only.s{opacity:0!important} .swst .only.s.now{opacity:1!important}
+.swst b{color:var(--amber)} .swst em{font-style:normal;color:var(--mint)} .swst u{text-decoration:none;color:var(--coral)}
+</style>`;
+// st: [[step, L, R, covers, statusHtml]]
+function sw(s, want, st){
+  const n = s.length;
+  let h = WCSS + `<div class="sw" style="grid-template-columns:repeat(${n},minmax(0,1fr))">`;
+  h += [...s].map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += [...s].map((ch,k)=>`<div class="v ${want.includes(ch)?'want':''}"><b>${ch}</b>${
+    st.filter(([,l,r])=>k>=l&&k<=r).map(([x,,,ok])=>`<i class="win only s ${ok?'ok':''}" data-s="${x}"></i>`).join('')}</div>`).join('');
+  h += [...s].map((_,k)=>`<div class="mk">${st.map(([x,l,r])=>{
+    const t = (k===l?'<span class="L">L</span>':'') + (k===r?'<span class="R">R</span>':'');
+    return t?`<span class="only s" data-s="${x}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div><div class="swst">${st.map(([x,,,,txt])=>`<span class="only s" data-s="${x}">${txt}</span>`).join('')}</div>`;
+  return h;
+}
+const STR = 'ADOBECODEBANC';
+const nd = (a,b,c,m) => `need A <b>${a}</b> · B <b>${b}</b> · C <b>${c}</b>&nbsp;&nbsp; missing <b>${m}</b>`;
+
+/* ===== 0 intro ===== */
+add({ch:0, cover:true, title:'The Stretchy Window<br><em>LeetCode 76</em>', vis:
+  gloss(0,[['substring','A continuous piece of a string, like "BANC"'],['cover','Every letter of t appears in the piece, with enough copies'],['sliding window','Two pointers, left and right, frame a piece; both only move right'],['Counter','A Python dictionary made for counting']])
+  + flow([[1,'Read','shortest covering piece'],[1,'Instinct','check every substring'],[2,'Too slow','counting again and again'],[2,'Window','grow right, shrink left'],[3,'missing','how many still missing'],[3,'Code','one pass']]),
+  say:[
+  'This lesson is LeetCode 76, Minimum Window Substring. Four words first: a substring is a continuous piece; cover means every letter of t is there, with enough copies; a sliding window is a piece framed by a left and a right pointer; and Counter is a dictionary made for counting.',
+  'We start with the most natural idea: check every substring. Try it by hand and you will see where it is slow: the same letters get counted again and again.',
+  'Then we switch to a window that stretches and shrinks: grow the right side until it covers, shrink the left side until it stops covering, and use one missing number to tell at a glance whether it is enough.',
+  'Finally we walk through ADOBECODEBANC and write the code.'
+]});
+
+/* ===== 1 the problem ===== */
+add({ch:1, title:'The problem: <em>what covers means</em>', vis:
+  gloss(0,[['s, t','s is the long string; t is the letters we must collect'],['copies count','If t has two A\'s, the piece needs at least two A\'s']])
+  + q(1,'s = "ADOBECODEBANC", t = "ABC". What is the shortest substring that covers t?')
+  + cards([[2,'Answer "BANC", length 4','One B, one A, one C; the N is extra, and that is fine','mint'],
+           [3,'With t = "AAB", "AB" does not cover','Only one A is not enough; "ABA" is','coral'],
+           [4,'Nothing covers: return ""','The empty string means no piece covers t','sky']]),
+  say:[
+  's is the long string, and t is the letters we must collect. Copies count: if t has two A\'s, the piece needs at least two A\'s.',
+  'The question for this scene: s is ADOBECODEBANC and t is ABC. What is the shortest substring that covers t?',
+  'The answer is BANC, length four. It has one B, one A and one C. The N is extra, and extra is fine, as long as nothing is missing.',
+  'Now copies: if t is AAB, then AB does not cover, because one A is not enough. ABA does.',
+  'If no piece can cover t, return the empty string.'
+]});
+
+/* ===== 2 Counter ===== */
+add({ch:2, title:'Counter: <em>a dictionary that counts</em>', vis:
+  gloss(0,[['dict','A table of "name to value": look up a value by its name'],['Counter','A dictionary whose values are counts: from collections import Counter']])
+  + q(1,'How do we store which letters t needs, and how many of each?')
+  + tbl(['Code','Result','Meaning'],[
+    [2,'Counter("ABC")','{A: 1, B: 1, C: 1}','Need one each of A, B, C'],
+    [3,'Counter("AAB")','{A: 2, B: 1}','Need two A\'s and one B'],
+    [4,'need["X"]','0','A letter never seen gives 0, no error'],
+    [5,'need["B"] -= 1 twice','−1','It can go negative: negative means "extra"']]),
+  say:[
+  'A dictionary is a table of names and values: you look up a value by its name. A Counter is a special dictionary whose values are counts. You import it from collections.',
+  'The question for this scene: how do we store which letters t needs, and how many of each?',
+  'Counter of ABC counts once and gives one A, one B and one C.',
+  'Counter of AAB gives two A\'s and one B. That is how the counts are stored.',
+  'Look up a letter that never appeared, like X, and Counter simply gives zero. A plain dictionary would raise an error here.',
+  'Counts can also go negative. B needs one; subtract twice and it becomes minus one. Positive means still missing, negative means extra.'
+]});
+
+/* ===== 3 instinct ===== */
+add({ch:3, title:'Instinct: <em>check every substring</em>', vis:
+  gloss(0,[['brute force','Try every possibility one by one, no cleverness'],['big O of n squared','With n letters, the work grows like n times n']])
+  + q(1,'The most natural idea: try every start and every end. Why does it fail?')
+  + cards([[2,'Start at 0: A, AD, ADO … ADOBEC','Only at the 6th letter does it first cover','sky'],
+           [3,'Start at 1: D, DO … count from scratch','We just counted DOBEC a moment ago','coral'],
+           [4,'13 letters already give 91 substrings','At 100,000 letters, about 5 billion, each counted again','coral'],
+           [5,'Where the waste is','Neighboring pieces differ by one letter at an end','amber']]),
+  say:[
+  'Brute force means trying every possibility one by one. Big O of n squared means that with n letters, the work grows like n times n.',
+  'The question for this scene: the most natural idea is to try every start and every end. Why does it fail?',
+  'Try it: start at letter zero. A, AD, ADO, all the way to ADOBEC, and only then do we first collect A, B and C.',
+  'Next, start at letter one. D, DO, counting from scratch again. But we just counted DOBEC.',
+  'Thirteen letters already give ninety-one substrings. At one hundred thousand letters, that is about five billion, each counted again. Too slow.',
+  'That is the waste: neighboring pieces differ by only one letter at an end. So do not recount; handle only the one letter coming in or going out.'
+]});
+
+/* ===== 4 the key ===== */
+add({ch:4, title:'The key: <em>grow right, shrink left</em>', vis:
+  gloss(0,[['window [L, R]','The letters from L to R, both ends included'],['grow','R moves right one step: one letter comes in'],['shrink','L moves right one step: one letter goes out']])
+  + q(1,'If we only handle "one in, one out", how do we make sure we never miss the shortest answer?')
+  + flow([[2,'Grow','R right, until it covers'],[3,'Shrink','L right, while it covers'],[3,'Record','compare length at every cover'],[4,'Grow again','not covering, R goes on']])
+  + cards([[5,'L and R only move right','Each letter enters at most once and leaves at most once','mint']]),
+  say:[
+  'The window L to R is the letters from L to R, both ends included. Growing moves R right one step, so one letter comes in; shrinking moves L right one step, so one letter goes out.',
+  'The question for this scene: if we only handle one in and one out, how do we make sure we never miss the shortest answer?',
+  'Phase one, grow: move R right until the window covers t. For this L, that is the shortest cover; growing more only makes it longer.',
+  'Phase two, shrink: while it still covers, move L right, compare the length each time, and keep the shortest.',
+  'Once it stops covering, this R is used up, so go back to phase one and keep growing. The two phases take turns until R reaches the end.',
+  'L and R only move right, so each letter enters at most once and leaves at most once.'
+]});
+
+/* ===== 5 missing ===== */
+add({ch:5, title:'missing: <em>enough at a glance</em>', vis:
+  gloss(0,[['need[ch]','How many of letter ch are still missing; negative means extra'],['missing','How many letters of t are still missing, in total']])
+  + q(1,'Comparing two whole Counters every time we ask "does it cover?" is slow. How do we tell at a glance?')
+  + tbl(['In','need changes','missing'],[
+    [2,'start','A: 2, B: 1','3'],
+    [3,'A','A: 2 → 1, needed','3 → 2'],
+    [3,'B','B: 1 → 0, needed','2 → 1'],
+    [4,'B','B: 0 → −1, extra','stays 1'],
+    [5,'A','A: 1 → 0, needed','1 → 0, covers']])
+  + cards([[6,'In: lower missing only if need > 0; out: raise missing only if need > 0 after adding','missing == 0 means it covers','mint']]),
+  say:[
+  'need of ch is how many of letter ch are still missing, and negative means extra. missing is how many letters of t are still missing, in total.',
+  'The question for this scene: comparing two whole Counters every time we ask whether it covers is slow. How do we tell at a glance?',
+  'Try t equals AAB. At the start, A is missing two, B is missing one, and missing is three.',
+  'A comes in: A was missing two, more than zero, so it is needed, and missing drops to two. B comes in: B was missing one, so missing drops to one.',
+  'Another B comes in: B was already zero, so this B is extra. need of B becomes minus one, and missing stays the same.',
+  'Another A comes in: A was missing one, so missing drops to zero. The window ABBA covers AAB.',
+  'Two rules. In: if need is more than zero, lower missing, then subtract one from need. Out: add one to need, and if it is now more than zero, something is missing again, so raise missing by one.'
+]});
+
+/* ===== 6 walk through: first two covers ===== */
+add({ch:6, title:'Walk through: <em>the first two covers</em>', vis:
+  gloss(0,[['blue window','Does not cover t yet'],['green window','Covers t: missing is 0'],['orange letters','The letters t needs: A, B, C']])
+  + duo(sw(STR,'ABC',[
+      [2,0,3,false,nd(0,0,1,1)+'<br>still missing a C'],
+      [3,0,5,true,nd(0,0,0,0)+'<br><em>Covers! ADOBEC, length 6</em>&nbsp; best: <em>ADOBEC (6)</em>'],
+      [4,1,5,false,nd(1,0,0,1)+'<br>A left, now missing A&nbsp; best: <em>ADOBEC (6)</em>'],
+      [5,1,9,false,nd(1,-1,0,1)+'<br>one extra B&nbsp; best: <em>ADOBEC (6)</em>'],
+      [6,1,10,true,nd(0,-1,0,0)+'<br><em>Covers! DOBECODEBA, length 10</em>&nbsp; best: <em>ADOBEC (6)</em>']]),
+    q(1,'s = "ADOBECODEBANC", t = "ABC". Where does the window cover t for the first and second time?')
+    + cards([[7,'Covers: shrink. Not covering: grow','Length 10 is not shorter than 6; the best is still ADOBEC','sky']])),
+  say:[
+  'A blue window does not cover t yet; a green window covers it, which means missing is zero. The orange letters are the ones t needs: A, B and C.',
+  'The question for this scene: on ADOBECODEBANC, where does the window cover t for the first and the second time?',
+  'missing starts at three. A comes in, so it is two; D and O are not needed; B comes in, so it is one. The window ADOB still misses C.',
+  'E is not needed, then C comes in and missing hits zero. First cover: ADOBEC, length six. Record it.',
+  'It covers, so shrink: A leaves, need of A goes back to one, and missing becomes one. Not covering anymore, so L stops at index one.',
+  'Back to growing: O, D and E are not needed; the second B is extra, so need of B becomes minus one and missing stays one.',
+  'R reaches index ten, A comes in, and missing hits zero. Second cover: DOBECODEBA, length ten.',
+  'Ten is not shorter than six, so the best is still ADOBEC. The pattern: if it covers, shrink; if not, grow.'
+]});
+
+/* ===== 7 walk through: shrinking to BANC ===== */
+add({ch:7, title:'Walk through: <em>shrinking to BANC</em>', vis:
+  gloss(0,[['extra letter','A letter whose need is negative; dropping it keeps the window covering']])
+  + duo(sw(STR,'ABC',[
+      [2,3,10,true,nd(0,-1,0,0)+'<br>D, O left, still covers, length 8&nbsp; best: <em>ADOBEC (6)</em>'],
+      [3,4,10,true,nd(0,0,0,0)+'<br>extra B left, still covers, length 7&nbsp; best: <em>ADOBEC (6)</em>'],
+      [4,5,10,true,nd(0,0,0,0)+'<br>E left, length 6, not shorter&nbsp; best: <em>ADOBEC (6)</em>'],
+      [5,6,10,false,nd(0,0,1,1)+'<br>C left, <u>now missing C</u>&nbsp; best: <em>ADOBEC (6)</em>'],
+      [6,6,12,true,nd(0,0,0,0)+'<br><em>Covers! ODEBANC, length 7</em>&nbsp; best: <em>ADOBEC (6)</em>'],
+      [7,8,12,true,nd(0,0,0,0)+'<br>O, D left, length 5&nbsp; best: <em>EBANC (5)</em>'],
+      [8,9,12,true,nd(0,0,0,0)+'<br>E left, length 4&nbsp; best: <em>BANC (4)</em>'],
+      [9,10,12,false,nd(0,1,0,1)+'<br>B left, <u>now missing B</u>; R at the end, done&nbsp; answer: <em>BANC</em>']]),
+    q(1,'Starting from DOBECODEBA, which covers, how short can the window get?')),
+  say:[
+  'An extra letter is one whose need is negative. Drop it, and the window still covers.',
+  'The question for this scene: starting from DOBECODEBA, how short can the window get?',
+  'D and O leave. They were never needed, so missing stays zero. Length eight.',
+  'Next, B leaves. The window had two B\'s, so need of B goes from minus one back to zero, not more than zero, and missing stays. Length seven.',
+  'E leaves, length six. It still covers, but six is not shorter than six, so the best stays.',
+  'C leaves, need of C becomes one, and missing becomes one. Missing C now, so go back to growing.',
+  'N is not needed; the last C comes in, and it covers again: ODEBANC, length seven.',
+  'Shrink right away: O and D leave, length five, shorter than six, so the best becomes EBANC.',
+  'E leaves, length four, and the best becomes BANC.',
+  'B leaves, missing becomes one, and it stops covering. R is already at the end, so we are done. The answer is BANC.'
+]});
+
+/* ===== 8 code ===== */
+add({ch:8, title:'Code: <em>the two phases, written down</em>', vis:
+  gloss(0,[['enumerate(s)','Walks s and gives each index and letter: right and ch'],['float("inf")','Infinity: means "not found yet"']])
+  + term('solution.py',[
+    [2,'o','def minWindow(s, t):'],
+    [2,'o','    need = Counter(t)          # how many of each letter are missing'],
+    [2,'hl','    missing = len(t)           # how many missing in total'],
+    [2,'o','    left = 0'],
+    [2,'o','    start, size = 0, float("inf")'],
+    [3,'o','    for right, ch in enumerate(s):'],
+    [3,'hl','        if need[ch] > 0:       # the incoming letter is needed'],
+    [3,'o','            missing -= 1'],
+    [3,'o','        need[ch] -= 1'],
+    [4,'hl','        while missing == 0:    # it covers: shrink'],
+    [4,'o','            if right - left + 1 < size:'],
+    [4,'o','                start, size = left, right - left + 1'],
+    [5,'o','            out = s[left]'],
+    [5,'o','            need[out] += 1'],
+    [5,'hl','            if need[out] > 0:  # the outgoing letter was needed'],
+    [5,'o','                missing += 1'],
+    [5,'o','            left += 1'],
+    [6,'o','    return "" if size == float("inf") else s[start:start + size]']])
+  + q(1,'Which window move does each part of the code match?'),
+  say:[
+  'enumerate of s walks the string and gives each index and letter, called right and ch. float inf is infinity, meaning not found yet.',
+  'The question for this scene: which window move does each part of the code match?',
+  'Setup: need counts how many of each letter t is missing; missing is the length of t. The best start and size begin at zero and infinity.',
+  'Grow: each step of right brings in one ch. If need of ch is more than zero, it is needed, so missing goes down by one; then need of ch goes down by one.',
+  'Shrink: while missing is zero, keep shrinking. First compare: if right minus left plus 1 is less than size, record it.',
+  'Then the left letter goes out: need goes up by one, and if it is now more than zero, missing goes up by one; left moves right one step.',
+  'At the end: if size is still infinity, return the empty string; otherwise slice the answer out by start and size.'
+]});
+
+/* ===== 9 two tiny examples ===== */
+add({ch:9, title:'Two <em>tiny examples</em>', vis:
+  gloss(0,[['edge case','The shortest, smallest inputs, where bugs show up first']])
+  + q(1,'For s = "a", t = "a", and for s = "a", t = "aa", what does the code return?')
+  + tbl(['Input','Walk through','Returns'],[
+    [2,'s = "a", t = "a"','missing 1 → 0, covers, record length 1','"a"'],
+    [3,'s = "a", t = "aa"','missing 2 → 1, R reaches the end without hitting 0','""']])
+  + cards([[4,'size still infinity = not found','That is why the last line\'s check is required','sky']]),
+  say:[
+  'An edge case is one of the shortest, smallest inputs, where bugs show up first.',
+  'The question for this scene: for s equals a and t equals a, and for s equals a and t equals double a, what does the code return?',
+  'First one: missing is one. a comes in, missing hits zero, and we record start zero, length one. a leaves, missing goes back to one. Return a.',
+  'Second one: missing is two. a comes in and it drops to one, then R is at the end. The while loop never runs.',
+  'So size is still infinity, meaning not found, and we return the empty string. The check on the last line is required.'
+]});
+
+/* ===== 10 complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['m, n','m is the length of s, n is the length of t'],['O(m + n)','Count t once; L and R each walk s once']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(m + n), space O(kinds of letters)','need only holds letters that appeared','sky'],
+           [3,'Check first, then subtract','Look at need[ch] > 0, then need[ch] -= 1; reversed, extra letters lower missing too','coral'],
+           [4,'Record first, then shrink','Before shrinking, the window still covers, so compare then; afterwards is too late','coral'],
+           [4,'Use while, not if','You may shrink several steps in a row, like DOBECODEBA down to CODEBA','coral']]),
+  say:[
+  'm is the length of s and n is the length of t. Big O of m plus n means counting t once, while L and R each walk s once.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Time is big O of m plus n. Space is the number of kinds of letters, because need only holds letters that appeared.',
+  'Pitfall one: check need of ch is more than zero first, then subtract one. Reverse them and extra letters lower missing too, so you think it covers when it does not.',
+  'Pitfall two: record first, then shrink, while the window still covers. Pitfall three: use while, not if, because you may shrink several steps in a row, like DOBECODEBA all the way down to CODEBA.'
+]});
+
+/* ===== 11 interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why does L never need to move back?"')
+  + flow([[2,'need','Counter(t)'],[2,'missing','how many missing'],[3,'Grow','R right, until it covers'],[3,'Shrink','covers: record, L right'],[4,'Complexity','O(m + n)']])
+  + chips(4,['sliding window','two pointers','Counter','missing count','O(m + n)','567 Permutation in String']),
+  say:[
+  'Idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why does L never need to move back?',
+  'First the approach: a Counter tracks how many of each letter are missing, and missing tracks the total. R grows until missing is zero; then I record the length and move L right until it stops covering.',
+  'Then the why: once it stops covering, every shorter window ending at this R is not enough, and moving L back only makes windows longer. So both pointers only move right.',
+  'Complexity is big O of m plus n. Keywords: sliding window and two pointers. Problem 567 is the same window with a fixed length.'
+]});
+
+/* ===== 12 wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'need','Counter(t)'],[0,'Grow','until missing == 0'],[0,'Shrink','covers: record, L right'],[0,'Grow again','until R reaches the end']])
+  + cards([[1,'1. Covering counts copies','t = "AAB" needs two A\'s; Counter(t) records how many of each letter are missing','amber'],
+           [2,'2. Grow right until it covers, shrink left until it does not','The phases take turns; L and R only move right, O(m + n)','sky'],
+           [3,'3. missing == 0 means it covers','In: lower only if need > 0; out: raise only if need > 0 after adding','mint']]),
+  say:[
+  'The main line: Counter records what t is missing; R grows until missing is zero; while it covers, record and move L right; once it stops, grow again until R reaches the end.',
+  'One: covering counts copies. If t is AAB, you need two A\'s. Counter of t records how many of each letter are still missing.',
+  'Two: grow right until it covers, shrink left until it does not, taking turns. Both pointers only move right, so it is big O of m plus n.',
+  'Three: missing equals zero means it covers. Coming in, lower missing only if need is more than zero; going out, raise missing only if need is more than zero after adding.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/f69202f6ef9d.mp3", "0-1": "a/df0195e120a6.mp3", "0-2": "a/043f89fc418e.mp3", "0-3": "a/7d491c070709.mp3", "1-0": "a/4f2378dac127.mp3", "1-1": "a/8246014e45fc.mp3", "1-2": "a/ff9f6e72677b.mp3", "1-3": "a/23d5f90b7d90.mp3", "1-4": "a/6ba89b9cd14c.mp3", "2-0": "a/bf125586e0a8.mp3", "2-1": "a/ee0c05263626.mp3", "2-2": "a/4cd306d6fd43.mp3", "2-3": "a/4aa1cc64dd7f.mp3", "2-4": "a/d97d1f29fc4a.mp3", "2-5": "a/7acc24cb7acd.mp3", "3-0": "a/a18fc66ddaae.mp3", "3-1": "a/ff6cae97adac.mp3", "3-2": "a/55a8b623fff4.mp3", "3-3": "a/3402b79010c7.mp3", "3-4": "a/cf7b432297e4.mp3", "3-5": "a/dba0237ee310.mp3", "4-0": "a/7b365b32c1cb.mp3", "4-1": "a/6ef7d0f36631.mp3", "4-2": "a/350395387be5.mp3", "4-3": "a/45f15fbff9a7.mp3", "4-4": "a/907667ec98ca.mp3", "4-5": "a/a871738a3d9d.mp3", "5-0": "a/082ee8da7391.mp3", "5-1": "a/f607fd321646.mp3", "5-2": "a/760f36e0a68e.mp3", "5-3": "a/cde0b2cf7db6.mp3", "5-4": "a/476b4bb49e51.mp3", "5-5": "a/6d904b52b638.mp3", "5-6": "a/3078dab93e49.mp3", "6-0": "a/59d8075aef02.mp3", "6-1": "a/af21a9ed30a2.mp3", "6-2": "a/2dc778af5900.mp3", "6-3": "a/9c6d711d0500.mp3", "6-4": "a/ff0ec04c43fb.mp3", "6-5": "a/09164010c9bd.mp3", "6-6": "a/bc1ba72a2b75.mp3", "6-7": "a/4e4eef12c0e0.mp3", "7-0": "a/07becb0932a4.mp3", "7-1": "a/70388c9a4666.mp3", "7-2": "a/ae74714e1343.mp3", "7-3": "a/5165fd35cb2e.mp3", "7-4": "a/09bb19ff1b2c.mp3", "7-5": "a/8ec77f047577.mp3", "7-6": "a/9fdc8af9b433.mp3", "7-7": "a/a86c7096da0b.mp3", "7-8": "a/dd1ef10dcd6a.mp3", "7-9": "a/83fcc3c15b22.mp3", "8-0": "a/8b6802b5e398.mp3", "8-1": "a/fba6792db249.mp3", "8-2": "a/6cd5d0c6b1fa.mp3", "8-3": "a/4112b0dfe9ac.mp3", "8-4": "a/6228e56ef2b7.mp3", "8-5": "a/24b177a68d84.mp3", "8-6": "a/3ec18e4bc5c8.mp3", "9-0": "a/fcdcbcb4326b.mp3", "9-1": "a/69c38dfd4d03.mp3", "9-2": "a/f91acdb8a699.mp3", "9-3": "a/8f9ca4557b3a.mp3", "9-4": "a/c6f851682ae0.mp3", "10-0": "a/4cfca9c6c4af.mp3", "10-1": "a/7c35137176fb.mp3", "10-2": "a/e7d3c9500e98.mp3", "10-3": "a/58527c9e9621.mp3", "10-4": "a/e323a4d87f6b.mp3", "11-0": "a/c7bc00d764b8.mp3", "11-1": "a/3524d174ba0a.mp3", "11-2": "a/58854affcc13.mp3", "11-3": "a/dd557b406979.mp3", "11-4": "a/aba0b0af8c23.mp3", "12-0": "a/f43d937e7f98.mp3", "12-1": "a/a87e5b3faa0e.mp3", "12-2": "a/1ffd4d5bcfe6.mp3", "12-3": "a/f959554e6156.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

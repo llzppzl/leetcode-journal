@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Two Lists, One Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Two Lists, One Tree', template:'prep', lang:'en', sub:'LeetCode 105 Construct Binary Tree from Preorder and Inorder Traversal · animated walkthrough', key:'lc105envid', doc:'LeetCode 105', blurb:'Start from why preorder alone cannot draw the tree: the first preorder value is the root, the root splits inorder into left and right, counting the left side cuts preorder too, and both halves recurse; then a dict of indices takes it from O(n²) to O(n).'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: two lists, one tree','The problem: which tree','Preorder and inorder: two ways to walk a tree','Instinct: is preorder enough','One level: find the root, split, count','Recursion walkthrough: the tree grows','First, the slicing version','Speed-up: a dict and index ranges','The index-range code','Two edge cases','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- arrays: preorder / inorder strips, each cell tinted by role at one step (.only + .now) ---------- */
+const ACSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ar{display:grid;gap:4px;justify-content:center;margin:0 auto 4px}
+.ar>div{position:relative;display:grid;place-items:center;height:2.3em;border-radius:8px}
+.ar>.ix{height:1.2em;color:var(--dim);font-family:var(--f-mono);font-size:.72em}
+.ar>.lb{justify-self:end;padding-right:6px;color:var(--dim);font-size:.85em}
+.ar>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.2em}
+.ar .t.s{position:absolute;inset:-1px;border-radius:8px;transform:none;opacity:0!important}
+.ar .t.s.now{opacity:1!important}
+.ar .t.r{background:rgba(255,184,77,.28);box-shadow:inset 0 0 0 2px var(--amber)}
+.ar .t.L{background:rgba(127,180,255,.24);box-shadow:inset 0 0 0 2px var(--sky)}
+.ar .t.R{background:rgba(98,224,180,.22);box-shadow:inset 0 0 0 2px var(--mint)}
+.ar .t.x{background:rgba(10,17,36,.84);box-shadow:none}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;display:grid;margin-bottom:4px}
+.qrow .s{grid-area:1/1;transform:none;box-shadow:none!important}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+.tg{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.tg .s:not(.on){opacity:0}
+.tg .only.s{opacity:0!important} .tg .only.s.now{opacity:1!important}
+.tg line{stroke:var(--sky);stroke-width:3}
+.tg circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.tg circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.tg text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.tg text.bd{font-family:var(--f-mono);font-size:15px;font-weight:700;fill:var(--amber);text-anchor:start}
+.tg text.lab{font-family:var(--f-body);font-size:14px;fill:var(--dim)}
+</style>`;
+// rows: [[label, vals]]; st: [[step, roles row0, roles row1, caption]]; roles: r root, L left, R right, x out of range, . none
+function ar(rows, st){
+  const n = rows[0][1].length;
+  let h = ACSS + `<div class="ar" style="grid-template-columns:3em repeat(${n},2.3em)"><div class="ix"></div>`;
+  h += rows[0][1].map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  rows.forEach(([lb,vals],r)=>{
+    h += `<div class="lb">${lb}</div>`;
+    h += vals.map((v,k)=>`<div class="v">${v}${st.map(row=>{ const c=row[1+r][k]; return c==='.'?'':`<i class="t ${c} only s" data-s="${row[0]}"></i>`; }).join('')}</div>`).join('');
+  });
+  h += `</div><div class="qrow">${st.map(row=>`<span class="only s" data-s="${row[0]}">${row[3]}</span>`).join('')}</div>`;
+  return h;
+}
+// o: {pos:{key:[x,y,label]}, par:{key:parentKey}, show:{key:step}, ring:[[step,key]], badge:[[step,{key:text}]], cap:[[step,html]], lab:[[x,y,text,step|null]], h, r}
+function tr(o){
+  const h = o.h||200, R = o.r||20;
+  const wrap = (id, inner) => o.show && o.show[id]!=null ? `<g class="s" data-s="${o.show[id]}">${inner}</g>` : inner;
+  let s = ACSS + `<svg class="tg" viewBox="0 0 340 ${h}" role="img" aria-label="binary tree">`;
+  Object.entries(o.par||{}).forEach(([id,p])=>{ const [x1,y1]=o.pos[p], [x2,y2]=o.pos[id]; s += wrap(id, `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`); });
+  Object.entries(o.pos).forEach(([id,[x,y,lb]])=>{ s += wrap(id, `<circle cx="${x}" cy="${y}" r="${R}"/><text x="${x}" y="${y}">${lb??id}</text>`); });
+  (o.ring||[]).forEach(([st,id])=>{ const [x,y]=o.pos[id]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+6}"/>`; });
+  (o.badge||[]).forEach(([st,m])=>Object.entries(m).forEach(([id,t])=>{ const [x,y]=o.pos[id]; s += `<text class="bd only s" data-s="${st}" x="${x+R+2}" y="${y-R+2}">${t}</text>`; }));
+  (o.lab||[]).forEach(([x,y,t,st])=>{ const e=`<text class="lab" x="${x}" y="${y}">${t}</text>`; s += st==null?e:`<g class="s" data-s="${st}">${e}</g>`; });
+  s += `</svg>`;
+  if(o.cap) s += `<div class="qrow">${o.cap.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return s;
+}
+// the example tree [3,9,20,null,null,15,7]
+const T = {pos:{3:[170,32],9:[85,100],20:[255,100],15:[205,168],7:[305,168]}, par:{9:3,20:3,15:20,7:20}};
+const EX = [['pre',[3,9,20,15,7]],['in',[9,3,15,20,7]]];
+// tree A (the example) and tree B (same preorder, different shape)
+const AB = {r:17, h:240, pos:{a3:[85,32,3],a9:[40,92,9],a20:[130,92,20],a15:[105,152,15],a7:[155,152,7],
+  b3:[255,32,3],b9:[210,92,9],b20:[250,152,20],b15:[222,212,15],b7:[282,212,7]},
+  par:{a9:'a3',a20:'a3',a15:'a20',a7:'a20',b9:'b3',b20:'b9',b15:'b20',b7:'b20'}};
+// left-leaning tree
+const LT = {pos:{1:[230,32],2:[165,95],3:[100,158]}, par:{2:1,3:2}, h:190};
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Two Lists, One Tree<br><em>LeetCode 105</em>', vis:
+  gloss(0,[['binary tree','Each node has at most two children: a left child and a right child'],['preorder','root → left subtree → right subtree'],['inorder','left subtree → root → right subtree'],['recursion','A function calls itself to solve a smaller copy of the same problem']])
+  + flow([[1,'Read','two lists → one tree'],[1,'Two orders','preorder / inorder'],[2,'Find the root','first in preorder'],[2,'Split','both sides of the root in inorder'],[3,'Count','cut preorder'],[3,'Speed up','dict: O(n²) → O(n)']]),
+  say:[
+  'This lesson covers LeetCode 105, building a binary tree from preorder and inorder. In a binary tree, each node has at most two children. Preorder is root, left, right; inorder is left, root, right. Recursion means a function calls itself to solve a smaller copy of the same problem.',
+  'First, on one small tree, we see exactly how preorder and inorder are walked.',
+  'Then three moves: the first preorder value is the root; the root splits inorder into left and right; counting the left side cuts preorder too.',
+  'Finally we write the code, and use a dict to take the time from big O of n squared down to big O of n.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>which tree</em>', vis:
+  gloss(0,[['node','One point in the tree, holding one value'],['root','The node at the very top'],['subtree','A node together with everything below it']])
+  + duo(tr({...T, show:{3:2,9:2,20:2,15:2,7:2}}),
+    q(1,'preorder = [3, 9, 20, 15, 7], inorder = [9, 3, 15, 20, 7]. Which tree did they come from?')
+    + cards([[2,'This tree','Root 3; left child 9; right child 20, with 15 and 7 under it','sky'],
+             [3,'Output: [3, 9, 20, null, null, 15, 7]','Level by level, left to right; null marks an empty spot','amber'],
+             [4,'Guaranteed: all values are distinct','The speed-up later depends on this','mint']])),
+  say:[
+  'A node is one point in the tree, holding one value. The root is the node at the very top. A subtree is a node together with everything below it.',
+  'The question for this scene: preorder is 3, 9, 20, 15, 7, and inorder is 9, 3, 15, 20, 7. Which tree did they come from?',
+  'The answer is this tree: the root is 3, its left child is 9, its right child is 20, and under 20 are 15 on the left and 7 on the right.',
+  'The output is a list, written level by level, left to right, with null for empty spots. 9 has no children, so two nulls follow it.',
+  'The problem also guarantees that all values are distinct, with no repeats. Remember this one; the speed-up later depends on it.'
+]});
+
+/* ===== 2 Preorder and inorder ===== */
+add({ch:2, title:'Preorder and inorder: <em>two ways to walk a tree</em>', vis:
+  gloss(0,[['traversal','Visiting every node once in some order and writing it down'],['preorder','root → left subtree → right subtree'],['inorder','left subtree → root → right subtree']])
+  + duo(tr({...T, badge:[[2,{3:1,9:2,20:3,15:4,7:5}],[3,{9:1,3:2,15:3,20:4,7:5}]],
+      cap:[[2,'preorder: <b>3 9 20 15 7</b>'],[3,'inorder: <b>9 3 15 20 7</b>'],[4,'pre <b>3</b> 9 20 15 7 | in 9 <b>3</b> 15 20 7']]}),
+    q(1,'Same tree: why is preorder 3 9 20 15 7, but inorder 9 3 15 20 7?')
+    + cards([[2,'Preorder: root → left → right','Write yourself first, then finish the left subtree, then the right','amber'],
+             [3,'Inorder: left → root → right','Only after the whole left subtree is done do you write yourself','sky'],
+             [4,'Each one tells you one thing','Preorder says who the root is; inorder says who is left of it and who is right','mint']])),
+  say:[
+  'A traversal visits every node once in some order and writes it down. Preorder is root first, then the left subtree, then the right subtree. Inorder is the left subtree first, then the root, then the right subtree.',
+  'The question for this scene: for the same tree, why is preorder 3, 9, 20, 15, 7, but inorder 9, 3, 15, 20, 7?',
+  'Preorder first: write yourself, then go left, then go right. Write 3; go left and write 9; come back, go right and write 20; then 20\'s left child 15 and right child 7.',
+  'Now inorder: finish the left subtree before writing yourself. Write 9, then 3; on the right side, write 15, then 20, and finally 7.',
+  'Each order tells you one thing: preorder tells you who the root is, and inorder tells you who sits left of the root and who sits right.'
+]});
+
+/* ===== 3 Instinct ===== */
+add({ch:3, title:'Instinct: <em>is preorder enough</em>', vis:
+  gloss(0,[['rebuild','Working backward from a traversal to the original tree']])
+  + duo(tr({...AB, show:{b3:3,b9:3,b20:3,b15:3,b7:3}, lab:[[20,32,'A',null],[322,32,'B',3]]}),
+    q(1,'With only preorder [3, 9, 20, 15, 7], can you draw the tree?')
+    + cards([[2,'3 is the root, no problem','The first preorder value is always the root; but how do the other four split?','sky'],
+             [4,'Two trees, identical preorder','A: 20 is the right child of 3; B: 20 is the right child of 9','coral'],
+             [5,'Stuck on: where does the left subtree end','Inorder answers it: A is 9 3 15 20 7, B is 9 15 20 7 3','mint']])),
+  say:[
+  'To rebuild means to work backward from a traversal to the original tree.',
+  'The question for this scene: forget inorder for now. With only preorder 3, 9, 20, 15, 7, can you draw the tree?',
+  'The natural idea: preorder writes the root first, so 3 must be the root. 9 comes right after, so it is the left child of 3. But what about 20? Is it the right child of 3, or a child of 9?',
+  'Both drawings make sense. On the left is the original tree A, where 20 is the right child of 3. On the right is tree B, where 20 hangs to the right of 9.',
+  'Walk tree B in preorder too: 3, 9, 20, 15, 7, exactly the same as tree A. Preorder alone cannot tell these two trees apart.',
+  'The exact place we get stuck: preorder does not tell you where the left subtree ends. Inorder answers it: the two trees have completely different inorders.'
+]});
+
+/* ===== 4 One level ===== */
+add({ch:4, title:'One level: <em>find the root, split, count</em>', vis:
+  gloss(0,[['orange','the root'],['blue','the left subtree part'],['green','the right subtree part']])
+  + duo(ar(EX,[[2,'r....','.....','first in preorder: <b>3</b> is the root'],
+              [3,'r....','.r...','find 3 in inorder: index <b>1</b>'],
+              [4,'r....','LrRRR','left [9], right [15, 20, 7]'],
+              [5,'rL...','LrRRR','left has <b>1</b> → take 1 after the root'],
+              [6,'rLRRR','LrRRR','the rest [20, 15, 7] goes right'],
+              [7,'rLRRR','LrRRR','each side is <em>the same problem</em>']]),
+    q(1,'Split only the top level: 3 is the root, so who is on the left and who is on the right?')
+    + cards([[2,'1. First in preorder = root','Preorder writes the root first, so preorder[0] is the root','amber'],
+             [4,'2. Inorder: left of root = left subtree, right of root = right subtree','Inorder is left → root → right','sky'],
+             [5,'3. However many on the left, take that many from preorder','Preorder is root → left → right: the whole left subtree comes right after the root','mint'],
+             [7,'4. Each side is still "preorder + inorder"','Do the same thing again: recursion','amber']])),
+  say:[
+  'First, the colors: orange is the root, blue is the left subtree part, and green is the right subtree part.',
+  'The question for this scene: split only the top level. 3 is the root, so which values are on its left, and which are on its right?',
+  'Step one: preorder writes the root first, so the first preorder value, 3, must be the root of the whole tree.',
+  'Step two: find 3 in inorder. It sits at index 1.',
+  'Inorder is left, then root, then right. So the 9 to the left of 3 is all left subtree, and 15, 20, 7 to its right are all right subtree.',
+  'Step three, count: the left subtree has 1 value. Preorder is root, left, right, and the whole left subtree comes right after the root, so the 1 value after the root, 9, belongs to the left.',
+  'The rest of preorder, 20, 15, 7, is the right subtree.',
+  'Step four: each side has its own preorder and inorder. It is the same problem, only smaller. Doing the same thing again is recursion.'
+]});
+
+/* ===== 5 Recursion walkthrough ===== */
+add({ch:5, title:'Recursion walkthrough: <em>the tree grows</em>', vis:
+  gloss(0,[['one call','Handles one stretch of preorder and the matching stretch of inorder, and builds one subtree'],['dark cells','Values that do not belong to this call'],['leaf','A node with no children']])
+  + duo(ar(EX,[[2,'rLRRR','LrRRR','root <b>3</b>: 1 left, 3 right'],
+              [3,'xrxxx','rxxxx','[9]: root <b>9</b>, 0 and 0 → leaf'],
+              [4,'xxrLR','xxLrR','[20, 15, 7]: root <b>20</b>, 1 left, 1 right'],
+              [5,'xxxrx','xxrxx','[15]: root <b>15</b>, leaf'],
+              [6,'xxxxr','xxxxr','[7]: root <b>7</b>, leaf'],
+              [7,'rLRRR','LrRRR','<em>[3, 9, 20, null, null, 15, 7]</em>']])
+      + tr({...T, show:{3:2,9:3,20:4,15:5,7:6}, ring:[[2,3],[3,9],[4,20],[5,15],[6,7]]}),
+    q(1,'In each call, which stretch of each list is used? How does the tree grow, piece by piece?')
+    + cards([[7,'Built: [3, 9, 20, null, null, 15, 7]','5 values, 5 calls, one node per call','mint']])),
+  say:[
+  'One call handles one stretch of preorder and the matching stretch of inorder, and builds one subtree. Dark cells do not belong to this call. A leaf is a node with no children.',
+  'The question for this scene: in each call, which stretch of each list is used? And how does the tree grow, piece by piece?',
+  'The first call gets all 5 values. The root is 3, with 1 value on its left in inorder and 3 on its right. The tree grows 3 first.',
+  'Recurse left: preorder is just 9, and inorder is just 9. The root is 9, with 0 on each side, so it is a leaf. 9 hangs on the left of 3.',
+  'Back to the right: preorder 20, 15, 7, inorder 15, 20, 7. The root is 20, with 1 on its left and 1 on its right. 20 hangs on the right of 3.',
+  'Left of 20: only 15, a leaf, hanging on the left of 20.',
+  'Right of 20: only 7, also a leaf, hanging on the right of 20.',
+  'The tree is built, and written out it is 3, 9, 20, null, null, 15, 7. Five values, five calls, one node per call.'
+]});
+
+/* ===== 6 Slicing version ===== */
+add({ch:6, title:'First, the <em>slicing version</em>', vis:
+  gloss(0,[['slice','preorder[1:k + 1] copies indices 1 through k into a new list'],['index','Searches from the front for the position of a value in a list']])
+  + q(1,'Copy "find the root, split, count, recurse" straight into code. What does it look like?')
+  + term('solution.py',[
+    [2,'o','def buildTree(self, preorder, inorder):'],
+    [2,'o','    if not preorder:                 # no values -> empty tree'],
+    [2,'o','        return None'],
+    [3,'o','    root = TreeNode(preorder[0])     # first in preorder is the root'],
+    [3,'hl','    k = inorder.index(preorder[0])   # root position in inorder'],
+    [4,'o','    # inorder starts at 0: the left subtree has exactly k values'],
+    [4,'o','    root.left = self.buildTree(preorder[1:k + 1], inorder[:k])'],
+    [5,'o','    root.right = self.buildTree(preorder[k + 1:], inorder[k + 1:])'],
+    [5,'o','    return root']])
+  + cards([[6,'It passes, but it is slow in two places','index scans from the front, O(n); slicing copies, O(n); a chain-shaped tree has n levels → O(n²)','coral']]),
+  say:[
+  'A slice is code like preorder, bracket, 1 colon k plus 1, which copies a stretch into a new list. index searches from the front for the position of a value in a list.',
+  'The question for this scene: copy the four steps, find the root, split, count, recurse, straight into code. What does it look like?',
+  'First, the stopping condition: if preorder is empty, there is no node here, so return None.',
+  'Make the first preorder value the root node. Then use index to find the root\'s position k in inorder.',
+  'This stretch of inorder starts at index 0, so exactly k values sit left of the root, and the left subtree has k values. Preorder skips the root and takes indices 1 through k; inorder takes indices 0 through k minus 1.',
+  'Everything else goes to the right: preorder from k plus 1 to the end, and inorder from k plus 1 to the end as well. Then return the root.',
+  'It passes, but it is slow in two places: index scans from the front, big O of n, and slicing copies, also big O of n. A chain-shaped tree has n levels, so the total is big O of n squared.'
+]});
+
+/* ===== 7 Speed-up ===== */
+add({ch:7, title:'Speed-up: <em>a dict and index ranges</em>', vis:
+  gloss(0,[['dict','A lookup table from value to position; one lookup is O(1)'],['O(1)','However large the data, it takes the same small fixed time']])
+  + q(1,'How do we remove the two O(n) costs at every level?')
+  + cards([[2,'1. Build a dict first: value → inorder index','{9: 0, 3: 1, 15: 2, 20: 3, 7: 4}: finding the root is one lookup','sky'],
+           [3,'This works because values are distinct','With two 3s, the dict could remember only one, and you could not tell which is the root','amber'],
+           [4,'2. Do not slice, pass three numbers','preorder starts at p, inorder starts at i, n values in all','sky'],
+           [5,'O(n²) → O(n)','Each node is built once, doing only O(1) work','mint']]),
+  say:[
+  'A dict is a lookup table from value to position, and one lookup is big O of 1. Big O of 1 means that however large the data, it takes the same small fixed time.',
+  'The question for this scene: how do we remove the two big O of n costs at every level?',
+  'First remove index: before starting, scan inorder once and build a dict of each value\'s index. 9 is at 0, 3 is at 1, and so on. After that, finding the root is one lookup.',
+  'This works because the problem guarantees distinct values. If there were two 3s, the dict could remember only one index, and you could not tell which one is the root.',
+  'Then remove slicing: do not copy lists, just pass three numbers: the preorder start p, the inorder start i, and the count n.',
+  'Each node is built once, doing only big O of 1 work. The total time drops from big O of n squared to big O of n.'
+]});
+
+/* ===== 8 Index-range code ===== */
+add({ch:8, title:'The index-range <em>code</em>', vis:
+  gloss(0,[['p, i, n','Where this stretch starts in preorder, where it starts in inorder, and how many values'],['left','How many values the left subtree has, equal to k − i']])
+  + q(1,'Using only p, i and n, what do the two recursive calls pass?')
+  + term('solution.py',[
+    [2,'o','def buildTree(self, preorder, inorder):'],
+    [2,'hl','    idx = {v: i for i, v in enumerate(inorder)}'],
+    [3,'o','    def build(p, i, n):        # preorder from p, inorder from i, n values'],
+    [3,'o','        if n == 0:'],
+    [3,'o','            return None'],
+    [4,'o','        root = TreeNode(preorder[p])'],
+    [4,'o','        k = idx[preorder[p]]   # root index in inorder'],
+    [4,'hl','        left = k - i           # size of the left subtree'],
+    [5,'o','        root.left = build(p + 1, i, left)'],
+    [6,'hl','        root.right = build(p + 1 + left, k + 1, n - 1 - left)'],
+    [6,'o','        return root'],
+    [7,'o','    return build(0, 0, len(preorder))']]),
+  say:[
+  'p, i and n are where this stretch starts in preorder, where it starts in inorder, and how many values it has. left is how many values the left subtree has, equal to k minus i.',
+  'The question for this scene: using only p, i and n, what do the two recursive calls pass?',
+  'The first line builds the dict: each value maps to its index in inorder.',
+  'build handles n values, starting at p in preorder and at i in inorder. If n equals 0, it is an empty tree, so return None.',
+  'The root is preorder of p. The dict gives its inorder index k. The left subtree size is k minus i, not k, because this stretch of inorder starts at i.',
+  'Left subtree: preorder skips the root and starts at p plus 1; inorder still starts at i; and it has left values.',
+  'Right subtree: preorder skips the root and the whole left subtree, starting at p plus 1 plus left; inorder starts at k plus 1; the count is n minus 1 minus left. At the top level of the example, the right call is build 2, 2, 3.',
+  'The outermost call is build 0, 0, n, and the whole tree is built.'
+]});
+
+/* ===== 9 Two edge cases ===== */
+add({ch:9, title:'Two <em>edge cases</em>', vis:
+  gloss(0,[['left-leaning tree','Every node has only a left child, forming a chain slanting down to the left']])
+  + duo(ar([['pre',[1,2,3]],['in',[3,2,1]]],[
+              [2,'rLL','LLr','root <b>1</b>: k = 2, left = 2, 0 on the right'],
+              [3,'xrL','Lrx','root <b>2</b>: k = 1, left = 1, 0 on the right'],
+              [4,'xxr','rxx','root <b>3</b>: left = 0 → leaf'],
+              [5,'rLL','LLr','every call with n = 0 returns <em>None</em>']])
+      + tr({...LT, show:{1:2,2:3,3:4}, ring:[[2,1],[3,2],[4,3]]}),
+    q(1,'preorder = [1, 2, 3], inorder = [3, 2, 1]: what tree? And a single value [-1]?')
+    + cards([[5,'Left-leaning tree → [1, 2, null, 3]','The right side is 0 values every time, so it returns None right away','mint'],
+             [6,'[-1] / [-1] → [-1]','Root −1, k = 0, left = 0, both sides have n = 0','sky']])),
+  say:[
+  'A left-leaning tree is one where every node has only a left child, forming a chain that slants down to the left.',
+  'The question for this scene: with preorder 1, 2, 3 and inorder 3, 2, 1, what tree do we build? And what about the single value negative 1?',
+  'Top level: the root is 1, and its inorder index k is 2, so left is 2 minus 0, which is 2. The right side gets 3 minus 1 minus 2, zero values.',
+  'Going left: preorder 2, 3, inorder 3, 2. The root is 2, k is 1, left is 1, and the right side is zero again.',
+  'Further left: only 3 remains, left is 0, and it is a leaf.',
+  'Every call with n equal to 0 returns None right away, so every node\'s right side is empty. The output is 1, 2, null, 3.',
+  'With a single value: the root is negative 1, left is 0, both calls get n equal to 0, and the result is a tree with just negative 1.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>two pitfalls</em>', vis:
+  gloss(0,[['height h','The most levels you can walk down from the root'],['call stack','The calls that have not finished yet, stacked one on another']])
+  + q(1,'What are the time and space? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n)','n steps to build the dict; each node built once, O(1) each','sky'],
+           [3,'Space O(n)','n entries in the dict; stack depth = height h, and a left-leaning tree has h = n','sky'],
+           [4,'Pitfall 1: where the right preorder starts','It is p + 1 + left: skip both the root and the left subtree','coral'],
+           [5,'Pitfall 2: the left subtree size','It is k − i, not k: this stretch of inorder starts at i','coral']]),
+  say:[
+  'The height h is the most levels you can walk down from the root. The call stack holds the calls that have not finished yet, stacked one on another.',
+  'The question for this scene: what are the time and space? And where is it easiest to go wrong?',
+  'Time is big O of n: building the dict takes n steps, and each node is built once with only big O of 1 work.',
+  'Space is big O of n: the dict has n entries, and the call stack depth equals the height h. For the left-leaning tree in the last scene, h equals n.',
+  'Pitfall one: the right subtree\'s preorder starts at p plus 1 plus left. Write p plus left, and the last value of the left subtree becomes the root of the right subtree.',
+  'Pitfall two: the left subtree size is k minus i, not k. In the slicing version inorder always starts at 0, so k is fine; in the index version this stretch starts at i, so you must subtract i.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['divide and conquer','Cut a big problem into smaller copies of itself, solve each, then put them together']])
+  + q(1,'The interviewer asks: "Why do you need both traversals? Is preorder alone enough?"')
+  + flow([[2,'Find the root','preorder[p]'],[2,'Locate','dict lookup for k'],[3,'Count','left = k − i'],[3,'Recurse','one stretch per side'],[4,'Complexity','O(n) time and space']])
+  + chips(4,['preorder','inorder','divide and conquer','hash map','unique values','106 Inorder & Postorder']),
+  say:[
+  'Divide and conquer means cutting a big problem into smaller copies of itself, solving each one, then putting them together. This problem is divide and conquer.',
+  'The question for this scene: the interviewer asks, why do you need both traversals? Is preorder alone enough?',
+  'First describe the method: the first preorder value is the root; I build a dict from value to inorder index ahead of time, so one lookup gives the root\'s inorder position k.',
+  'Then count: inorder has k minus i values left of the root, so preorder gives that many values after the root to the left subtree, the rest go to the right, and both sides recurse.',
+  'Then explain why: preorder says who the root is, but not where the left subtree ends, so one preorder can match different trees; inorder supplies that boundary. Complexity is big O of n. Problem 106 uses inorder and postorder instead, with the root last in postorder, and the idea is the same.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Find the root','first in preorder'],[0,'Split','both sides of the root in inorder'],[0,'Count','left = k − i'],[0,'Speed up','dict, O(n)']])
+  + cards([[1,'1. First in preorder is the root; in inorder, left of it is the left subtree, right of it is the right subtree','Preorder: root left right; inorder: left root right','amber'],
+           [2,'2. However many the left subtree has, take that many after the root in preorder','left = k − i; the right preorder starts at p + 1 + left','sky'],
+           [3,'3. Store inorder indices in a dict, pass indices instead of slicing','Only possible because values are distinct; O(n²) → O(n)','mint']]),
+  say:[
+  'The main thread: preorder finds the root, inorder splits left and right, counting cuts preorder, both sides recurse, and a dict speeds it up.',
+  'One: the first preorder value is the root; in inorder, left of the root is the left subtree, and right of it is the right subtree.',
+  'Two: however many values the left subtree has, take that many after the root in preorder. The count is k minus i, and the right subtree\'s preorder starts at p plus 1 plus left.',
+  'Three: store inorder indices in a dict, and pass indices instead of slicing. This works because the values are distinct, and the time drops from big O of n squared to big O of n.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/18ef1f9a8a5f.mp3", "0-1": "a/c8e88c52cc76.mp3", "0-2": "a/affd2e537cbd.mp3", "0-3": "a/3d8b403d8563.mp3", "1-0": "a/320b5f5364c5.mp3", "1-1": "a/7df6f082cf0a.mp3", "1-2": "a/b86ae1e89761.mp3", "1-3": "a/90a0781223ee.mp3", "1-4": "a/96975cc038ad.mp3", "2-0": "a/17c876c42a52.mp3", "2-1": "a/9818e8131a6f.mp3", "2-2": "a/be2d8b521547.mp3", "2-3": "a/5c12fa9224af.mp3", "2-4": "a/583ace1fc386.mp3", "3-0": "a/ace0d590b4dc.mp3", "3-1": "a/196f583a2d46.mp3", "3-2": "a/3ff864853ae7.mp3", "3-3": "a/abc55898b2be.mp3", "3-4": "a/bfb54f978c41.mp3", "3-5": "a/a326d4f60125.mp3", "4-0": "a/cc38b2b63d6f.mp3", "4-1": "a/364e7835ceae.mp3", "4-2": "a/8d8094f2c44e.mp3", "4-3": "a/de57db3142de.mp3", "4-4": "a/b227ac961545.mp3", "4-5": "a/5fd32c059516.mp3", "4-6": "a/6f1c514bea0d.mp3", "4-7": "a/5cad05dcb059.mp3", "5-0": "a/b3f2c387e3a1.mp3", "5-1": "a/9a57b574370d.mp3", "5-2": "a/1bf2556eeb12.mp3", "5-3": "a/e93cb3b3c5e0.mp3", "5-4": "a/bf91c9a8b806.mp3", "5-5": "a/0e9a9d0f784d.mp3", "5-6": "a/22d8f2c94ed1.mp3", "5-7": "a/11cdece87561.mp3", "6-0": "a/30d1c7867ef3.mp3", "6-1": "a/b97fa4ce7fa4.mp3", "6-2": "a/68ca00c80d2f.mp3", "6-3": "a/6c8f322ae794.mp3", "6-4": "a/3ef1c4ecf824.mp3", "6-5": "a/5d4d5a37f96d.mp3", "6-6": "a/3771cb3cca15.mp3", "7-0": "a/1c3d1a0cbf7f.mp3", "7-1": "a/294883afb396.mp3", "7-2": "a/5253177b8aee.mp3", "7-3": "a/e6f224aa975c.mp3", "7-4": "a/ad8583c8c064.mp3", "7-5": "a/05b43086540f.mp3", "8-0": "a/f744a6764788.mp3", "8-1": "a/5983bf3aabda.mp3", "8-2": "a/ea5fab482c66.mp3", "8-3": "a/4af754186233.mp3", "8-4": "a/828e2130d424.mp3", "8-5": "a/94aae1476d38.mp3", "8-6": "a/3d8feb157e71.mp3", "8-7": "a/d9e415ba3ce2.mp3", "9-0": "a/4cd8ad74568e.mp3", "9-1": "a/ad19e3bfc2aa.mp3", "9-2": "a/c3841caab02e.mp3", "9-3": "a/75cd821418f9.mp3", "9-4": "a/dbb9fb50ce07.mp3", "9-5": "a/a768ecc80a08.mp3", "9-6": "a/624f62d7dc70.mp3", "10-0": "a/ee6c86c19fb2.mp3", "10-1": "a/48c57e04e84a.mp3", "10-2": "a/2d25cb29bee9.mp3", "10-3": "a/4597b7cca9b0.mp3", "10-4": "a/dd333f262f9a.mp3", "10-5": "a/c4cd2f923c4e.mp3", "11-0": "a/80c8ba260dc9.mp3", "11-1": "a/f27ae309104a.mp3", "11-2": "a/c1ffd6dba411.mp3", "11-3": "a/5fec814989ae.mp3", "11-4": "a/0a77a7254cc4.mp3", "12-0": "a/99a7e62ca14c.mp3", "12-1": "a/edf959fa738f.mp3", "12-2": "a/72710438280a.mp3", "12-3": "a/96f6b7267f8e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>会滑的窗口</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'会滑的窗口', template:'prep', sub:'LeetCode 424 Longest Repeating Character Replacement · 算法动画', key:'lc424vid', doc:'LeetCode 424 题', blurb:'从"长度减最多字母的次数小于等于 k 就能修好"讲起，先看检查每个子串为什么慢，再用右边伸长、左边只挪一格的滑动窗口走一遍，最后讲清 maxf 从不减小为什么答案还对。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：换几个字母','读题：AABABBA 换一次','能不能修好：一个减法','直觉：检查每个子串','滑动窗口：右伸左挪','走一遍：窗口长大','走一遍：窗口平移','谜题：maxf 为什么不减','写代码','再验两个例子','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- letter strip: green = current window, amber ring = letter right just added, red = letter left just dropped ---------- */
+const WCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.sw{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.sw>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.sw>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.sw>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.sw>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.sw i.s{position:absolute;inset:0;border-radius:7px;transform:none}
+.sw i.win{background:rgba(98,224,180,.32)}
+.sw i.out{background:rgba(255,122,107,.42)}
+.sw i.ring{inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)}
+.sw .only.s{opacity:0!important} .sw .only.s.now{opacity:1!important}
+.sw>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.sw .mk span.s{position:absolute;transform:none}
+.sw .mk .L{color:var(--sky)} .sw .mk .R{color:var(--coral)}
+.swst{font-family:var(--f-mono);font-size:.82em;line-height:1.5;text-align:center;color:var(--dim);min-height:6em;position:relative;margin-top:.5em}
+.swst .s{position:absolute;left:0;right:0;transform:none}
+.swst .only.s{opacity:0!important} .swst .only.s.now{opacity:1!important}
+.swst b{color:var(--amber);font-weight:400} .swst em{font-style:normal;color:var(--mint)} .swst u{text-decoration:none;color:var(--coral)}
+</style>`;
+// st: [[step, left, right, droppedIndex|null, statusHtml]]; mk=false hides the L / R markers
+function sw(str, st=[], mk=true){
+  const a = [...str], n = a.length;
+  let h = WCSS + `<div class="sw" style="grid-template-columns:repeat(${n},2.5em)">`;
+  h += a.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += a.map((c,k)=>`<div class="v"><b>${c}</b>${st.map(([s,l,r,d])=>
+      (k>=l&&k<=r?`<i class="win only s" data-s="${s}"></i>`:'')
+    + (k===d?`<i class="out only s" data-s="${s}"></i>`:'')
+    + (mk&&k===r?`<i class="ring only s" data-s="${s}"></i>`:'')).join('')}</div>`).join('');
+  if(mk) h += a.map((_,k)=>`<div class="mk">${st.map(([s,l,r])=>{
+    const t = [k===l?'<span class="L">L</span>':'', k===r?'<span class="R">R</span>':''].filter(Boolean).join(' ');
+    return t?`<span class="only s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div>`;
+  const tx = st.filter(x=>x[4]);
+  if(tx.length) h += `<div class="swst">${tx.map(([s,,,,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const STR = 'AABABBA';
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'会滑的窗口<br><em>LeetCode 424</em>', vis:
+  gloss(0,[['子串 substring','字符串里连续的一段'],['滑动窗口 sliding window','用 left、right 两个下标框住一段子串：右边伸长，左边收缩'],['maxf','窗口里出现最多的那个字母，出现了几次']])
+  + flow([[1,'读题','换 k 次，最长全同'],[1,'条件','长度 − maxf ≤ k'],[2,'直觉','查每个子串 O(n²)'],[2,'窗口','右边伸，左边挪一格'],[3,'谜题','maxf 不减也对'],[3,'代码','O(n)']]),
+  say:[
+  '这节课讲力扣 424 题，替换后的最长重复字符。先认三个词：子串，是字符串里连续的一段。滑动窗口，是用 left、right 两个下标框住一段子串。maxf，是窗口里最多的那个字母出现了几次。',
+  '先读题，找出整道题的核心条件：长度减 maxf 小于等于 k，就能修好。',
+  '然后从最直接的想法出发：检查每个子串，看它慢在哪；再把它改成滑动窗口，右边伸长，左边挪一格。',
+  '最后解开这道题最让人困惑的地方：maxf 从来不减，为什么答案还是对的。再写代码，讲复杂度和易错点。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>AABABBA 换一次</em>', vis:
+  gloss(0,[['k','最多能替换几次'],['替换','把一个字母改成任意一个大写字母']])
+  + duo(sw(STR,[[2,0,3,null,''],[3,2,5,null,'']],false),
+    q(1,'"AABABBA"，k = 1。换完以后，最长的"全是同一个字母"的子串有多长？')
+    + cards([[2,'把下标 2 的 B 换成 A','AABA → AAAA，长 4','mint'],
+             [3,'BABB 也行','把 A 换成 B → BBBB，也是 4','sky'],
+             [4,'长 5 做不到','AABAB、ABABB、BABBA 都要换 2 个','coral']])),
+  say:[
+  'k 是最多能替换几次。替换，就是把一个字母改成任意一个大写字母。',
+  '这一幕要回答的是：字符串 AABABBA，k 等于一。换完以后，最长的全是同一个字母的子串有多长？',
+  '看前四个字母 AABA。把下标二的 B 换成 A，就变成 AAAA，长度四。',
+  '下标二到五的 BABB 也行：把中间的 A 换成 B，得到 BBBB，也是四。',
+  '长度五做不到。三段长五的子串，AABAB、ABABB、BABBA，每段都要换两个字母，可我们只能换一个。所以答案是四。'
+]});
+
+/* ===== 2 能不能修好 ===== */
+add({ch:2, title:'能不能修好：<em>一个减法</em>', vis:
+  gloss(0,[['多数字母','窗口里出现次数最多的字母'],['可修 fixable','最多换 k 次，就能变成全是同一个字母']])
+  + q(1,'给你一段子串，怎么马上判断它能不能用 k 次替换变成全一样？')
+  + cards([[2,'只换"不是多数字母"的那些','留下最多的那种字母，换得最少','sky'],
+           [3,'要换几次 = 长度 − maxf','长度 − maxf ≤ k，就可修','amber'],
+           [4,'AABA：4 − 3 = 1 ≤ 1 → 可修','A 出现 3 次，只换 1 个 B','mint'],
+           [5,'AABAB：5 − 3 = 2 > 1 → 修不好','A 3 次，B 2 次，要换 2 个','coral']]),
+  say:[
+  '多数字母，就是窗口里出现次数最多的那个字母。可修，就是最多换 k 次，就能变成全是同一个字母。',
+  '这一幕要回答的是：给你一段子串，怎么马上判断它能不能用 k 次替换变成全一样？',
+  '想换得最少，就留下出现最多的那种字母，把其他字母全换成它。',
+  '所以要换的次数，就是长度减 maxf。它小于等于 k，就可修。这是整道题的核心条件。',
+  'AABA：长度四，A 出现三次，四减三等于一，小于等于一，可修。',
+  'AABAB：长度五，A 还是三次，五减三等于二，大于一，修不好。'
+]});
+
+/* ===== 3 直觉：检查每个子串 ===== */
+add({ch:3, title:'直觉：<em>检查每个子串</em>', vis:
+  gloss(0,[['O(n²)','n 是字符串长度；要做的事大约有 n 乘 n 那么多'],['起点','子串从哪个下标开始']])
+  + q(1,'最直接的办法：把每个子串都检查一遍。慢在哪？')
+  + term('手动试一试',[
+    [2,'o','起点 0：A ✓  AA ✓  AAB ✓  AABA ✓'],
+    [2,'e','        AABAB ✗  停'],
+    [3,'o','起点 1：A  AB  ABA  ABAB …'],
+    [3,'n','        又从头数一遍']])
+  + cards([[4,'n = 10⁵ 时约 50 亿个子串','O(n²)，超时','coral'],
+           [5,'浪费在哪','起点 1 的这些字母，刚才已经数过了','mint']]),
+  say:[
+  'O n 平方，意思是 n 是字符串长度，要做的事大约有 n 乘 n 那么多。起点，就是子串从哪个下标开始。',
+  '这一幕要回答的是：最直接的办法，是把每个子串都检查一遍。它慢在哪？',
+  '手动试：从起点零开始，一个字母一个字母往右加。A、AA、AAB、AABA 都可修，加到 AABAB 修不好了，停。',
+  '然后换起点一，再从 A 开始一个一个数：A、AB、ABA、ABAB。这些字母刚才都数过。',
+  '字符串长度能到十万，子串大约有五十亿个。O n 平方，一定超时。',
+  '浪费就在这里：换起点时，我们把刚数过的字母扔掉重数。能不能不回头，接着上一个窗口继续？'
+]});
+
+/* ===== 4 滑动窗口 ===== */
+add({ch:4, title:'滑动窗口：<em>右边伸，左边挪一格</em>', vis:
+  gloss(0,[['left、right','两个下标，框住窗口 s[left..right]'],['窗口长度','right − left + 1'],['best','目前找到的最长可修长度']])
+  + q(1,'AABAB 修不好的那一刻，怎么不回头，接着往下走？')
+  + cards([[2,'right 每次右移一格','新字母放进窗口：count 加一','sky'],
+           [3,'修不好？left 右移一格','最左边的字母拿出去：count 减一','coral'],
+           [4,'只挪一格就够','长度回到上一步，正好等于 best','amber'],
+           [5,'每个字母只进一次，最多出一次','一共 O(n)','mint']]),
+  say:[
+  'left 和 right 是两个下标，框住的那一段就是窗口。窗口长度是 right 减 left 加一。best 是目前找到的最长可修长度。',
+  '这一幕要回答的是：AABAB 修不好的那一刻，怎么不回头，接着往下走？',
+  '规则一：right 每次往右走一格，把新字母放进窗口，它的次数加一。',
+  '规则二：放进来以后修不好，就把 left 往右挪一格，把最左边的字母拿出去，它的次数减一。',
+  '为什么只挪一格？挪完以后，长度回到上一步，正好是目前的记录。我们只想找比记录更长的窗口，没必要把窗口缩得更短。',
+  '这样每个字母只进窗口一次，最多出窗口一次，一共 O n。'
+]});
+
+/* ===== 5 走一遍：窗口长大 ===== */
+add({ch:5, title:'走一遍：<em>窗口长大</em>', vis:
+  gloss(0,[['绿色','当前窗口'],['橙框','right 刚放进来的字母'],['L、R','left 和 right 的位置']])
+  + duo(sw(STR,[
+      [2,0,0,null,'L=0 R=0　窗口 <b>A</b>　长 1<br>A:1 B:0　maxf 1<br>1 − 1 = 0 ≤ 1 <em>✓</em>　best 1'],
+      [3,0,1,null,'L=0 R=1　窗口 <b>AA</b>　长 2<br>A:2 B:0　maxf 2<br>2 − 2 = 0 ≤ 1 <em>✓</em>　best 2'],
+      [4,0,2,null,'L=0 R=2　窗口 <b>AAB</b>　长 3<br>A:2 B:1　maxf 2<br>3 − 2 = 1 ≤ 1 <em>✓</em>　best 3'],
+      [5,0,3,null,'L=0 R=3　窗口 <b>AABA</b>　长 4<br>A:3 B:1　maxf 3<br>4 − 3 = 1 ≤ 1 <em>✓</em>　best 4'],
+      [6,0,3,null,'L=0 R=3　窗口 <b>AABA</b>　长 4<br>A:3 B:1　maxf 3<br>best <em>4</em>']]),
+    q(1,'"AABABBA"，k = 1：前四步，窗口怎么长大？')
+    + cards([[6,'长到 4，best = 4','AABA 就是第一个长度 4 的答案','mint']])),
+  say:[
+  '绿色是当前窗口，橙框是 right 刚放进来的字母，L 和 R 标出 left 和 right 的位置。',
+  '这一幕要回答的是：AABABBA，k 等于一，前四步窗口怎么长大？',
+  'right 等于零，放进 A。窗口是 A，A 出现一次，maxf 是一。一减一等于零，可修，best 是一。',
+  'right 等于一，再放进 A。A 两次，maxf 是二。二减二等于零，可修，best 是二。',
+  'right 等于二，放进 B。A 两次，B 一次，maxf 还是二。三减二等于一，小于等于一，可修，best 是三。',
+  'right 等于三，放进 A。A 三次，maxf 变成三。四减三等于一，可修，best 是四。',
+  '到这里，left 一次都没动，窗口长到四。AABA 就是第一个长度四的答案。'
+]});
+
+/* ===== 6 走一遍：窗口平移 ===== */
+add({ch:6, title:'走一遍：<em>窗口平移</em>', vis:
+  gloss(0,[['红色','刚被 left 拿出去的字母'],['平移','left 和 right 一起右移一格，长度不变']])
+  + duo(sw(STR,[
+      [2,1,4,0,'放进 B：AABAB　5 − 3 = 2 > 1 <u>✗</u><br>L=1 R=4　窗口 <b>ABAB</b>　长 4<br>A:2 B:2　maxf <u>3</u>　best 4'],
+      [3,2,5,1,'放进 B：ABABB　5 − 3 = 2 > 1 <u>✗</u><br>L=2 R=5　窗口 <b>BABB</b>　长 4<br>A:1 B:3　maxf 3　best 4'],
+      [4,3,6,2,'放进 A：BABBA　5 − 3 = 2 > 1 <u>✗</u><br>L=3 R=6　窗口 <b>ABBA</b>　长 4<br>A:2 B:2　maxf <u>3</u>　best 4'],
+      [5,3,6,null,'L=3 R=6　窗口 <b>ABBA</b>　长 4<br>返回 best = <em>4</em>']]),
+    q(1,'后三步每一步都修不好。窗口怎么走？答案是几？')
+    + cards([[5,'返回 best = 4','窗口一直保持长度 4，没有更长的','mint']])),
+  say:[
+  '红色是刚被 left 拿出去的字母。平移，就是 left 和 right 一起右移一格，长度不变。',
+  '这一幕要回答的是：后三步每一步都修不好，窗口怎么走？答案是几？',
+  'right 等于四，放进 B，变成 AABAB。五减三等于二，大于一，修不好。left 挪一格，拿出 A，窗口是 ABAB。注意：真实最多只有两次，maxf 却还是三。',
+  'right 等于五，放进 B，变成 ABABB。B 三次，五减三等于二，修不好。left 挪一格，拿出 A，窗口是 BABB。',
+  'right 等于六，放进 A，变成 BABBA。五减三等于二，修不好。left 挪一格，拿出 B，窗口是 ABBA。',
+  '走完了。后三步窗口一直在平移，长度保持四，没有出现更长的。返回 best，等于四。'
+]});
+
+/* ===== 7 谜题：maxf 为什么不减 ===== */
+add({ch:7, title:'谜题：<em>maxf 为什么不减</em>', vis:
+  gloss(0,[['过期 stale','记下的数字比真实的大：后来有字母被拿出去了'],['记录','best，目前见过的最长可修长度']])
+  + q(1,'ABAB 里 A 只剩 2 个，maxf 还写着 3，而且代码从不调小它。答案为什么还是对的？')
+  + cards([[2,'窗口从不变短','只会变长，或者平移；长度一直等于 best','sky'],
+           [3,'过期的 maxf 只会让窗口平移','长度不变，答案不变；长度 4 早被 AABA 证明过','amber'],
+           [4,'想变长，maxf 必须变大','长度 4 → 5：5 − maxf ≤ 1 → maxf ≥ 4','coral'],
+           [5,'maxf 变大的那一刻是真的','某个字母在当前窗口里真的数到了 4','mint']]),
+  say:[
+  '过期，就是记下的数字比真实的大，因为后来有字母被拿出去了。记录就是 best，目前见过的最长可修长度。',
+  '这一幕要回答的是：ABAB 里 A 只剩两个，maxf 还写着三，而且代码从来不把它调小。答案为什么还是对的？',
+  '先看一个事实：窗口从来不变短。每一步要么变长，要么平移，所以窗口长度一直等于记录 best。',
+  '过期的 maxf 会怎样？窗口里其实可能修不好，比如 ABAB，但我们只是带着它平移，长度不变，答案也不变。长度四早就被 AABA 真正证明过。',
+  '想打破记录，窗口要从四变成五，就要五减 maxf 小于等于一，也就是 maxf 至少是四，比旧的三大。光靠过期的三，窗口永远长不大。',
+  'maxf 只有在某个字母在当前窗口里真的数到四时才会变大，那一刻的数字是真实的，那个长五的窗口真的可修。所以过期的 maxf 造不出错误的大答案。'
+]});
+
+/* ===== 8 写代码 ===== */
+add({ch:8, title:'代码：<em>把窗口的动作照抄下来</em>', vis:
+  gloss(0,[['count','字典：窗口里每个字母出现几次'],['enumerate(s)','同时拿到下标 right 和字母 ch']])
+  + term('solution.py',[
+    [2,'o','def characterReplacement(s, k):'],
+    [2,'o','    count = {}            # 窗口里每个字母出现几次'],
+    [2,'o','    left = maxf = best = 0'],
+    [3,'o','    for right, ch in enumerate(s):'],
+    [3,'o','        count[ch] = count.get(ch, 0) + 1'],
+    [3,'hl','        maxf = max(maxf, count[ch])      # 只增不减'],
+    [4,'o','        if right - left + 1 - maxf > k:  # 修不好'],
+    [4,'o','            count[s[left]] -= 1'],
+    [4,'hl','            left += 1                     # 只挪一格'],
+    [5,'o','        best = max(best, right - left + 1)'],
+    [5,'hl','    return best']])
+  + q(1,'代码的每一段，对应窗口的哪个动作？'),
+  say:[
+  'count 是一个字典，记窗口里每个字母出现几次。enumerate s 一次同时拿到下标 right 和那个字母 ch。',
+  '这一幕要回答的是：代码的每一段，对应窗口的哪个动作？',
+  '开头准备：一个空的 count，left、maxf、best 都从零开始。',
+  '循环里，right 每次右移一格：新字母的次数加一，再用它刷新 maxf。maxf 只增不减。',
+  '然后判断：长度减 maxf 大于 k，就是修不好。把最左边字母的次数减一，left 加一，只挪一格。',
+  '最后用当前窗口长度更新 best。循环结束，返回 best。'
+]});
+
+/* ===== 9 再验两个例子 ===== */
+add({ch:9, title:'再验<em>两个例子</em>', vis:
+  gloss(0,[['验证','用别的例子再跑一遍，看结果对不对']])
+  + q(1,'"ABAB"，k = 2；"AAAA"，k = 0。答案都是 4 吗？')
+  + term('再跑两遍',[
+    [2,'o','"ABAB", k = 2'],
+    [2,'o','R=0 A     长 1  maxf 1  1 − 1 = 0'],
+    [2,'o','R=1 AB    长 2  maxf 1  2 − 1 = 1'],
+    [2,'o','R=2 ABA   长 3  maxf 2  3 − 2 = 1'],
+    [3,'hl','R=3 ABAB  长 4  maxf 2  4 − 2 = 2 ≤ 2 → 4'],
+    [4,'o','"AAAA", k = 0'],
+    [4,'hl','每一步  长度 − maxf = 0 ≤ 0 → 4']])
+  + cards([[5,'left 一次没动','窗口一路长到整个字符串，答案就是长度 4','mint']]),
+  say:[
+  '验证，就是用别的例子再跑一遍，看结果对不对。',
+  '这一幕要回答的是：ABAB，k 等于二；AAAA，k 等于零。答案都是四吗？',
+  'ABAB，k 等于二。前三步：一减一是零，二减一是一，三减二是一，都小于等于二。',
+  '第四步放进 B，A、B 各两次，四减二等于二，正好等于 k，还可修。答案是四：把两个 B 换成 A 就行。',
+  'AAAA，k 等于零，一次都不能换。每一步窗口里全是 A，长度减 maxf 总是零，小于等于零。答案是四。',
+  '两个例子里 left 一次都没动，窗口一路长到整个字符串，答案就是字符串长度四。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(n)','每个字母进窗口、出窗口各最多一次'],['O(1) 空间','只有大写字母：count 最多 26 个键']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n)，空间 O(1)','right 走 n 步，每步只做几次加减','sky'],
+           [3,'坑一：left 挪了，count 没减','count[s[left]] -= 1 要写在 left += 1 之前','coral'],
+           [4,'坑二：长度少算一','窗口长度是 right − left + 1','coral'],
+           [5,'坑三：以为 maxf 必须准确','每次重算 max(count.values()) 也对，但每步多看 26 个字母','amber']]),
+  say:[
+  'O n，意思是每个字母进窗口、出窗口各最多一次。O 一空间，是因为只有大写字母，count 最多二十六个键。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n：right 走 n 步，每一步只做几次加减和比较。空间 O 一。',
+  '坑一：left 挪了，count 忘了减。要先把 s left 的次数减一，再让 left 加一，顺序反了就减错字母。',
+  '坑二：长度少算一。窗口从 left 到 right 两端都算，长度是 right 减 left 加一。',
+  '坑三：以为 maxf 必须准确，每次重算最大值。重算也对，但每步多看二十六个字母。上一幕已经讲清了，不减的 maxf 就够用。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："maxf 从来不减，不会算错吗？"')
+  + flow([[2,'条件','长度 − maxf ≤ k'],[2,'窗口','right 放进字母'],[3,'修不好','left 挪一格'],[4,'maxf','只增不减也对'],[4,'复杂度','O(n) / O(1)']])
+  + chips(4,['sliding window','two pointers','most frequent count','window never shrinks','O(n)','1004 Max Consecutive Ones III']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，maxf 从来不减，不会算错吗？',
+  '先讲做法：一段子串可修，当且仅当长度减它最多的字母次数小于等于 k。我用滑动窗口，right 每次放进一个字母。',
+  '放进来以后修不好，left 只挪一格，所以窗口从不变短，长度一直等于目前的最好答案。',
+  '再回答问题：答案想变大，maxf 必须先变大，而 maxf 变大的那一刻是真实的计数。过期的 maxf 只会让窗口平移。复杂度 O n。同类题还有 1004 题。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'条件','长度 − maxf ≤ k'],[0,'伸','right 放进字母'],[0,'挪','修不好 left + 1'],[0,'答案','最长的窗口']])
+  + cards([[1,'① 可修 ⟺ 长度 − maxf ≤ k','把不是多数字母的全换掉','amber'],
+           [2,'② right 伸长，修不好 left 只挪一格','窗口从不变短，长度就是 best','sky'],
+           [3,'③ maxf 只增不减也对','答案变大必须 maxf 变大，那一刻 maxf 是真的','mint']]),
+  say:[
+  '回顾一遍主线：可修的条件是长度减 maxf 小于等于 k；right 每次放进一个字母；修不好，left 挪一格；最长的窗口就是答案。',
+  '第一句：可修，等于长度减 maxf 小于等于 k，因为要把不是多数字母的全换掉。',
+  '第二句：right 一直伸长，修不好时 left 只挪一格。窗口从不变短，它的长度就是答案。',
+  '第三句：maxf 只增不减也是对的。答案想变大，maxf 必须先变大，而变大的那一刻，它是真实的。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/e150d294bc75.mp3", "0-1": "a/f713bf847334.mp3", "0-2": "a/8ef3e35e9dcc.mp3", "0-3": "a/6c8c3c07deb9.mp3", "1-0": "a/3bcaa536b33b.mp3", "1-1": "a/c4cc866453f6.mp3", "1-2": "a/158d06608673.mp3", "1-3": "a/c3e5c8a380c3.mp3", "1-4": "a/0767fdabe749.mp3", "2-0": "a/961f58a1bd35.mp3", "2-1": "a/2ef34493d0a9.mp3", "2-2": "a/974e5dab7127.mp3", "2-3": "a/e320c6a74de3.mp3", "2-4": "a/2f3769fb22d4.mp3", "2-5": "a/22679a89b087.mp3", "3-0": "a/6c06e2ee6657.mp3", "3-1": "a/d89995268ce0.mp3", "3-2": "a/d63a6d033877.mp3", "3-3": "a/43aa6c60c1fe.mp3", "3-4": "a/76dfb0d37124.mp3", "3-5": "a/6d62e2277e32.mp3", "4-0": "a/2e7db145d041.mp3", "4-1": "a/ea43fe41360c.mp3", "4-2": "a/5771bcd3da59.mp3", "4-3": "a/fb21996cde83.mp3", "4-4": "a/78a25e9f96b7.mp3", "4-5": "a/e0bc3328573f.mp3", "5-0": "a/769b2bbfb382.mp3", "5-1": "a/d4128e706e2a.mp3", "5-2": "a/f294decfde5b.mp3", "5-3": "a/36234dd44126.mp3", "5-4": "a/594c8531a67e.mp3", "5-5": "a/f43ed88ef12b.mp3", "5-6": "a/79f5c110a434.mp3", "6-0": "a/dc0244853be6.mp3", "6-1": "a/2d23c88cf73f.mp3", "6-2": "a/c68fbccc1c4d.mp3", "6-3": "a/7dbf62eea424.mp3", "6-4": "a/71a7c5e09789.mp3", "6-5": "a/3d23d3062a94.mp3", "7-0": "a/5de3163f3b70.mp3", "7-1": "a/77653f246e12.mp3", "7-2": "a/4f65d9a9658c.mp3", "7-3": "a/d000a67b65dc.mp3", "7-4": "a/be8e581b2dc2.mp3", "7-5": "a/8ec773c2571e.mp3", "8-0": "a/1dbee78208c8.mp3", "8-1": "a/ea13db0ab67d.mp3", "8-2": "a/8f4f9add0536.mp3", "8-3": "a/8dac5e11792f.mp3", "8-4": "a/8f5435bf2336.mp3", "8-5": "a/575d3cc7b6bb.mp3", "9-0": "a/21d7e616f631.mp3", "9-1": "a/c1a52180af51.mp3", "9-2": "a/ed31b275a12f.mp3", "9-3": "a/a7a619b520cc.mp3", "9-4": "a/0453c7d14670.mp3", "9-5": "a/4e12b808e938.mp3", "10-0": "a/bdf6488748f7.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/038b0ce8b3e1.mp3", "10-3": "a/94fe25ea9d1b.mp3", "10-4": "a/1154c6f17637.mp3", "10-5": "a/5d3c9969962b.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/c0075d661158.mp3", "11-2": "a/18d337e4a80b.mp3", "11-3": "a/f50cd2df4dd6.mp3", "11-4": "a/ec8a3620cce4.mp3", "12-0": "a/ba70ff015dd5.mp3", "12-1": "a/539a4fde865d.mp3", "12-2": "a/512a10ee953a.mp3", "12-3": "a/d126874f477e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Search the Turned Array</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Search the Turned Array', template:'prep', lang:'en', sub:'LeetCode 33 Search in Rotated Sorted Array · animated walkthrough', key:'lc33envid', doc:'LeetCode 33', blurb:'Try plain binary search and see how it fails at the break; then use 153 to find the break first and do it in two passes; finally the one-pass key: at any point one half is always sorted, so look only at that half and let two comparisons decide where to go.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: find a number in a turned array','The problem: return the index','Plain binary search: stuck at the break','Find the break first: works, takes two passes','The key: one half is always sorted','Two comparisons, drop one half','Walk through: find 0','Walk through: find 3','That equals sign: [3, 1]','Unlike 153: left <= right','Write the code','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip with L / M / R markers per step; cells outside the range dim out; green bar = sorted half this step ---------- */
+const BCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.bs{display:grid;gap:5px;justify-content:center;margin:0 auto .4em}
+.bs>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.bs>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.bs>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.35em}
+.bs>.v.min{border-color:var(--mint)}
+.bs .dim.s{position:absolute;inset:0;border-radius:8px;background:rgba(10,17,36,.82);transform:none}
+.bs .dim.s:not(.on){opacity:0}
+.bs .ans.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--mint);transform:none}
+.bs .ans.s:not(.on){opacity:0}
+.bs .srt.s{position:absolute;left:-3px;right:-3px;bottom:-6px;height:3px;border-radius:2px;background:var(--mint);box-shadow:none;transform:none;opacity:0!important}
+.bs .srt.s.now{opacity:1!important}
+.bs>.mk{height:1.6em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.bs .mk span.s{position:absolute;opacity:0!important;transform:none}
+.bs .mk span.s.now{opacity:1!important}
+.bs .mk .L{color:var(--sky)} .bs .mk .R{color:var(--coral)} .bs .mk .M{color:var(--amber)}
+</style>`;
+// st: [[step, left, right, mid|null, sortedFrom?, sortedTo?]]; ans: [step, k]
+function bs(nums, st=[], ans=null){
+  const n = nums.length;
+  let h = BCSS + `<div class="bs" style="grid-template-columns:repeat(${n},2.7em)">`;
+  h += nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += nums.map((v,k)=>{
+    const firstOut = st.find(([,l,r])=>k<l||k>r);
+    const srt = st.filter(e=>e[4]!=null&&k>=e[4]&&k<=e[5]).map(e=>`<i class="srt s" data-s="${e[0]}"></i>`).join('');
+    return `<div class="v ${ans&&ans[1]===k?'min':''}">${v}${firstOut?`<i class="dim s" data-s="${firstOut[0]}"></i>`:''}${ans&&ans[1]===k?`<i class="ans s" data-s="${ans[0]}"></i>`:''}${srt}</div>`;
+  }).join('');
+  h += nums.map((_,k)=>`<div class="mk">${st.map(([s,l,r,m])=>{
+    const t = [k===l?'<span class="L">L</span>':'', k===m?'<span class="M">M</span>':'', k===r?'<span class="R">R</span>':''].filter(Boolean).join('');
+    return t?`<span class="s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+const A = [4,5,6,7,0,1,2];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Search the turned array<br><em>LeetCode 33</em>', vis:
+  gloss(0,[['rotated sorted array','A sorted array with a chunk from the front moved to the end, for example [4,5,6,7,0,1,2]'],['binary search','Look at the middle each time and throw away half the range'],['sorted half','The left half or right half where the numbers go up without a break']])
+  + flow([[1,'Read','find the index of target'],[2,'Plain binary search','stuck at the break'],[2,'Find the break first','works, two passes'],[3,'One half sorted','look only at that half'],[3,'Two comparisons','inside the range or not'],[3,'Code','O(log n)']]),
+  say:[
+  'This lesson covers LeetCode 33, Search in Rotated Sorted Array. First, three words: a rotated sorted array is a sorted array with a chunk from the front moved to the end. Binary search looks at the middle and throws away half. A sorted half is the left or right half with no break in it.',
+  'This problem is the sequel to 153. Last time we found the minimum. This time we look for a given number, target, and return its index.',
+  'First we try plain binary search and see where it goes wrong. Then we use 153 to find the break first. That works, but it takes two passes.',
+  'Then comes the one-pass key: at least one of the two halves is sorted, so look only at that half, and two comparisons are enough. Finally, we write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>return the index</em>', vis:
+  gloss(0,[['target','The number to find'],['index','The position number, counting from 0'],['-1','What to return when it is not found']])
+  + duo(bs(A,[],[2,4]),
+    q(1,'nums = [4, 5, 6, 7, 0, 1, 2]. What do we return for target = 0? And for target = 3?')
+    + cards([[2,'target = 0 → 4','0 is at index 4; return the position, not the number','mint'],
+             [3,'target = 3 → -1','There is no 3 in the array','coral'],
+             [4,'Need O(log n)','All numbers are distinct; a scan is O(n), so use binary search','amber']])),
+  say:[
+  'Target is the number to find. The index is the position number, counting from zero. If it is not found, return minus 1.',
+  'The question for this scene: nums is 4, 5, 6, 7, 0, 1, 2. What do we return when target is 0? And when target is 3?',
+  '0 is at index 4, so we return 4. We return the position, not the number itself.',
+  'When target is 3, there is no 3 in the array at all, so we return minus 1.',
+  'All numbers in the array are distinct. A scan from the start is big O of n, but the problem wants big O of log n, so we need binary search.'
+]});
+
+/* ===== 2 Plain binary search ===== */
+add({ch:2, title:'Plain binary search: <em>stuck at the break</em>', vis:
+  gloss(0,[['plain binary search','If target is smaller than nums[mid] go left, if bigger go right'],['precondition','Plain binary search needs the whole range to be sorted']])
+  + duo(bs(A,[[2,0,6,3],[3,0,2,null]],[4,4]),
+    q(1,'Use plain binary search directly on [4, 5, 6, 7, 0, 1, 2] to find 0. What happens?')
+    + cards([[2,'mid = 3, nums[3] = 7','0 is smaller than 7 → plain binary search goes left','amber'],
+             [3,'right = 2','The four cells on the right are thrown away, leaving [4, 5, 6]','coral'],
+             [4,'0 is on the side we threw away','The precondition broke: the whole array is not sorted','coral']])),
+  say:[
+  'Plain binary search goes left if target is smaller than nums of mid, and right if it is bigger. It has a precondition: the whole range is sorted.',
+  'The question for this scene: if we use plain binary search directly on 4, 5, 6, 7, 0, 1, 2 to find 0, what happens?',
+  'The range is 0 to 6, mid is 3, and nums of 3 is 7. 0 is smaller than 7, so plain binary search says: go left.',
+  'Right becomes 2. The four cells on the right are thrown away, leaving only 4, 5, 6.',
+  'But 0 is on the side we threw away, at index 4. The precondition broke: after rotation the array is no longer sorted, so numbers smaller than mid can also sit on the right.'
+]});
+
+/* ===== 3 Find the break first ===== */
+add({ch:3, title:'Find the break first: <em>works, two passes</em>', vis:
+  gloss(0,[['the break','Where a number is bigger than the next one; the minimum is right after it (problem 153)'],['two passes','One binary search to find the break, then another to find target']])
+  + duo(bs(A,[[3,4,6,null]],[2,4]),
+    q(1,'Plain binary search needs sorted input. So what if we cut the array into two sorted pieces first, then search?')
+    + cards([[2,'Pass 1: find the minimum with 153','0 is at index 4: [4, 5, 6, 7] and [0, 1, 2] are each sorted','sky'],
+             [3,'Pass 2: plain binary search on one piece','0 < nums[0] = 4, not in the left piece → search [0, 1, 2], get 4','mint'],
+             [4,'It works, but takes two passes','Two binary searches with different loop conditions; can we do one?','amber']])),
+  say:[
+  'The break is where a number is bigger than the next one, and the minimum is right after it. Two passes means one binary search to find the break, then another to find target.',
+  'The question for this scene: plain binary search needs sorted input. So what if we cut the array into two sorted pieces first, then search?',
+  'Pass one: use the code from 153 to find the minimum. 0 is at index 4. So 4, 5, 6, 7 and 0, 1, 2 are each sorted.',
+  'Pass two: run plain binary search on one piece. 0 is smaller than the first number, 4, so it is not in the left piece. We search 0, 1, 2 and get 4. Searching for 3 works the same way: not found on the right, return minus 1.',
+  'This approach is correct, and it is also big O of log n. But we have to write two binary searches, with different loop conditions. Can we do it in one pass?'
+]});
+
+/* ===== 4 One half is always sorted ===== */
+add({ch:4, title:'The key: <em>one half is always sorted</em>', vis:
+  gloss(0,[['[left, mid]','From index left to mid: the left half'],['[mid, right]','From index mid to right: the right half'],['green bar','The half that is sorted']])
+  + duo(bs(A,[[2,0,6,3],[3,0,6,3,0,3]]) + bs([6,7,0,1,2,4,5],[[4,0,6,3,3,6]]),
+    q(1,'The array as a whole is not sorted. But of the two halves mid cuts it into, is one of them sorted?')
+    + cards([[2,'There is only one break','mid cuts the range into two halves, and the break can land in only one','sky'],
+             [3,'The half without the break is sorted','mid = 3: the break is on the right, so the left half [4, 5, 6, 7] is sorted','mint'],
+             [4,'nums[left] <= nums[mid] → left half sorted','Otherwise the right half: 6 > 1, so the right half [1, 2, 4, 5] is sorted','amber']])),
+  say:[
+  'Left to mid is the left half, and mid to right is the right half. Both halves include mid. The green bar marks the sorted half.',
+  'The question for this scene: the array as a whole is not sorted. But of the two halves that mid cuts it into, is one of them sorted?',
+  'A rotated array has only one break. Mid cuts the range into two halves, and the break can land in only one of them.',
+  'The half without the break goes up without breaking, so it is sorted. In 4, 5, 6, 7, 0, 1, 2 with mid at 3, the break is on the right, so the left half 4, 5, 6, 7 is sorted.',
+  'How do we tell which half? If nums of left is less than or equal to nums of mid, the left half is sorted. Otherwise the right half is. For example in 6, 7, 0, 1, 2, 4, 5, mid is 3 and 6 is bigger than 1, so the right half 1, 2, 4, 5 is sorted.'
+]});
+
+/* ===== 5 Two comparisons ===== */
+add({ch:5, title:'Two comparisons, <em>drop one half</em>', vis:
+  gloss(0,[['range','A sorted piece: smallest is the first number, largest is the last'],['elimination','If it is not in the sorted half, it must be in the other half']])
+  + q(1,'Once we know which half is sorted, which half do we throw away?')
+  + tbl(['Sorted half','Is target inside?','Yes','No'],[
+    [2,'Left','nums[left] <= target < nums[mid]','right = mid − 1','left = mid + 1'],
+    [3,'Right','nums[mid] < target <= nums[right]','left = mid + 1','right = mid − 1']])
+  + cards([[4,'Only ask about the sorted half','Its two ends tell you yes or no; the messy half cannot, so use elimination','mint']]),
+  say:[
+  'In a sorted piece, the first number is the smallest and the last is the largest. That is its range. Elimination means: if it is not in the sorted half, it is in the other one.',
+  'The question for this scene: once we know which half is sorted, which half do we throw away?',
+  'When the left half is sorted, ask: is nums of left less than or equal to target, and target less than nums of mid? If yes, right equals mid minus 1. If no, left equals mid plus 1.',
+  'When the right half is sorted, flip it: if nums of mid is less than target, and target is less than or equal to nums of right, left equals mid plus 1. Otherwise right equals mid minus 1.',
+  'The key is to ask only about the sorted half, where the two ends tell you yes or no. The messy half cannot be checked that way, so we use elimination. Mid was already checked for equality, so the mid side uses strict less than.'
+]});
+
+/* ===== 6 Walk through: find 0 ===== */
+add({ch:6, title:'Walk through: <em>find 0</em>', vis:
+  gloss(0,[['L, M, R','The three indexes left, mid, right'],['dimmed','Cells already thrown out of the range']])
+  + duo(bs(A,[[2,0,6,3,0,3],[3,4,6,5,4,5],[4,4,4,4],[5,4,4,4]],[5,4]),
+    q(1,'Find 0 in [4, 5, 6, 7, 0, 1, 2]. Which half do we throw away each round?')
+    + term('Each round',[
+      [2,'o','M=3  7≠0  left 4..7 sorted, 0 not in → left = 4'],
+      [3,'o','M=5  1≠0  left 0..1 sorted, 0 in → right = 4'],
+      [4,'o','M=4  nums[4] == 0'],
+      [5,'hl','return 4, three rounds']])),
+  say:[
+  'L, M and R are the three indexes left, mid and right. The green bar is the sorted half this round, and dimmed cells have been thrown out of the range.',
+  'The question for this scene: finding 0 in 4, 5, 6, 7, 0, 1, 2, which half do we throw away each round?',
+  'Round one: mid is 3, and 7 is not 0. 4 is less than or equal to 7, so the left half 4 to 7 is sorted. 0 is not in it, so we drop the left half: left equals 4.',
+  'Round two: the range is 4 to 6, mid is 5, and 1 is not 0. The left half 0, 1 is sorted, and 0 is in it, so we go left: right equals 4.',
+  'Round three: left, right and mid are all 4, and nums of 4 equals 0. Found it.',
+  'Three rounds, and we return index 4. Each round we look only at the sorted half, and two comparisons decide which side to drop.'
+]});
+
+/* ===== 7 Walk through: find 3 ===== */
+add({ch:7, title:'Walk through: <em>find 3</em>', vis:
+  gloss(0,[['empty range','left > right: not a single number left in the range']])
+  + duo(bs(A,[[2,0,6,3,0,3],[3,4,6,5,4,5],[4,6,6,6,6,6],[5,7,6,null]]),
+    q(1,'Find 3 in the same array. There is no 3, so how does the loop stop?')
+    + term('Each round',[
+      [2,'o','M=3  7≠3  left 4..7 sorted, 3 not in → left = 4'],
+      [3,'o','M=5  1≠3  left 0..1 sorted, 3 not in → left = 6'],
+      [4,'o','M=6  2≠3  left half is just 2, 3 not in → left = 7'],
+      [5,'e','left = 7 > right = 6 → return -1']])),
+  say:[
+  'An empty range means left has moved past right, and not a single number is left in the range.',
+  'The question for this scene: find 3 in the same array. There is no 3, so how does the loop stop?',
+  'Round one: mid is 3, and 7 is not 3. The left half 4, 5, 6, 7 is sorted, 3 is not in it, so left equals 4.',
+  'Round two: the range is 4 to 6, mid is 5, and 1 is not 3. The left half 0, 1 is sorted, 3 is not in it either, so left equals 6.',
+  'Round three: only index 6 is left, mid is 6, and 2 is not 3. The left half is just 2 itself, 3 is not in it, so left equals 7.',
+  'Now left is 7 and right is 6. The range is empty, the loop ends, and we return minus 1.'
+]});
+
+/* ===== 8 That equals sign ===== */
+add({ch:8, title:'That equals sign: <em>find 1 in [3, 1]</em>', vis:
+  gloss(0,[['<=','Less than or equal: equal also counts']])
+  + duo(bs([3,1],[[2,0,1,0,0,0],[3,1,1,1]],[3,1]),
+    q(1,'Find 1 in [3, 1]. What happens if the left-half check is written nums[left] < nums[mid]?')
+    + term('Two versions',[
+      [2,'o','L=0 R=1 M=0  nums[left] and nums[mid] are the same number'],
+      [3,'hl','<= : left half [3] sorted, 1 not in → left = 1 → return 1'],
+      [4,'e','<  : thinks right half [3, 1] is sorted → right = -1 → return -1 ✗'],
+      [5,'hl','With two numbers mid == left: one number is always sorted']])),
+  say:[
+  'Less than or equal means equal also counts. This scene looks at the moment only two numbers are left.',
+  'The question for this scene: find 1 in 3, 1. What happens if the left-half check is written as nums of left less than nums of mid?',
+  'Left is 0, right is 1, and mid is 0. 3 is not 1. Right now nums of left and nums of mid are the same number.',
+  'With less than or equal: 3 is less than or equal to 3, which holds. The left half is just 3, which is sorted. 1 is not in it, so left equals 1. Next round mid is 1, we find it, and return 1.',
+  'With less than: 3 less than 3 is false, so the code thinks the right half is sorted. But the right half 3, 1 is not sorted at all. 1 is not between 3 and 1, so right equals minus 1, and we return minus 1. Wrong.',
+  'So remember: with two numbers, mid always equals left. The left half is a single number, and a single number is always sorted. This equals sign is required.'
+]});
+
+/* ===== 9 Unlike 153 ===== */
+add({ch:9, title:'Unlike 153: <em>left <= right</em>', vis:
+  gloss(0,[['closed range [left, right]','The indexes at both ends are still being considered']])
+  + q(1,'153 uses while left < right and right = mid. Why does this problem switch to left <= right and mid ± 1?')
+  + tbl(['','153 find minimum','33 find target'],[
+    [2,'mid checked?','No, mid could still be the minimum','First check nums[mid] == target'],
+    [3,'Update','right = mid, keep mid','Not equal, so drop mid: mid ± 1'],
+    [4,'Loop condition','left < right: the last one is the answer','left <= right: the last one is unchecked']])
+  + cards([[5,'Counterexample: find 5 in [5]','With left < right the loop never runs, return -1 ✗','coral']]),
+  say:[
+  'A closed range means the indexes at both ends, left and right, are still being considered.',
+  'The question for this scene: 153 uses while left less than right, and right equals mid. Why does this problem switch to left less than or equal to right, and mid plus or minus 1?',
+  'The difference is whether mid gets checked. 153 never compares mid for equality, and mid could still be the minimum. Here, every round first checks whether nums of mid is target.',
+  '153 must keep mid, so right equals mid. Here mid was checked and is not equal, so it is definitely not the answer, and we drop it: mid plus 1 or mid minus 1. The range shrinks every round, so there is no infinite loop.',
+  'In 153 the last number left is the answer, so we stop at left less than right. Here the last number has not been checked yet and needs one more round, so it is left less than or equal to right.',
+  'Counterexample: the array is just 5, and we look for 5. With left less than right, the loop never runs, and we return minus 1. Wrong.'
+]});
+
+/* ===== 10 Write the code ===== */
+add({ch:10, title:'The code: <em>one binary search</em>', vis:
+  gloss(0,[['chained comparison','In Python a <= x < b means a <= x and x < b']])
+  + term('solution.py',[
+    [2,'o','def search(nums, target):'],
+    [2,'o','    left, right = 0, len(nums) - 1'],
+    [2,'hl','    while left <= right:'],
+    [3,'o','        mid = left + (right - left) // 2'],
+    [3,'hl','        if nums[mid] == target:'],
+    [3,'o','            return mid'],
+    [4,'hl','        if nums[left] <= nums[mid]:            # left half sorted'],
+    [4,'o','            if nums[left] <= target < nums[mid]:'],
+    [4,'o','                right = mid - 1'],
+    [4,'o','            else:'],
+    [4,'o','                left = mid + 1'],
+    [5,'o','        else:                                # right half sorted'],
+    [5,'o','            if nums[mid] < target <= nums[right]:'],
+    [5,'o','                left = mid + 1'],
+    [5,'o','            else:'],
+    [5,'o','                right = mid - 1'],
+    [6,'o','    return -1']])
+  + q(1,'Which lines hold each step we covered?'),
+  say:[
+  'A chained comparison: in Python, a less than or equal to x less than b means a is less than or equal to x, and x is less than b.',
+  'The question for this scene: which lines of the code hold each step we covered?',
+  'At the start the range is the whole array. The loop condition is left less than or equal to right, so even a single number gets checked.',
+  'Each round we compute mid, remembering to add left. Then we check equality first, and return the index if found.',
+  'If the left end is less than or equal to the middle, the left half is sorted, and this equals sign must stay. If target is in the left half range, go left, otherwise go right.',
+  'Otherwise the right half is sorted: if target is in the right half range, go right, otherwise go left.',
+  'If the range becomes empty without a match, return minus 1. Time is big O of log n, and space is big O of 1.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, and write code after the interviewer nods']])
+  + q(1,'The interviewer asks: "The array is not sorted. Why can you use binary search?"')
+  + flow([[2,'One half sorted','only one break'],[3,'Check the sorted half','two comparisons'],[3,'Inside: keep it','else the other half'],[4,'<= and mid ± 1','mid already checked'],[4,'Complexity','O(log n)']])
+  + chips(4,['rotated sorted array','one half is always sorted','check the sorted half','left <= right','mid is already checked','O(log n)']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer nods.',
+  'The question for this scene: the interviewer asks, the array is not sorted, so why can you use binary search?',
+  'Start with the key: a rotated array has only one break. Mid cuts the range into two halves, the break can be in only one of them, so the other half is always sorted.',
+  'I look only at the sorted half. Its range is just its two ends, so two comparisons tell me whether target is inside. If yes, keep that half; if no, go to the other half. Each round throws away half, so it is big O of log n.',
+  'Then mention two details: the left-half check uses less than or equal, to handle the two-number case; and mid has already been checked, so we use left less than or equal to right, with mid plus or minus 1. The key phrase is: one half is always sorted.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'One half sorted','only one break'],[0,'Two comparisons','in the sorted half or not'],[0,'<=','the two-number case'],[0,'mid ± 1','mid already checked']])
+  + cards([[1,'① At any mid, at least one half is sorted','nums[left] <= nums[mid] → left half sorted, otherwise the right','amber'],
+           [2,'② Only ask the sorted half: is target inside?','Yes: keep it. No: go to the other half','sky'],
+           [3,'③ Check mid first, then mid ± 1, left <= right','Unlike 153: here mid has already been checked','mint']]),
+  say:[
+  'The main thread once more: plain binary search gets stuck at the break. There is only one break, so one half is always sorted. Look only at that half, and two comparisons decide which way to go.',
+  'Number one: at any mid, at least one of the two halves is sorted. If nums of left is less than or equal to nums of mid, the left half is sorted, otherwise the right half is. Do not drop the equals sign.',
+  'Number two: ask only about the sorted half, whether target is inside its range. If yes, keep that half; if no, go to the other half.',
+  'Number three: first check whether nums of mid equals target, then move mid plus 1 or minus 1, with the loop condition left less than or equal to right. This differs from 153 because here mid has already been checked.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/63ba5c85925f.mp3", "0-1": "a/f6ee5f11bccd.mp3", "0-2": "a/142f992c9fcf.mp3", "0-3": "a/1e4a60333aad.mp3", "1-0": "a/3678a82c9589.mp3", "1-1": "a/bb8eeb5e621e.mp3", "1-2": "a/0ac38d2c2215.mp3", "1-3": "a/23f6440c29cc.mp3", "1-4": "a/838ae1032245.mp3", "2-0": "a/fd5362d8925f.mp3", "2-1": "a/ebdec113e74e.mp3", "2-2": "a/c09953a95286.mp3", "2-3": "a/b5dd65c87196.mp3", "2-4": "a/b6a2053d13b0.mp3", "3-0": "a/98d276405a90.mp3", "3-1": "a/12abb4f11875.mp3", "3-2": "a/14de014ba859.mp3", "3-3": "a/98dfb1c5bf42.mp3", "3-4": "a/d273731048ac.mp3", "4-0": "a/9f70d2c96588.mp3", "4-1": "a/c9ac31162056.mp3", "4-2": "a/ce75d679811f.mp3", "4-3": "a/bd71e485c202.mp3", "4-4": "a/429e75febf97.mp3", "5-0": "a/5a08bbc4179a.mp3", "5-1": "a/ab5a62df0d27.mp3", "5-2": "a/a5226b6570e8.mp3", "5-3": "a/b7db8e5cd65c.mp3", "5-4": "a/b406feea8a5d.mp3", "6-0": "a/e3e65bd16e69.mp3", "6-1": "a/ea3a7311cdc2.mp3", "6-2": "a/95cbaafb5698.mp3", "6-3": "a/34097a651da8.mp3", "6-4": "a/d77f16fd1f58.mp3", "6-5": "a/0131819b883d.mp3", "7-0": "a/ac002cf441b9.mp3", "7-1": "a/117826a150b3.mp3", "7-2": "a/1ff85c70fe51.mp3", "7-3": "a/28055911567f.mp3", "7-4": "a/9f49a362bdc7.mp3", "7-5": "a/ef5e5a26f303.mp3", "8-0": "a/6859461ca521.mp3", "8-1": "a/827980de54cc.mp3", "8-2": "a/0a4a046f7a3f.mp3", "8-3": "a/19c88903ee6f.mp3", "8-4": "a/5712aa0dcdfb.mp3", "8-5": "a/696ecc296da0.mp3", "9-0": "a/99a36790443e.mp3", "9-1": "a/6d6995b97ac8.mp3", "9-2": "a/3e31d7880c86.mp3", "9-3": "a/e2fe304dd2b0.mp3", "9-4": "a/61a1aced30ef.mp3", "9-5": "a/7ee628341d69.mp3", "10-0": "a/22d461ef570c.mp3", "10-1": "a/7cfde6bf7ae7.mp3", "10-2": "a/6f9adbd530f9.mp3", "10-3": "a/bc3b1062e491.mp3", "10-4": "a/7c9f62453470.mp3", "10-5": "a/6bb09039b4b2.mp3", "10-6": "a/e6f10f6b78e1.mp3", "11-0": "a/08a5f490c081.mp3", "11-1": "a/6b3f073f6bd7.mp3", "11-2": "a/6282dc9b8db5.mp3", "11-3": "a/5bdc7c29b613.mp3", "11-4": "a/9a70cff701b3.mp3", "12-0": "a/1314b349d543.mp3", "12-1": "a/a14b1791b583.mp3", "12-2": "a/4594ecf9fbf2.mp3", "12-3": "a/0a20e550f811.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tree in One Line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Tree in One Line', template:'prep', lang:'en', sub:'LeetCode 297 Serialize and Deserialize Binary Tree · animated walkthrough', key:'lc297envid', doc:'LeetCode 297', blurb:'Start from writing down the preorder values: 1,2,3,4,5 fits two different trees; add a # for every empty spot and preorder alone rebuilds the tree, using one pointer that reads the tokens back in the same order.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: saving a tree','Binary trees from zero','The problem: to a string and back','Preorder traversal and recursion','Instinct: values only are ambiguous','Key idea: write # for empty spots','Animation: serialize writes the string','Animation: deserialize rebuilds the tree','Write the code','Check: three round trips','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- binary tree (SVG) + token strip; .only + .now = state that shows at one step only ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tv{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.tv .s:not(.on){opacity:0}
+.tv .only.s{opacity:0!important} .tv .only.s.now{opacity:1!important}
+.tv line{stroke:var(--sky);stroke-width:2.5}
+.tv line.nl{stroke:var(--dim);stroke-dasharray:4 4;stroke-width:1.5}
+.tv circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.tv circle.done{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.tv circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.tv rect{fill:rgba(255,122,107,.15);stroke:var(--coral);stroke-width:1.5}
+.tv rect.ring{fill:none;stroke:var(--amber);stroke-width:3}
+.tv text{fill:var(--paper);font-family:var(--f-display);font-size:19px;text-anchor:middle;dominant-baseline:central}
+.tv text.nul{font-family:var(--f-mono);font-size:13px;fill:var(--coral)}
+.tv text.ord{font-family:var(--f-mono);font-size:13px;font-weight:700;fill:var(--amber)}
+.ts{display:grid;gap:3px;justify-content:center;margin:.35em auto 0}
+.ts>div{position:relative;display:grid;place-items:center;border-radius:6px;font-family:var(--f-mono)}
+.ts>.ix{height:1.1em;color:var(--dim);font-size:.62em}
+.ts>.v{height:2.1em;border:1px solid var(--line);background:rgba(10,17,36,.85);font-size:.9em}
+.ts>.v b{position:relative;z-index:1;font-weight:700}
+.ts>.v b.h{color:var(--coral)}
+.ts .v>b.s{position:absolute;inset:0;display:grid;place-items:center;border-radius:5px;transform:none}
+.ts .v>b.s:not(.on){opacity:0}
+.ts .used.s{position:absolute;inset:0;border-radius:5px;background:rgba(98,224,180,.3);transform:none}
+.ts .used.s:not(.on){opacity:0}
+.ts>.pt{height:1.3em;color:var(--amber);font-size:.9em}
+.ts .pt span.s{position:absolute;opacity:0!important;transform:none} .ts .pt span.s.now{opacity:1!important}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:.3em}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const NR = 19;
+// T: {nodes:{id:[x,y]}, edges:[[parent,child]], nulls:[[parent,x,y]], h}
+// o: nodeAt {id:step}, nulls true | {idx:step}, done {id:step}, ord {id:[step,txt]}, ring [[step,[id | 'n'+idx]]], cap [[step,html]]
+function tv(T, o={}){
+  const h = T.h||250;
+  const wrap = (st, inner) => st==null ? inner : `<g class="s" data-s="${st}">${inner}</g>`;
+  const at = id => o.nodeAt ? o.nodeAt[id] : null;
+  const nullOn = i => o.nulls===true || (o.nulls && o.nulls[i]!=null);
+  const nullAt = i => o.nulls===true ? null : o.nulls[i];
+  let s = TCSS + `<svg class="tv" viewBox="0 0 340 ${h}" role="img" aria-label="binary tree">`;
+  T.edges.forEach(([a,b])=>{ const [x1,y1]=T.nodes[a],[x2,y2]=T.nodes[b]; s += wrap(at(b), `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`); });
+  (T.nulls||[]).forEach(([p,x,y],i)=>{ if(!nullOn(i)) return; const [px,py]=T.nodes[p];
+    s += wrap(nullAt(i), `<line class="nl" x1="${px}" y1="${py+NR}" x2="${x}" y2="${y-10}"/><rect x="${x-13}" y="${y-10}" width="26" height="20" rx="4"/><text class="nul" x="${x}" y="${y}">#</text>`); });
+  Object.entries(T.nodes).forEach(([id,[x,y]])=>{
+    let g = `<circle cx="${x}" cy="${y}" r="${NR}"/>`;
+    if(o.done && o.done[id]!=null) g += `<g class="s" data-s="${o.done[id]}"><circle class="done" cx="${x}" cy="${y}" r="${NR}"/></g>`;
+    g += `<text x="${x}" y="${y}">${id}</text>`;
+    if(o.ord && o.ord[id]) g += `<text class="ord s" data-s="${o.ord[id][0]}" x="${x+NR+9}" y="${y-NR+2}">${o.ord[id][1]}</text>`;
+    s += wrap(at(id), g);
+  });
+  (o.ring||[]).forEach(([st,ids])=>ids.forEach(id=>{
+    if(String(id)[0]==='n'){ const [,x,y]=T.nulls[+String(id).slice(1)]; s += `<rect class="ring only s" data-s="${st}" x="${x-17}" y="${y-14}" width="34" height="28" rx="6"/>`; }
+    else { const [x,y]=T.nodes[id]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${NR+6}"/>`; }
+  }));
+  s += `</svg>`;
+  if(o.cap) s += `<div class="qrow">${o.cap.map(([st,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return s;
+}
+// o: w {k:step} token appears when written; used {k:step} token consumed; ptr [[step,k]] next token to read
+function ts(toks, o={}){
+  const n = toks.length;
+  let h = `<div class="ts" style="grid-template-columns:repeat(${n},minmax(0,1.9em))">`;
+  h += toks.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += toks.map((t,k)=>{ const cls = t==='#'?'h':'';
+    const inner = o.w ? `<b class="s ${cls}" data-s="${o.w[k]}">${t}</b>` : `<b class="${cls}">${t}</b>`;
+    return `<div class="v">${o.used&&o.used[k]!=null?`<i class="used s" data-s="${o.used[k]}"></i>`:''}${inner}</div>`; }).join('');
+  if(o.ptr) h += toks.map((_,k)=>`<div class="pt">${o.ptr.filter(p=>p[1]===k).map(([st])=>`<span class="s" data-s="${st}">▲</span>`).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+// example tree [1,2,3,null,null,4,5]; nulls listed in preorder: 2.L, 2.R, 4.L, 4.R, 5.L, 5.R
+const EX = {nodes:{1:[150,32],2:[80,100],3:[220,100],4:[175,168],5:[265,168]}, edges:[[1,2],[1,3],[3,4],[3,5]],
+  nulls:[[2,50,160],[2,110,160],[4,150,226],[4,200,226],[5,240,226],[5,290,226]], h:250};
+// a different tree with the same plain preorder 1,2,3,4,5; nulls: 3.L, 3.R, 4.L, 4.R, 5.L, 5.R
+const ALT = {nodes:{1:[170,32],2:[100,100],5:[240,100],3:[60,168],4:[140,168]}, edges:[[1,2],[1,5],[2,3],[2,4]],
+  nulls:[[3,35,226],[3,85,226],[4,115,226],[4,165,226],[5,215,160],[5,265,160]], h:250};
+const SER = '1,2,#,#,3,4,#,#,5,#,#'.split(',');
+const SER_ALT = '1,2,3,#,#,4,#,#,5,#,#'.split(',');
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Tree in One Line<br><em>LeetCode 297</em>', vis:
+  gloss(0,[['binary tree','Every node has at most two children: a left child and a right child'],['serialize','Turn the tree into one string you can save or send'],['preorder traversal','Root first, then the left subtree, then the right subtree'],['recursion','A function hands the same problem to a smaller copy of itself']])
+  + flow([[1,'Meet the tree','nodes and empty spots'],[1,'Instinct','write preorder values'],[2,'Stuck','two trees, one string'],[2,'Key idea','write # for empty spots'],[3,'Animation','write out / build back'],[3,'Code','two recursions']]),
+  say:[
+  'This lesson covers LeetCode 297, Serialize and Deserialize Binary Tree. First, four words. A binary tree is a tree where every node has at most two children. Serialize means turning the tree into one string. Preorder traversal means root, then left, then right. Recursion means a function hands the same problem to a smaller copy of itself.',
+  'We start from the most natural idea: write down the node values in preorder. Then we will see two different trees produce exactly the same string.',
+  'The fix is one small move: write a hash sign for every empty spot too. The animations show how the string gets written, and how the tree is rebuilt one token at a time.',
+  'Finally we write the code, check round trips, and cover complexity and how to explain it in an interview.'
+]});
+
+/* ===== 1 Binary trees from zero ===== */
+add({ch:1, title:'Binary trees, <em>from zero</em>', vis:
+  gloss(0,[['node','One circle in the tree, holding one value'],['root','The node at the very top'],['left / right child','The node hanging below on the left, or on the right'],['empty spot, None','A place where a child could be, but there is nothing']])
+  + duo(tv(EX,{nodeAt:{1:2,2:2,3:2,4:4,5:4}, nulls:{0:3,1:3}}),
+    q(1,'LeetCode writes [1, 2, 3, null, null, 4, 5]. What tree does that draw?')
+    + cards([[2,'Read it level by level','The root is 1; its left child is 2, its right child is 3','sky'],
+             [3,'null = empty spot','Both spots under 2 are empty: 2 is a leaf','coral'],
+             [4,'4 and 5 are the children of 3','Empty spots do not grow further','mint']])),
+  say:[
+  'A node is one circle in the tree, holding one value. The root is the node at the very top. The node hanging below on the left is the left child, and the one on the right is the right child. A place where a child could be but there is nothing is an empty spot, written None in Python.',
+  'The question for this scene: LeetCode writes 1, 2, 3, null, null, 4, 5. What tree does that draw?',
+  'LeetCode reads level by level, left to right. The first value is the root, 1. On the next level come its left child 2 and its right child 3.',
+  'Next come the two children of 2: null and null, so both spots are empty. A node with no children is called a leaf, so 2 is a leaf.',
+  'Last come the two children of 3, which are 4 and 5. This is the example tree we use for the whole lesson.'
+]});
+
+/* ===== 2 The problem ===== */
+add({ch:2, title:'The problem: <em>to a string and back</em>', vis:
+  gloss(0,[['string','One line of text that you can write to a file or send over the network'],['deserialize','Turn the string back into the tree']])
+  + q(1,'Which two functions do we write? What counts as "rebuilt"?')
+  + flow([[2,'Tree','in memory'],[2,'serialize','tree → string'],[3,'String','save it, send it'],[3,'deserialize','string → tree'],[4,'Same tree','same shape, same values']])
+  + cards([[4,'Same shape, same value in every position','only then is it the same tree','mint'],
+           [5,'You pick the string format','as long as your own deserialize can read it','amber']]),
+  say:[
+  'A string is one line of text that you can write to a file or send over the network. Deserialize goes the other way: it turns the string back into the tree.',
+  'The question for this scene: which two functions do we write, and what counts as rebuilt?',
+  'The first function is serialize. It takes the root of a tree and returns a string. The tree used to live only in memory; as a string, it can be saved or sent.',
+  'The second function is deserialize. It takes that string and returns a tree.',
+  'Rebuilt means exactly the same shape, with the same value in every position.',
+  'The problem does not fix the string format. You pick it, as long as your deserialize can read it.'
+]});
+
+/* ===== 3 Preorder and recursion ===== */
+add({ch:3, title:'Preorder traversal, <em>and recursion</em>', vis:
+  gloss(0,[['traversal','Visiting every node exactly once'],['subtree','A node plus everything below it'],['base case','Hit an empty spot: return right away, go no deeper']])
+  + q(1,'In what order does preorder visit this tree? How does recursion do it?')
+  + duo(tv(EX,{ord:{1:[3,'1st'],2:[3,'2nd'],3:[4,'3rd'],4:[5,'4th'],5:[5,'5th']}, ring:[[3,['1','2']],[4,['3']],[5,['4','5']]]}),
+    term('preorder.py',[
+    [2,'o','def preorder(node):'],
+    [2,'hl','    if node is None:        # empty spot: return'],
+    [2,'o','        return'],
+    [2,'o','    print(node.val)         # root first'],
+    [2,'o','    preorder(node.left)     # then left subtree'],
+    [2,'o','    preorder(node.right)    # then right subtree']]))
+  + cards([[6,'Preorder: 1, 2, 3, 4, 5','every subtree goes root, left, right','mint']]),
+  say:[
+  'Traversal means visiting every node exactly once. A subtree is a node plus everything below it. The base case is when we hit an empty spot: return right away and go no deeper.',
+  'The question for this scene: in what order does preorder visit this tree, and how does recursion do it?',
+  'Look at the code. Handle the root first, then hand the whole left subtree to the same function, then the whole right subtree. Subtrees are trees too, so one function handles them. An empty spot returns, and that is the base case.',
+  'Start at the root and print 1. Then go into the left subtree and print 2.',
+  'Both spots under 2 are empty, so those calls return. The left subtree is done; back at 1, go into the right subtree and print 3.',
+  'Under 3, go left and print 4; 4 has no children, so return; then go right and print 5.',
+  'So the preorder is 1, 2, 3, 4, 5. Inside every subtree, the order is root, left, right.'
+]});
+
+/* ===== 4 Instinct: values only ===== */
+add({ch:4, title:'Instinct: <em>values only are ambiguous</em>', vis:
+  gloss(0,[['ambiguous','One written form that can mean more than one thing']])
+  + q(1,'Write the preorder values as "1,2,3,4,5". Can we rebuild the original tree from that?')
+  + duo(`<div class="s" data-s="2">${tv(EX)}${ts(['1','2','3','4','5'])}</div>`,
+        `<div class="s" data-s="3">${tv(ALT)}${ts(['1','2','3','4','5'])}</div>`)
+  + cards([[2,'Example tree → 1,2,3,4,5','2 is a leaf; 4 and 5 hang under 3','sky'],
+           [3,'Another tree → also 1,2,3,4,5','3 and 4 hang under 2; 5 is the right child of 1','coral'],
+           [4,'Stuck here: at 3, where does it go?','the string never says where the left subtree ends','coral']]),
+  say:[
+  'Ambiguous means one written form can mean more than one thing.',
+  'The question for this scene: write the preorder values as 1, 2, 3, 4, 5. Can we rebuild the original tree from that?',
+  'First the example tree: its preorder is 1, 2, 3, 4, 5. Writing it is easy.',
+  'Now the tree on the right: 3 and 4 hang under 2, and 5 is the right child of 1. Its preorder is also 1, 2, 3, 4, 5. Two different trees wrote the same string.',
+  'Going backwards, we get stuck. When we read 3, is it a child of 2, or the right child of 1? The string never says where the left subtree of 2 ends.'
+]});
+
+/* ===== 5 Key idea: # ===== */
+add({ch:5, title:'Key idea: <em>write # for empty spots</em>', vis:
+  gloss(0,[['#','Empty marker: there is no node here'],['token','Each piece of the string between commas']])
+  + q(1,'How do we make one string match exactly one tree?')
+  + duo(`<div class="s" data-s="2">${tv(EX,{nulls:true})}${ts(SER)}</div>`,
+        `<div class="s" data-s="3">${tv(ALT,{nulls:true})}${ts(SER_ALT)}</div>`)
+  + cards([[4,'After each value: its whole left subtree, then its whole right subtree','the left subtree closes with a #, so we know where it ends','mint'],
+           [5,'5 nodes → 6 #, 11 tokens in total','a tree with n nodes always has n + 1 empty spots','amber']]),
+  say:[
+  'The hash sign is the empty marker: it means there is no node here. A token is each piece of the string between commas.',
+  'The question for this scene: how do we make one string match exactly one tree?',
+  'During preorder, when we hit an empty spot, we write a hash too. The example tree becomes 1, 2, hash, hash, 3, 4, hash, hash, 5, hash, hash.',
+  'The other tree becomes 1, 2, 3, hash, hash, 4, hash, hash, 5, hash, hash. The third token is now different, and the ambiguity is gone.',
+  'Why is this enough? In preorder, right after each value comes its whole left subtree, then its whole right subtree. The left subtree closes with its last empty spot, so the reader knows exactly where it ends.',
+  'Count them: 5 nodes, 6 empty spots, 11 tokens in total. A tree with n nodes always has n plus 1 empty spots.'
+]});
+
+/* ===== 6 Animation: serialize ===== */
+add({ch:6, title:'Animation: <em>serialize writes the string</em>', vis:
+  gloss(0,[['amber ring','The node or empty spot being handled now'],['green','A node already written into the string']])
+  + duo(tv(EX,{nulls:{0:4,1:4,2:6,3:6,4:7,5:7}, done:{1:2,2:3,3:5,4:6,5:7},
+      ring:[[2,['1']],[3,['2']],[4,['n0','n1']],[5,['3']],[6,['4','n2','n3']],[7,['5','n4','n5']]],
+      cap:[[2,'write <b>1</b>, go left'],[3,'write <b>2</b>, go left'],[4,'two empty spots: write <b>#,#</b>'],[5,'back at 1, go right: write <b>3</b>'],[6,'write <b>4,#,#</b>'],[7,'write <b>5,#,#</b>, done']]})
+      + ts(SER,{w:{0:2,1:3,2:4,3:4,4:5,5:6,6:6,7:6,8:7,9:7,10:7}}),
+    q(1,'Following "root, left, right, # for empty spots", what does the example tree write, step by step?')
+    + cards([[8,'"1,2,#,#,3,4,#,#,5,#,#"','joined with commas: the result of serialize','mint']])),
+  say:[
+  'The amber ring marks the node or empty spot being handled now. Green marks a node already written into the string.',
+  'The question for this scene: following root, left, right, with a hash for empty spots, what does the example tree write, step by step?',
+  'Start at the root. Write its value, 1, then go into its left subtree.',
+  'The root of the left subtree is 2. Write 2, then go into the left subtree of 2.',
+  'The left of 2 is empty, so write a hash; the right is empty too, so write another hash. The subtree of 2 is finished.',
+  'Back at 1, go into its right subtree. Its root is 3, so write 3.',
+  'Go into the left subtree of 3: write 4, and since both spots under 4 are empty, write two hashes.',
+  'Then the right subtree of 3: write 5, then two more hashes. The whole tree is done.',
+  'Join them with commas: 1, 2, hash, hash, 3, 4, hash, hash, 5, hash, hash. That is the result of serialize.'
+]});
+
+/* ===== 7 Animation: deserialize ===== */
+add({ch:7, title:'Animation: <em>deserialize rebuilds the tree</em>', vis:
+  gloss(0,[['pointer ▲','The next token to read'],['consumed','A token already read turns green; we never go back']])
+  + duo(tv(EX,{nodeAt:{1:3,2:4,3:6,4:7,5:8}, nulls:{0:5,1:5,2:7,3:7,4:8,5:8}, done:{2:5,4:7,5:8,3:8,1:8},
+      ring:[[3,['1']],[4,['2']],[5,['n0','n1']],[6,['3']],[7,['4','n2','n3']],[8,['5','n4','n5']]],
+      cap:[[2,'nothing read yet: pointer at <b>0</b>'],[3,'read <b>1</b> → root, build left first'],[4,'read <b>2</b> → left child of 1'],[5,'read <b>#,#</b> → both sides of 2 empty'],[6,'read <b>3</b> → right child of 1'],[7,'read <b>4,#,#</b> → left child of 3'],[8,'read <b>5,#,#</b> → right child of 3'],[9,'<em>all 11 tokens used up exactly</em>']]})
+      + ts(SER,{used:{0:3,1:4,2:5,3:5,4:6,5:7,6:7,7:7,8:8,9:8,10:8}, ptr:[[2,0],[3,1],[4,2],[5,4],[6,5],[7,8]]}),
+    q(1,'Holding this list of tokens, how do we rebuild the tree in the same preorder?')
+    + cards([[2,'Read one token','# → return None; a number → new node, build left, then build right','amber'],
+             [9,'What we built is the original tree','writing order and reading order are exactly the same','mint']])),
+  say:[
+  'The pointer marks the next token to read. A token already read turns green; it is consumed, and we never go back.',
+  'The question for this scene: holding this list of tokens, how do we rebuild the tree in the same preorder?',
+  'There is only one rule. Read one token. If it is a hash, return None. If it is a number, make a new node, then build its left subtree, then build its right subtree.',
+  'Read the first token, 1, and make the root node 1. Next, build the left subtree of 1.',
+  'Read 2, make node 2, and hang it on the left of 1. Next, build the left subtree of 2.',
+  'Read a hash, so the left of 2 is empty; read another hash, so the right of 2 is empty too. Node 2 is finished; back at 1, build its right subtree.',
+  'Read 3, make node 3, and hang it on the right of 1.',
+  'Read 4 and hang it on the left of 3; the next two hashes make both sides of 4 empty.',
+  'Read 5 and hang it on the right of 3; two more hashes make both sides of 5 empty.',
+  'All 11 tokens are used up exactly, and what we built is the original tree. Writing and reading follow exactly the same order: root, left, right.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>two preorder recursions</em>', vis:
+  gloss(0,[['iter','Turns a list into a pointer that only moves forward'],['next','Reads the current token and moves the pointer one step'],["','.join","Glues a list of tokens into one string with commas"]])
+  + term('solution.py',[
+    [2,'o','class Codec:'],
+    [2,'o','    def serialize(self, root):'],
+    [2,'o','        out = []'],
+    [2,'o','        def dfs(node):'],
+    [2,'hl','            if node is None:'],
+    [2,'hl',"                out.append('#')          # write empty spots too"],
+    [2,'o','                return'],
+    [2,'o','            out.append(str(node.val))    # root'],
+    [2,'o','            dfs(node.left)               # left subtree'],
+    [2,'o','            dfs(node.right)              # right subtree'],
+    [3,'o','        dfs(root)'],
+    [3,'o',"        return ','.join(out)"],
+    [4,'o',''],
+    [4,'o','    def deserialize(self, data):'],
+    [4,'hl',"        tokens = iter(data.split(','))  # the pointer"],
+    [5,'o','        def build():'],
+    [5,'o','            t = next(tokens)'],
+    [5,'o',"            if t == '#':"],
+    [5,'o','                return None'],
+    [5,'o','            node = TreeNode(int(t))'],
+    [5,'o','            node.left = build()          # build left first'],
+    [5,'o','            node.right = build()         # then right'],
+    [5,'o','            return node'],
+    [5,'o','        return build()']])
+  + q(1,'Copy the two animations into code. How many lines does each take?'),
+  say:[
+  'iter turns a list into a pointer that only moves forward. next reads the current token and moves the pointer one step. Comma dot join glues a list of tokens into one string with commas.',
+  'The question for this scene: copy the two animations into code. How many lines does each take?',
+  'In serialize, dfs is just preorder: at an empty spot, write a hash and return; otherwise write the root value, then recurse on the left subtree, then on the right subtree.',
+  'Finally, join with commas. The comma is the delimiter; without it, 12 and 1, 2 look the same, and the minus sign of a negative number would get mixed in.',
+  'deserialize first splits on commas, then wraps the list with iter to get a pointer. The whole build shares this one pointer.',
+  'build is the rule from the last scene: next reads one token; a hash returns None; a number makes a node, builds left, builds right, and returns the node.'
+]});
+
+/* ===== 9 Check: round trips ===== */
+add({ch:9, title:'Check: <em>three round trips</em>', vis:
+  gloss(0,[['round trip','Serialize, then deserialize, and land back where you started'],['same structure','Same shape, same value in every position']])
+  + q(1,'Empty tree, one node, the example tree: is each one the same tree after a round trip? How do we compare?')
+  + tbl(['Tree','serialize gives','Tokens','Round trip same'],[
+    [2,'[ ] (empty)',c('#'),'1','✓'],
+    [3,'[1]',c('1,#,#'),'3','✓'],
+    [4,'[1,2,3,null,null,4,5]',c('1,2,#,#,3,4,#,#,5,#,#'),'11','✓']])
+  + term('check.py',[
+    [5,'o','def same(a, b):'],
+    [5,'hl','    if a is None or b is None:'],
+    [5,'hl','        return a is b                  # same only if both empty'],
+    [5,'o','    return (a.val == b.val and same(a.left, b.left)'],
+    [5,'o','            and same(a.right, b.right))']]),
+  say:[
+  'A round trip means serialize, then deserialize, and land back where you started. Same structure means same shape, with the same value in every position.',
+  'The question for this scene: for the empty tree, one node, and the example tree, is each one the same tree after a round trip? And how do we compare?',
+  'The empty tree: the root itself is an empty spot, so we write one hash, and reading it back gives None. Note that the empty tree is one hash, not an empty string.',
+  'A single node 1: write 1, hash, hash, three tokens. Reading back gives node 1 with no children. Same tree.',
+  'The example tree: 11 tokens, and the animation already rebuilt it. Same tree. The token counts are 1, 3 and 11, each equal to 2 times the node count plus 1.',
+  'Comparing two trees is recursion too: if either one is empty, both must be empty; otherwise compare the root values, then the left subtrees, then the right subtrees. All three examples come out the same.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three traps</em>', vis:
+  gloss(0,[['n','The number of nodes in the tree'],['h','The height: how many levels from the root to the deepest leaf']])
+  + q(1,'What are the time and space costs? Where do people slip?')
+  + cards([[2,'Time O(n), space O(n)','each of the 2n + 1 tokens is handled once; recursion stack O(h)','sky'],
+           [3,'Skipping the #','preorder becomes ambiguous and cannot be rebuilt','coral'],
+           [4,'No delimiter','"12" and "1,2" look the same; a negative -3 must be read as one piece','coral'],
+           [5,'pop(0) or slicing every time','each call shifts the whole list, giving O(n²); use iter or an index','coral']]),
+  say:[
+  'n is the number of nodes in the tree. h is the height, the number of levels from the root to the deepest leaf.',
+  'The question for this scene: what are the time and space costs, and where do people slip?',
+  'Both functions are big O of n: there are 2n plus 1 tokens, each handled once. Space is big O of n for the string and token list; the recursion stack is big O of h, and when the tree is a single chain, h equals n.',
+  'Trap one: skipping the hash. With values only, preorder is ambiguous and the tree cannot be rebuilt.',
+  'Trap two: no delimiter. 12 and 1, 2 come out the same, and the minus sign of negative 3 gets split off. Separate tokens with commas, and split on commas.',
+  'Trap three: calling pop of 0, or slicing, for every token. That shifts the whole list each time, for big O of n squared overall. Use iter, or an index that moves forward.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why is preorder alone enough once you add the #?"')
+  + flow([[2,'Problem','values only are ambiguous'],[2,'Add #','write every empty spot'],[3,'serialize','root, left, right'],[3,'deserialize','read in the same order'],[4,'Complexity','O(n)']])
+  + chips(4,['serialize','deserialize','preorder traversal','null marker','delimiter','iterator','round trip']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why is preorder alone enough once you add the hash?',
+  'Start with the problem: with preorder values only, you cannot tell where the left subtree ends, so two trees can write the same string. That is why I write every empty spot as a hash.',
+  'Then explain why it works: in preorder, each value is followed by its complete left subtree and then its complete right subtree, and every subtree closes with empty spots. Deserialize reads with one pointer in the same root, left, right order, and each step has only one choice, so the tree is unique.',
+  'Both directions are big O of n. The key English terms are preorder traversal, null marker, and delimiter.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Instinct','write preorder values'],[0,'Stuck','two trees, one string'],[0,'Add #','write empty spots too'],[0,'Read back','same order, one pointer']])
+  + cards([[1,'1. Values only are ambiguous: write # for empty spots','n nodes, n + 1 hashes, 2n + 1 tokens in total','amber'],
+           [2,'2. serialize: root, left, right; # for empty spots','join with commas','sky'],
+           [3,'3. deserialize: read a token; # returns None, else make a node, left then right','the whole tree shares one iter pointer','mint']]),
+  say:[
+  'One more pass over the story: the natural idea is to write the preorder values; that is ambiguous, because two trees can write the same string; adding empty markers makes it unique; and reading back uses one pointer in the same order.',
+  'One: values only are ambiguous, so write a hash for every empty spot. n nodes give n plus 1 hashes, 2n plus 1 tokens in total.',
+  'Two: serialize is preorder traversal, root, left, right, with a hash for empty spots, joined with commas.',
+  'Three: deserialize reads one token; a hash returns None, otherwise make a node, build left, then build right. The whole tree shares one iter pointer.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/4dc81ce0f5e4.mp3", "0-1": "a/87ca68d31f7a.mp3", "0-2": "a/cccca6b4c757.mp3", "0-3": "a/b7d16ce045eb.mp3", "1-0": "a/06d162e80847.mp3", "1-1": "a/3fe8e0191b7f.mp3", "1-2": "a/56bbeac3deb6.mp3", "1-3": "a/f0b38da21502.mp3", "1-4": "a/4ec566f9eca2.mp3", "2-0": "a/2c642adb0457.mp3", "2-1": "a/6c7c50df9803.mp3", "2-2": "a/b6867d69f040.mp3", "2-3": "a/4fc6527955d7.mp3", "2-4": "a/98af554b13da.mp3", "2-5": "a/72dde8479805.mp3", "3-0": "a/d1c58d325781.mp3", "3-1": "a/7cc4611d375a.mp3", "3-2": "a/7526aa45d4c7.mp3", "3-3": "a/eda38c659f52.mp3", "3-4": "a/4c88d6717810.mp3", "3-5": "a/e49d1582cba7.mp3", "3-6": "a/93a27dca70fb.mp3", "4-0": "a/a7c6c4a27c37.mp3", "4-1": "a/2b9861763c3e.mp3", "4-2": "a/59008c4a4ee6.mp3", "4-3": "a/78f88a352dd7.mp3", "4-4": "a/6d6255630031.mp3", "5-0": "a/024cac16d1d6.mp3", "5-1": "a/b85231ca97e1.mp3", "5-2": "a/67141e8fc1e8.mp3", "5-3": "a/7f9aea5213b7.mp3", "5-4": "a/ea25734f2224.mp3", "5-5": "a/25d2ad7adef9.mp3", "6-0": "a/3352ea426c03.mp3", "6-1": "a/a9e831fd2334.mp3", "6-2": "a/fca46a5a7996.mp3", "6-3": "a/9d4a9744d606.mp3", "6-4": "a/7a563efb1d1a.mp3", "6-5": "a/20db62a4bb65.mp3", "6-6": "a/13c013a797a7.mp3", "6-7": "a/e46567879847.mp3", "6-8": "a/1d0e7c365df1.mp3", "7-0": "a/a049160cefef.mp3", "7-1": "a/c72b0265c3c6.mp3", "7-2": "a/2de688dbe1a6.mp3", "7-3": "a/4bbcd0c52806.mp3", "7-4": "a/2e43544c95fd.mp3", "7-5": "a/ec3efff0afde.mp3", "7-6": "a/51ee367b78c1.mp3", "7-7": "a/1a8ae7a3f7ac.mp3", "7-8": "a/9771a711b64c.mp3", "7-9": "a/a5f244955514.mp3", "8-0": "a/50579286cf2a.mp3", "8-1": "a/686be26dc057.mp3", "8-2": "a/d21fb2afb245.mp3", "8-3": "a/d8d9756c6779.mp3", "8-4": "a/891807aa80c5.mp3", "8-5": "a/a34b8ed40757.mp3", "9-0": "a/89c20533800b.mp3", "9-1": "a/527c3eaf8432.mp3", "9-2": "a/73ef839e5409.mp3", "9-3": "a/6ba021537878.mp3", "9-4": "a/dedddbf31df4.mp3", "9-5": "a/be9068ea80ca.mp3", "10-0": "a/26e2ba66bbf7.mp3", "10-1": "a/0c033b283455.mp3", "10-2": "a/2d88d01acf9c.mp3", "10-3": "a/9d15d96ec8f2.mp3", "10-4": "a/909c06b31186.mp3", "10-5": "a/a032797133af.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/b49328fada20.mp3", "11-2": "a/0314fc907ead.mp3", "11-3": "a/f0d56f97769e.mp3", "11-4": "a/9b1ac51d1740.mp3", "12-0": "a/c26d837b584c.mp3", "12-1": "a/ebbd2462c41c.mp3", "12-2": "a/9bc0235e7496.mp3", "12-3": "a/b9e724229916.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Bending Path</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Bending Path', template:'prep', lang:'en', sub:'LeetCode 124 Binary Tree Maximum Path Sum · animated walkthrough', key:'lc124envid', doc:'LeetCode 124', blurb:'The recursive function returns one thing and records another: it hands up "the best straight path going down from here", records "the best path that bends here" into the answer, drops negative gains as 0, and starts the answer at negative infinity.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: return one, record another','Binary tree: nodes and children','Recursion on trees: ask, then combine','The problem: what counts as a path','The natural idea, and where it breaks','The key: return straight, record the bend','Negatives: drop them as 0','Walk through: the answer 42','Write the code','The start: why negative infinity','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- binary tree: green = finished, amber ring = being computed, label = value handed to the parent ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tg{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.tg .s:not(.on){opacity:0}
+.tg .only.s{opacity:0!important} .tg .only.s.now{opacity:1!important}
+.tg line{stroke:var(--sky);stroke-width:3}
+.tg line.ok{stroke:var(--mint);stroke-width:7}
+.tg line.try{stroke:var(--amber);stroke-width:7}
+.tg line.bad{stroke:var(--coral);stroke-width:7}
+.tg circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.tg circle.done{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.tg circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.tg text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.tg text.g{font-family:var(--f-mono);font-size:14px;fill:var(--amber)}
+.tg text.lab{font-family:var(--f-body);font-size:13px;fill:var(--dim)}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:3.2em;position:relative;line-height:1.5}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const R = 20;
+// o: {pos:{k:[x,y,val]}, edges:[[a,b]], up:[k], st:[[step,{k:label},rowText,cur]], done:{k:step}, hot:[[step,[edgeIdx],cls]], tags:[[step,k,text,dx,dy]], h}
+function tg(o){
+  const h = o.h||250, P = o.pos, up = o.up||[];
+  const ln = ([a,b],cls='') => `<line class="${cls}" x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}"/>`;
+  let s = TCSS + `<svg class="tg" viewBox="0 0 340 ${h}" role="img" aria-label="binary tree">`;
+  o.edges.forEach(e => s += ln(e));
+  (o.hot||[]).forEach(([st,idx,cls]) => s += `<g class="only s" data-s="${st}">${idx.map(i=>ln(o.edges[i],cls)).join('')}</g>`);
+  Object.entries(P).forEach(([k,[x,y,v]]) => {
+    s += `<circle cx="${x}" cy="${y}" r="${R}"/>`;
+    if(o.done&&o.done[k]!=null) s += `<g class="s" data-s="${o.done[k]}"><circle class="done" cx="${x}" cy="${y}" r="${R}"/></g>`;
+    s += `<text x="${x}" y="${y}">${v}</text>`;
+  });
+  (o.tags||[]).forEach(([st,k,t,dx,dy]) => s += `<text class="lab s" data-s="${st}" x="${P[k][0]+dx}" y="${P[k][1]+dy}">${t}</text>`);
+  (o.st||[]).forEach(([st,lab,,cur]) => {
+    Object.entries(lab).forEach(([k,t]) => { const [x,y]=P[k]; s += `<text class="g only s" data-s="${st}" x="${x}" y="${up.includes(k)?y-R-13:y+R+15}">${t}</text>`; });
+    if(cur!=null){ const [x,y]=P[cur]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+7}"/>`; }
+  });
+  s += `</svg>`;
+  if(o.st) s += `<div class="qrow">${o.st.map(([st,,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return s;
+}
+// the trees: main [-10,9,20,null,null,15,7]; small [1,2,3]; neg [2,-1]; one [-3]
+const TM = {pos:{a:[170,40,-10], b:[80,125,9], c:[260,125,20], d:[210,205,15], e:[310,205,7]}, edges:[['a','b'],['a','c'],['c','d'],['c','e']], up:['a','c'], h:240};
+const TS = {pos:{a:[170,45,1], b:[90,135,2], c:[250,135,3]}, edges:[['a','b'],['a','c']], up:['a'], h:170};
+const TN = {pos:{a:[170,45,2], b:[95,135,-1]}, edges:[['a','b']], up:['a'], h:170};
+const TO = {pos:{a:[170,55,-3]}, edges:[], up:['a'], h:90};
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Bending Path<br><em>LeetCode 124</em>', vis:
+  gloss(0,[['binary tree','A tree where every node has at most two children'],['path','A chain of connected nodes that bends at most once'],['recursion','A function that calls itself, handing a big problem to smaller problems of the same kind']])
+  + cards([[1,'Return one thing, record another','Hand up: a straight path going down from here; record: the path that bends here','amber']])
+  + flow([[2,'Binary tree','nodes, left and right children'],[2,'Tree recursion','ask the children, then combine'],[2,'Path','bends at most once'],[3,'Negatives','max(0, …)'],[3,'Walk through','→ 42'],[3,'Code','post-order DFS']]),
+  say:[
+  'This lesson covers LeetCode 124, Binary Tree Maximum Path Sum. First, three words. A binary tree is a tree where every node has at most two children. A path is a chain of connected nodes that bends at most once. Recursion is a function that calls itself, handing a big problem to smaller problems of the same kind.',
+  'Let us put the most confusing part first: the recursive function in this problem returns one thing but records another. What it hands to the parent is a straight path going down from here; what it records into the answer is the path that bends here.',
+  'To make that sentence clear, we first learn binary trees from zero, and the pattern for recursion on trees: ask both children, then combine. Then we pin down what counts as a path.',
+  'Next we see why negatives get dropped, walk step by step to the answer 42 on a five node tree, then write the code and explain why the answer starts at negative infinity.'
+]});
+
+/* ===== 1 Binary tree ===== */
+add({ch:1, title:'Binary tree: <em>nodes and children</em>', vis:
+  gloss(0,[['node','A circle in the tree that stores one number, val'],['left / right child','The two nodes hanging below a node; a missing one is null'],['root / leaf','The node at the very top / a node with no children']])
+  + duo(tg({...TM, tags:[[2,'a','root',-50,0],[3,'d','L',-30,-26],[3,'e','R',26,-26],[4,'b','leaf',0,34],[4,'d','leaf',0,34],[4,'e','leaf',0,34]]}),
+    q(1,'[-10, 9, 20, null, null, 15, 7]: what tree does this list draw?')
+    + cards([[2,'Read level by level, left to right','-10 is the root; 9 and 20 are its left and right children','sky'],
+             [3,'null is an empty spot','Both children of 9 are empty; 15 and 7 hang under 20','amber'],
+             [4,'Leaf: a node with no children','9, 15 and 7 are leaves','mint']])),
+  say:[
+  'A node is a circle in the tree that stores one number, called val. Each node has at most two nodes hanging below it, called the left child and the right child; a missing one is null, meaning empty. The node at the very top is the root, and a node with no children is a leaf.',
+  'The question for this scene: minus 10, 9, 20, null, null, 15, 7. What tree does this list draw?',
+  'LeetCode writes a tree level by level, from left to right. The first number, minus 10, is the root. The next two, 9 and 20, are its left child and right child.',
+  'Next come the two children of 9. Both are null, meaning empty spots. Then the two children of 20: 15 on the left, 7 on the right.',
+  '9, 15 and 7 have no children, so they are leaves. This five node tree is the main example for the whole lesson.'
+]});
+
+/* ===== 2 Recursion on trees ===== */
+const HT = {...TM, done:{b:3,d:3,e:3,c:4,a:5}, st:[
+  [2,{},'height(null) = <b>0</b>',null],
+  [3,{b:'↑1',d:'↑1',e:'↑1'},'leaf: 1 + max(0, 0) = <b>1</b>',null],
+  [4,{b:'↑1',d:'↑1',e:'↑1',c:'↑2'},'20: 1 + max(1, 1) = <b>2</b>','c'],
+  [5,{b:'↑1',d:'↑1',e:'↑1',c:'↑2',a:'↑3'},'-10: 1 + max(1, 2) = <b>3</b>','a'],
+  [6,{b:'↑1',d:'↑1',e:'↑1',c:'↑2',a:'↑3'},'order: 9 → 15 → 7 → 20 → -10',null]]};
+add({ch:2, title:'Recursion on trees: <em>ask the children, then combine</em>', vis:
+  gloss(0,[['subtree','A node together with everything below it'],['post-order','Handle the left and right children first, then yourself'],['height','How many nodes lie on the longest path going down from this node']])
+  + duo(tg(HT),
+    q(1,'How tall is this tree, if each node can only ask its children "how tall are you below"?')
+    + cards([[2,'Exit: an empty node answers 0','Stop when you reach null','sky'],
+             [4,'Combine: 1 + max(left, right)','Count your own level, plus the taller side','amber'],
+             [6,'The pattern: ask the children, then combine','Children finish first, you go last: that is post-order','mint']])),
+  say:[
+  'A subtree is a node together with everything below it. Post-order means handling the left and right children first, then yourself. Height is how many nodes lie on the longest path going down from this node.',
+  'The question for this scene: how tall is this tree, if each node can only ask its children "how tall are you below"?',
+  'First decide where to stop: when we reach null, the empty node answers 0. Recursion needs this exit, or it would keep asking forever.',
+  '9, 15 and 7 are leaves. Both sides are empty and answer 0. Counting its own level, each leaf answers 1 plus 0, which is 1.',
+  '20 asks its two children. 15 on the left says 1, and 7 on the right also says 1. Take the bigger one, add its own level, and it answers 2.',
+  'The root, minus 10, asks its two children. 9 on the left says 1, and 20 on the right says 2. Take the bigger one plus 1, and the whole tree has height 3.',
+  'That is the pattern for recursion on trees: ask both children, get their answers, then combine them into your own answer. Children always finish first. The order is 9, 15, 7, 20, minus 10, and that is called post-order.'
+]});
+
+/* ===== 3 The problem ===== */
+add({ch:3, title:'The problem: <em>what counts as a path</em>', vis:
+  gloss(0,[['path sum','Add up the values of every node on the path'],['bend','Come up from one child, pass through this node, then go down to the other child']])
+  + duo(tg({...TS, hot:[[2,[1],'try'],[3,[0,1],'ok'],[4,[0,1],'ok']], st:[[2,{},'1 → 3: sum = <b>4</b>',null],[3,{},'2 → 1 → 3: sum = <em>6</em>','a'],[4,{},'1 has two edges: one in, one out',null]]}),
+    q(1,'[1, 2, 3]: what is the maximum path sum? What kind of chain counts as a path?')
+    + cards([[2,'Path = a chain of connected nodes','Each node used at most once; it need not pass the root or reach a leaf','sky'],
+             [3,'2 → 1 → 3 = 6','Come up from the left child, bend at 1, go down to the right child','mint'],
+             [4,'Bends at most once','Each node has at most two edges; three edges means a fork','coral']])),
+  say:[
+  'Path sum means adding up the values of every node on the path. A bend means coming up from one child, passing through this node, then going down to the other child.',
+  'The question for this scene: for the tree 1, 2, 3, what is the maximum path sum? And what kind of chain counts as a path?',
+  'A path is a chain of connected nodes, using each node at most once. It does not have to pass the root or reach a leaf, and a single node on its own also counts. For example, 1 to 3 has a sum of 4.',
+  'The biggest one is 2, 1, 3: come up from the left child 2, bend here at 1, then go down to the right child 3. The sum is 6.',
+  'Notice that a path bends at most once. Each node on a path has at most two edges, one in and one out. If a node had three edges, the chain would fork, and it would not be a path.'
+]});
+
+/* ===== 4 The natural idea ===== */
+add({ch:4, title:'The natural idea, <em>and where it breaks</em>', vis:
+  gloss(0,[['through the root','The path includes the root node'],['fork','A node with three edges on the path']])
+  + duo(tg({...TM, hot:[[2,[0,1,2],'try'],[3,[2,3],'ok'],[4,[1,2,3],'bad'],[5,[1,2,3],'bad']],
+      st:[[2,{},'9 + (-10) + 20 + 15 = <b>34</b>',null],[3,{},'15 + 20 + 7 = <em>42</em>','c'],[4,{},'20 touches 15, 7 and -10: three edges','c'],[5,{},'a bent path cannot be extended',null]]}),
+    q(1,'The answer for the main example is 42. Try two natural ideas first. Where does each one break?')
+    + cards([[2,'Idea one: the path must pass the root','The best is 9 → -10 → 20 → 15 = 34, not 42','coral'],
+             [3,'42 = 15 → 20 → 7','It never touches the root: it bends at 20','sky'],
+             [4,'Idea two: each node hands up "the best path below me"','20 hands up 15 → 20 → 7; attaching -10 makes a fork','coral'],
+             [5,'The break: a parent can only extend a straight path','Only a path that goes down without bending can be attached','amber']])),
+  say:[
+  'Through the root means the path includes the root node. A fork means a node that has three edges on the path.',
+  'The question for this scene: the answer for the main example is 42. Let us try two natural ideas first. Where does each one break?',
+  'Idea one: every path goes through the root. Through minus 10, the best is 9, minus 10, 20, 15, with a sum of 34. But the correct answer is 42.',
+  '42 is 15, 20, 7. This path never touches the root; it bends here at 20. So the bend point can be any node.',
+  'Idea two: use tree recursion, and let each node hand up the best path below it. 20 hands up 15, 20, 7. When minus 10 tries to attach, 20 has three edges. It forks, and it is no longer a path.',
+  'This is exactly where it breaks: a parent cannot extend a path that has already bent. All a parent can attach below itself is a straight path that does not bend.'
+]});
+
+/* ===== 5 The key ===== */
+add({ch:5, title:'The key: <em>return straight, record the bend</em>', vis:
+  gloss(0,[['gain','The biggest sum of a straight path that starts at this node and keeps going down'],['best','A global variable holding the biggest path sum seen so far']])
+  + duo(tg({...TS, done:{b:2,c:2,a:3}, hot:[[3,[1],'try'],[4,[0,1],'ok'],[5,[0,1],'ok']],
+      st:[[2,{b:'↑2',c:'↑3'},'leaf 2 hands up 2, leaf 3 hands up 3',null],
+          [3,{b:'↑2',c:'↑3',a:'↑4'},'return: 1 + max(2, 3) = <b>4</b>','a'],
+          [4,{b:'↑2',c:'↑3',a:'bend 6'},'record: 1 + 2 + 3 = <em>6</em>  best = 6','a'],
+          [5,{b:'↑2',c:'↑3',a:'↑4'},'return 4, record 6; answer <em>6</em>',null]]}),
+    q(1,'If a bent path cannot be extended, what should the recursive function hand up?')
+    + cards([[3,'Return: val + max(left, right)','A straight path down, one side only: the parent can attach it','amber'],
+             [4,'Record: val + left + right','The path that bends here: it cannot be extended, so compare it with best right away','mint'],
+             [5,'Every node gets one turn as the bend point','So best sees every path','sky']])),
+  say:[
+  'Gain is the biggest sum of a straight path that starts at this node and keeps going down. Best is a global variable holding the biggest path sum seen so far.',
+  'The question for this scene: if the parent cannot extend a bent path, what should the recursive function hand up?',
+  'Look at the tree 1, 2, 3. Leaf 2 has nothing below it, so its gain is 2. The gain of leaf 3 is 3.',
+  'What node 1 hands to its parent is a straight path down: itself plus the bigger of the two gains, 1 plus 3, which is 4. Only by picking one side can the parent attach it.',
+  'But the path that bends here at 1 is itself plus both sides, 1 plus 2 plus 3, which is 6. The parent cannot extend it, so we compare it with best right away and record it.',
+  'That is the confusing part: the function returns the straight path, but records the bent one along the way. Every node gets one turn as the bend point, so best sees every path.'
+]});
+
+/* ===== 6 Negatives ===== */
+add({ch:6, title:'Negatives: <em>drop them as 0</em>', vis:
+  gloss(0,[['max(0, x)','If x is negative, treat it as 0; if positive, keep it'],['drop','Do not take that edge, and do not add its value']])
+  + duo(tg({...TN, done:{b:2,a:4},
+      st:[[2,{b:'↑-1'},'gain of -1: <b>-1</b>','b'],
+          [3,{b:'↑-1'},'attach it: 2 + (-1) = 1, smaller','a'],
+          [4,{b:'↑-1',a:'bend 2'},'max(0, -1) = 0  bend at 2: 2 + 0 + 0 = <em>2</em>','a'],
+          [5,{b:'↑-1',a:'↑2'},'answer <em>2</em>: just node 2 by itself',null]]}),
+    q(1,'[2, -1]: when a child hands up a negative gain, should we attach it?')
+    + cards([[3,'A negative gain only drags you down','Attaching -1 makes the path sum smaller','coral'],
+             [4,'max(0, gain): treat negatives as 0','The same as not taking that edge','mint'],
+             [5,'The answer is 2, not 1','Without max(0, …) you would get 1','sky']])),
+  say:[
+  'Max of 0 and x means: if x is negative, treat it as 0; if x is positive, keep it. Treating it as 0 is dropping it: we do not take that edge, and we do not add its value.',
+  'The question for this scene: for the tree 2, minus 1, when a child hands up a negative gain, should we attach it?',
+  'Minus 1 is a leaf with nothing below it, so its gain is minus 1.',
+  'Node 2 receives minus 1 from the left. Attaching it gives 2 plus minus 1, which is 1, so the path sum gets smaller. A negative gain only drags you down.',
+  'So we wrap it in max with 0 first: minus 1 becomes 0, which is the same as not taking that edge. The right side is empty, so it is already 0. The path that bends at 2 is 2 plus 0 plus 0, which is 2.',
+  'The answer is 2, and the path is just node 2 by itself. If you forget the max with 0, you get 1, which is wrong.'
+]});
+
+/* ===== 7 Walk through ===== */
+const WK = {...TM, done:{b:2,d:3,e:4,c:5,a:6}, hot:[[5,[2,3],'ok'],[7,[2,3],'ok']], st:[
+  [2,{b:'↑9'},'9: bend here = 9  best = <em>9</em><br>hand up <b>9</b>','b'],
+  [3,{b:'↑9',d:'↑15'},'15: bend here = 15  best = <em>15</em><br>hand up <b>15</b>','d'],
+  [4,{b:'↑9',d:'↑15',e:'↑7'},'7: bend here = 7  best stays <em>15</em><br>hand up <b>7</b>','e'],
+  [5,{b:'↑9',d:'↑15',e:'↑7',c:'↑35'},'20: 15 + 20 + 7 = 42  best = <em>42</em><br>hand up 20 + 15 = <b>35</b>','c'],
+  [6,{b:'↑9',d:'↑15',e:'↑7',c:'↑35',a:'↑25'},'-10: 9 + (-10) + 35 = 34  best stays <em>42</em><br>hand up -10 + 35 = <b>25</b>','a'],
+  [7,{b:'↑9',d:'↑15',e:'↑7',c:'↑35',a:'↑25'},'answer best = <em>42</em><br>15 → 20 → 7',null]]};
+add({ch:7, title:'Walk through: <em>the answer 42</em>', vis:
+  gloss(0,[['green','A node that is finished'],['amber ring','The node being computed'],['↑number','The gain this node hands to its parent']])
+  + duo(tg(WK),
+    q(1,'[-10, 9, 20, null, null, 15, 7]: computing in post-order, how does best grow step by step to 42?')
+    + cards([[5,'20 records 42, but hands up only 35','The bent path stays in best; what goes up is 20 → 15','amber'],
+             [6,'The root hands up 25, and nobody takes it','The root has no parent; the answer is only in best','sky'],
+             [7,'Answer 42','15 → 20 → 7','mint']])),
+  say:[
+  'Green means a node is finished, and the amber ring marks the node being computed. The arrow number next to a node is the gain it hands to its parent.',
+  'The question for this scene: minus 10, 9, 20, null, null, 15, 7. Computing in post-order, how does best grow step by step to 42?',
+  'Post-order starts with the leftmost leaf, 9. Both sides are empty, with gain 0. Bending at 9 is just 9 itself, so best goes from negative infinity to 9. It hands up 9.',
+  'Next comes 15. It is also a leaf. Bending here gives 15, so best becomes 15. It hands up 15.',
+  'Then 7. Bending here gives 7, which is less than 15, so best stays 15. It hands up 7.',
+  'Now 20. The left gives 15 and the right gives 7, both positive, so we keep both. Bending at 20 is 15 plus 20 plus 7, which is 42, so best becomes 42. But only one side goes up: 20 plus 15, which is 35.',
+  'Last is the root, minus 10. The left gives 9 and the right gives 35. Bending at minus 10 is 9 minus 10 plus 35, which is 34. That is less than 42, so best does not change. It hands up minus 10 plus 35, which is 25, but the root has no parent, so nobody uses that return value.',
+  'So the answer is the 42 stored in best, and the path is 15, 20, 7. The return value is for attaching upward, best is for recording the answer, and the two jobs stay separate.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>one return, one best</em>', vis:
+  gloss(0,[['nonlocal','Lets the inner function change the outer variable best'],["float('-inf')",'Negative infinity: smaller than any number']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def maxPathSum(self, root):'],
+    [2,'o',"        best = float('-inf')          # biggest path sum seen so far"],
+    [2,'o','        def gain(node):'],
+    [2,'o','            nonlocal best'],
+    [3,'o','            if not node:'],
+    [3,'o','                return 0              # empty node: gain 0'],
+    [4,'o','            left = max(gain(node.left), 0)    # drop negatives'],
+    [4,'o','            right = max(gain(node.right), 0)'],
+    [5,'hl','            best = max(best, node.val + left + right)  # record: bend here'],
+    [6,'hl','            return node.val + max(left, right)         # return: one straight side'],
+    [7,'o','        gain(root)'],
+    [7,'o','        return best']])
+  + q(1,'Which step from before does each line of code match?'),
+  say:[
+  'Nonlocal lets the inner function change the outer variable best. Float of minus inf is negative infinity, smaller than any number.',
+  'The question for this scene: which step from before does each line of code match?',
+  'Best starts at negative infinity and holds the biggest path sum seen so far. Gain is the recursive function that computes a node\'s gain; it changes best, so it says nonlocal.',
+  'The exit: if the node is empty, its gain is 0.',
+  'First ask the left and right children for their gains, and wrap each in max with 0 to drop negatives.',
+  'Record: itself plus left plus right is the path that bends here. Compare it with best and keep the bigger one.',
+  'Return: itself plus the bigger of left and right, a straight path going down, handed to the parent. Record and return differ by just one plus sign and one max, and that is the heart of the whole problem.',
+  'Finally, call gain once on the root. Its return value is not used; the answer is best.'
+]});
+
+/* ===== 9 The start ===== */
+add({ch:9, title:'The start: <em>why negative infinity</em>', vis:
+  gloss(0,[['all-negative tree','Every node value is less than 0'],['initial value','The number best holds at the very start']])
+  + duo(tg({...TO, st:[[2,{a:'bend -3'},'bend at -3: -3 + 0 + 0 = <b>-3</b>','a'],[3,{a:'bend -3'},'best = 0: max(0, -3) = 0  wrong',null],[4,{a:'bend -3'},"best = -inf: max(-inf, -3) = <em>-3</em>",null],[5,{a:'bend -3'},'answer <em>-3</em>',null]]}),
+    q(1,'[-3]: can best start at 0?')
+    + cards([[3,'Start at 0: returns 0','A path has at least one node; no path sums to 0','coral'],
+             [4,'Start at negative infinity: returns -3','The first node always replaces it','mint'],
+             [5,'A gain can drop to 0, the answer cannot','The answer must be a real path','sky']])),
+  say:[
+  'An all-negative tree is one where every node value is less than 0. The initial value is the number best holds at the very start.',
+  'The question for this scene: for a tree with a single node, minus 3, can best start at 0?',
+  'Both sides of minus 3 are empty, so both gains are 0. The path that bends at minus 3 is just minus 3 itself, with a sum of minus 3.',
+  'If best starts at 0, comparing 0 with minus 3 keeps 0, and we return 0. But a path has at least one node, and no path here sums to 0. That answer is wrong.',
+  'Starting at negative infinity, comparing it with minus 3 keeps minus 3. That is correct.',
+  'The problem guarantees at least one node, so best always gets replaced by a real path sum. Remember: a gain can drop to 0, but the answer cannot. The answer must be a real path.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['n','The number of nodes'],['h','The height of the tree, which is also the deepest the recursion stacks'],['call stack','The functions that have not finished and are waiting for a child to answer']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(h)','Each node is computed once; if the tree is a single chain, h = n','sky'],
+           [3,'Pitfall one: returning the bent sum','The parent would attach a path that already forks','coral'],
+           [4,'Pitfall two: forgetting max(0, …)','[2, -1] would give 1','coral'],
+           [4,'Pitfall three: best starting at 0','[-3] would give 0','coral']]),
+  say:[
+  'n is the number of nodes. h is the height of the tree, which is also the deepest the recursion stacks. The call stack is the set of functions that have not finished and are waiting for a child to answer.',
+  'The question for this scene: what are the time and space costs? And where is it easiest to go wrong?',
+  'Time is big O of n, since each node is computed once. Space is big O of h, since the call stack is at most h deep; if the tree degrades into a single chain, h equals n.',
+  'Pitfall one: returning the bent sum. The parent would attach a path that already forks, and the answer comes out too big. What you return is always just one side.',
+  'Pitfall two: forgetting the max with 0, so 2, minus 1 gives 1. Pitfall three: starting best at 0, so minus 3 gives 0.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first; write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why is your return value different from the value you record?"')
+  + flow([[2,'Post-order','ask both children first'],[2,'Drop negatives','max(0, gain)'],[3,'Record','val + left + right'],[3,'Return','val + max(left, right)'],[4,'Complexity','O(n) / O(h)']])
+  + chips(4,['post-order DFS','gain','bend at this node','global max','max(0, gain)','-inf init']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why is your return value different from the value you record?',
+  'First the approach: I use a post-order traversal. Each node first asks its left and right children for their gains, and treats negative ones as 0.',
+  'Then why they differ: the path that bends at this node is itself plus left plus right. It is a candidate answer, so I use it to update the global max. But it has already bent, so the parent cannot extend it, and I only return itself plus the bigger side.',
+  'Finally two more points: best starts at negative infinity, because the tree may be all negative; time is big O of n, and space is big O of h. The key English terms are post-order DFS and gain.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Ask the children','post-order'],[0,'Drop negatives','max(0, …)'],[0,'Record the bend','update best'],[0,'Return straight','to the parent']])
+  + cards([[1,'1. Return straight, record the bend','return val + max(L, R); best = max(best, val + L + R)','amber'],
+           [2,'2. A negative gain counts as 0','The same as not taking that edge','sky'],
+           [3,'3. best starts at negative infinity','The answer is at least one real node, so all-negative trees come out right','mint']]),
+  say:[
+  'Let us review the main line once: in post-order, ask the left and right children for their gains; drop negative ones as 0; use the path that bends here to update best; and hand up only one straight path.',
+  'Number one: return straight, record the bend. Return itself plus the bigger side, and record itself plus left plus right.',
+  'Number two: a negative gain counts as 0, the same as not taking that edge.',
+  'Number three: best starts at negative infinity, because the answer is at least one real node, and an all-negative tree must come out right too.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/25c761454723.mp3", "0-1": "a/d60b73659f89.mp3", "0-2": "a/192b99d5037f.mp3", "0-3": "a/e71cb86def81.mp3", "1-0": "a/37847b198f09.mp3", "1-1": "a/c413b2176a26.mp3", "1-2": "a/0df7b9bf2ccc.mp3", "1-3": "a/4969c10c0430.mp3", "1-4": "a/26a628094047.mp3", "2-0": "a/5c890622f731.mp3", "2-1": "a/9a9085b05ff4.mp3", "2-2": "a/87ea75389ae0.mp3", "2-3": "a/2b4a3950a0a3.mp3", "2-4": "a/c9f3fe578437.mp3", "2-5": "a/f3d91ae5fc18.mp3", "2-6": "a/967eb8ccb3be.mp3", "3-0": "a/159d9cc36234.mp3", "3-1": "a/0e524d94dc87.mp3", "3-2": "a/c33b6612e818.mp3", "3-3": "a/2a7ef27d1bc5.mp3", "3-4": "a/b4e26938fdc7.mp3", "4-0": "a/e7562aaa69c4.mp3", "4-1": "a/cde31f822914.mp3", "4-2": "a/bd20ea7dc90b.mp3", "4-3": "a/faa145ae586a.mp3", "4-4": "a/fb6e9b391827.mp3", "4-5": "a/98aa9ce327cc.mp3", "5-0": "a/4253f7569c61.mp3", "5-1": "a/e09672db6a60.mp3", "5-2": "a/85bf3e9d8c54.mp3", "5-3": "a/0a2580b12a45.mp3", "5-4": "a/5a0dbb225875.mp3", "5-5": "a/4f802358dcae.mp3", "6-0": "a/46f6164801c5.mp3", "6-1": "a/1d0287b521c9.mp3", "6-2": "a/9262f6a90502.mp3", "6-3": "a/bc2e4921d19c.mp3", "6-4": "a/cd1e47aec479.mp3", "6-5": "a/190692ec272f.mp3", "7-0": "a/b13f11bf6312.mp3", "7-1": "a/746e77a6e4ac.mp3", "7-2": "a/405ef7f01b58.mp3", "7-3": "a/96eae11ef93f.mp3", "7-4": "a/b64664d27ae6.mp3", "7-5": "a/9672ecee465f.mp3", "7-6": "a/ffdc0ad4c55c.mp3", "7-7": "a/4bb06c31baf7.mp3", "8-0": "a/ac43a68c269f.mp3", "8-1": "a/679a80053e2b.mp3", "8-2": "a/ca15837d939b.mp3", "8-3": "a/c14d7a2e99fc.mp3", "8-4": "a/14a551a01e5a.mp3", "8-5": "a/5de93d2df435.mp3", "8-6": "a/2f68fd168562.mp3", "8-7": "a/bf1ac44e54bf.mp3", "9-0": "a/15a04a066e5b.mp3", "9-1": "a/4effbdb566f4.mp3", "9-2": "a/85b54482a679.mp3", "9-3": "a/34a80442341c.mp3", "9-4": "a/6600c403cf96.mp3", "9-5": "a/9e8d82c124e0.mp3", "10-0": "a/b6d1019cca8f.mp3", "10-1": "a/daae9341a9c3.mp3", "10-2": "a/b7c975882ecb.mp3", "10-3": "a/3ccd96754903.mp3", "10-4": "a/300407498f9d.mp3", "11-0": "a/1a24693ed388.mp3", "11-1": "a/04aa93260d23.mp3", "11-2": "a/526c0d8ada63.mp3", "11-3": "a/3bb3cd8ab7ec.mp3", "11-4": "a/5de6a0eb1924.mp3", "12-0": "a/1b96121cc17b.mp3", "12-1": "a/4730d1fe3ac2.mp3", "12-2": "a/cd7cf2e2b24c.mp3", "12-3": "a/1fc62522110e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

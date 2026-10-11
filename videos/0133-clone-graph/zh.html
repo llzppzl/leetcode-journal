@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>复制一张关系网</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'复制一张关系网', template:'prep', sub:'LeetCode 133 Clone Graph · 算法动画', key:'lc133vid', doc:'LeetCode 133 题', blurb:'从"什么叫深拷贝"讲起，看清环和重复两个坑，用一本"旧节点 → 新节点"登记簿把它们一起解决，再一步步走完 DFS、写出代码、讲清复杂度。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：一张关系网','读题：什么叫深拷贝','浅拷贝错在哪','两个坑：环和重复','关键：一本登记簿','DFS 一步步走','写代码','换成 BFS','复杂度','易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- the graph: LeetCode example 1, adjList [[2,4],[1,3],[2,4],[1,3]] ---------- */
+const P = {1:[55,45], 2:[175,45], 3:[175,165], 4:[55,165]};
+const DX = 270;                      // the copy is drawn to the right
+const EDGES = [[1,2],[2,3],[3,4],[4,1]];
+const GCSS = `<style>
+.cg{width:100%;max-width:560px;margin:0 auto;display:block;overflow:visible}
+.cg .s:not(.on){opacity:0}
+.cg .cur{opacity:0} .cg .cur.now{opacity:1}
+.cg line{stroke-width:3;stroke-linecap:round}
+.cg .eo{stroke:var(--sky)} .cg .ec{stroke:var(--mint)} .cg .bad{stroke:var(--coral);stroke-dasharray:7 6} .cg .hot{stroke:var(--amber);stroke-width:5}
+.cg circle{stroke-width:3;fill:var(--term)} .cg .no{stroke:var(--sky)} .cg .nc{stroke:var(--mint)} .cg .nx{stroke:var(--coral)}
+.cg .ring{fill:none;stroke:var(--amber);stroke-width:4}
+.cg text{fill:var(--paper);font-family:var(--f-display);font-size:21px;text-anchor:middle;dominant-baseline:central}
+.cg text.lab{font-family:var(--f-body);font-size:14px;fill:var(--dim)}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.book{display:flex;flex-direction:column;gap:6px;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em .8em}
+.book h4{margin:0;font-size:.85em;color:var(--dim);font-weight:500}
+.book .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:1.7em}
+.book .row b{font-family:var(--f-mono);color:var(--mint);min-width:2.2em}
+.book .k{color:var(--amber)}
+.book .k.s:not(.on),.book .nb.s:not(.on){opacity:0}
+.book .nb{font-family:var(--f-mono);font-size:.85em;padding:.05em .45em;border-radius:6px;border:1px solid var(--mint);color:var(--mint)}
+</style>`;
+const xy = (id, copy) => [P[id][0] + (copy ? DX : 0), P[id][1]];
+const wrapS = (s, inner, cls='s') => s==null ? inner : `<g class="${cls}" data-s="${s}">${inner}</g>`;
+const line = (a, b, ca, cb, cls) => { const [x1,y1]=xy(a,ca), [x2,y2]=xy(b,cb); return `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; };
+const node = (id, copy, cls) => { const [x,y]=xy(id,copy); return `<circle class="${cls}" cx="${x}" cy="${y}" r="21"/><text x="${x}" y="${y}">${id}${copy?"'":''}</text>`; };
+// o: {orig, cn:{id:step}, ce:[[a,b,step]], extra:[[step,svg]], cur:[[step,id]], right}
+function g(o={}){
+  let h = GCSS + `<svg class="cg" viewBox="0 0 500 228" role="img" aria-label="原图和新图">`;
+  if(o.orig!==false){
+    EDGES.forEach(([a,b])=>h+=line(a,b,0,0,'eo'));
+    h += `<text class="lab" x="115" y="212">原图（题目给的）</text>`;
+  }
+  (o.ce||[]).forEach(([a,b,s])=>h+=wrapS(s,line(a,b,1,1,'ec')));
+  (o.extra||[]).forEach(([s,svg])=>h+=wrapS(s,svg));
+  if(o.orig!==false) [1,2,3,4].forEach(id=>h+=node(id,0,'no'));
+  Object.entries(o.cn||{}).forEach(([id,s])=>h+=wrapS(s,node(+id,1,'nc')));
+  (o.cur||[]).forEach(([s,id])=>{ const [x,y]=xy(id,0); h+=`<circle class="ring cur s" data-s="${s}" cx="${x}" cy="${y}" r="28"/>`; });
+  if(o.right!==false) h += `<text class="lab" x="${115+DX}" y="212">${o.right||'新图（我们造的）'}</text>`;
+  return h + `</svg>`;
+}
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* DFS events on the example, numbered 1..8 across two scenes */
+const EV = {
+  node:{1:1, 2:2, 3:4, 4:5},
+  edge:[[1,2,3],[2,3,5],[3,4,6],[4,1,6]],
+  nbs:{1:[[2,7],[4,8]], 2:[[1,3],[3,7]], 3:[[2,5],[4,7]], 4:[[1,6],[3,6]]},
+  cur:[[1,1],[2,2],[3,2],[4,3],[5,4],[6,4],[7,2],[8,1]]
+};
+// map global event number -> local step: events <= off show at step 0, later ones start at step 2
+function walk(off, upto=8){
+  const L = e => e<=off ? 0 : e-off+1;
+  const keep = e => e<=upto;
+  const cn = {}; Object.entries(EV.node).forEach(([id,e])=>{ if(keep(e)) cn[id]=L(e); });
+  const svg = g({cn, ce:EV.edge.filter(([,,e])=>keep(e)).map(([a,b,e])=>[a,b,L(e)]), cur:EV.cur.filter(([e])=>e>off&&keep(e)).map(([e,id])=>[L(e),id])});
+  const book = `<div class="book"><h4>登记簿 old2new（旧 → 新）</h4><div class="row">${
+    Object.entries(EV.node).filter(([,e])=>keep(e)).map(([id,e])=>`<span class="k s" data-s="${L(e)}">${id} → ${id}'</span>`).join('')}</div>
+    <h4>新节点的邻居列表</h4>${[1,2,3,4].map(id=>`<div class="row"><b>${id}'</b>${EV.nbs[id].filter(([,e])=>keep(e)).map(([n,e])=>`<span class="nb s" data-s="${L(e)}">${n}'</span>`).join('')}</div>`).join('')}</div>`;
+  return duo(svg, book);
+}
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'复制一张关系网<br><em>LeetCode 133</em>', vis:
+  gloss(0,[['图 graph','一堆点和连接它们的线，比如朋友关系网'],['节点 node','图里的一个点'],['边 edge','连接两个节点的线'],['邻居 neighbors','和一个节点直接相连的那些节点']])
+  + flow([[1,'读题','深拷贝'],[1,'两个坑','环、重复'],[2,'登记簿','旧 → 新'],[2,'DFS','一步步走'],[3,'代码','DFS 和 BFS'],[3,'复杂度','O(V+E)']]),
+  say:[
+  '这节课讲力扣 133 题，克隆图。先认四个词：图就是一堆点和连接它们的线，像一张朋友关系网。每个点叫节点，每条线叫边，和一个节点直接相连的，叫它的邻居。',
+  '路线是这样的：先搞清楚题目要的深拷贝是什么意思，再看两个坑：图里有环，还有好几条路通向同一个节点。',
+  '然后用一本旧节点到新节点的登记簿，把两个坑一起解决，并在例子上一步步走一遍。',
+  '最后写出 DFS 和 BFS 两种代码，讲清复杂度、易错点，和面试时怎么说。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'题目给你一个节点，<em>要你还一张新图</em>', vis:
+  gloss(0,[['Node 类','每个节点有两样东西：val 是编号，neighbors 是邻居列表'],['引用','指向某个对象的"门牌号"，拿着它就能找到那个对象'],['深拷贝','连带所有能碰到的东西，全部重新造一份']])
+  + duo(g({cn:{1:2,2:2,3:2,4:2}, ce:[[1,2,2],[2,3,2],[3,4,2],[4,1,2]]}),
+    q(1,'题目只给你节点 1 的引用，要你返回什么？')
+    + cards([[2,'一张全新的图','形状一模一样：1 连 2 和 4，2 连 1 和 3……','mint'],
+             [3,'每个节点都是新造的','新图里任何一条边，都不能连回原图','amber']])),
+  say:[
+  '先看节点长什么样。每个节点有两样东西：val 是它的编号，neighbors 是它的邻居列表。引用就是指向一个对象的门牌号。深拷贝，就是把能碰到的东西全部重新造一份。',
+  '这一幕要回答的是：题目只给你节点 1 的引用，要你返回什么？',
+  '要返回一张全新的图，形状和原图一模一样。例子里原图是个正方形：1 连 2 和 4，2 连 1 和 3，3 连 2 和 4，4 连 1 和 3。',
+  '关键是每个节点都得是新造的对象。新图里的任何一条边，都只能连到新节点，不能连回原图。最后返回新的节点 1，也就是 1 撇。'
+]});
+
+/* ===== 2 浅拷贝错在哪 ===== */
+add({ch:2, title:'只复制一个点，<em>为什么不行</em>', vis:
+  gloss(0,[['浅拷贝','只复制最外面一层，里面的东西还是共用原来的'],["1'","读作 1 撇，表示节点 1 的复制品"]])
+  + duo(g({cn:{1:2}, extra:[[2,line(1,2,1,0,'bad')],[2,line(1,4,1,0,'bad')]], right:"只造了 1'"}),
+    q(1,"造一个新的 1'，邻居列表直接沿用原来的 2 和 4。这算复制成功吗？")
+    + cards([[2,'不算：新图连回了旧图','红色虚线指向的 2 和 4 还是原图里的节点','coral'],
+             [3,'后果','改新图会改到原图；判题时一检查，发现节点是同一个对象，直接判错','amber']])),
+  say:[
+  '浅拷贝，就是只复制最外面一层，里面的东西还是共用原来的。1 撇读作一撇，表示节点 1 的复制品。',
+  '这一幕要回答的是：造一个新的 1 撇，邻居列表直接沿用原来的 2 和 4，这算复制成功吗？',
+  '不算。看红色虚线：1 撇是新的，可它的邻居还是原图里的 2 和 4。从新图出发走一步，就走回了旧图。',
+  '后果是：改新图会改到原图；判题程序一检查，发现节点是同一个对象，直接判错。所以每个邻居也都要复制，邻居的邻居也要，一直到整张图。'
+]});
+
+/* ===== 3 两个坑 ===== */
+add({ch:3, title:'坑一：<em>图里有环</em>', vis:
+  gloss(0,[['环 cycle','从一个节点出发，沿着边走，能走回自己'],['递归','函数自己调用自己：复制一个节点时，顺手调用自己去复制它的邻居'],['栈溢出','递归套的层数太多，超过上限，程序直接报错']])
+  + duo(g({right:false, extra:[[2,line(1,2,0,0,'hot')]], cur:[[2,1],[3,2],[4,1]]}),
+    q(1,'最直接的递归：复制 1，再复制它的邻居 2，再复制 2 的邻居……会发生什么？')
+    + cards([[3,'2 的邻居里又有 1','于是又去复制 1','coral'],
+             [4,'1 → 2 → 1 → 2 ……','永远停不下来，最后栈溢出','coral']])),
+  say:[
+  '先认词。环就是从一个节点出发，沿着边走，能走回自己。递归就是函数自己调用自己：复制一个节点时，顺手调用自己去复制邻居。栈溢出是递归套太多层，程序直接报错。',
+  '这一幕要回答的是：最直接的递归，复制 1，再复制它的邻居 2，再复制 2 的邻居，会发生什么？',
+  '从 1 出发，复制 1，然后走到邻居 2，复制 2。',
+  '2 的邻居列表里有谁？有 1。因为这是无向图，1 连着 2，2 也连着 1。于是程序又回头去复制 1。',
+  '然后又到 2，又回到 1，永远停不下来，最后栈溢出。所以必须记住哪些节点已经复制过。'
+]});
+
+add({ch:3, title:'坑二：<em>同一个点被造两次</em>', vis:
+  gloss(0,[['一一对应','原图里每个节点，在新图里恰好有一个复制品，不多不少']])
+  + duo(g({right:"多出来一个 3'", cn:{3:3}, extra:[[2,line(2,3,0,0,'hot')+line(4,3,0,0,'hot')],[3,`<circle class="nx" cx="${175+DX}" cy="105" r="21"/><text x="${175+DX}" y="105">3'</text>`]]}),
+    q(1,'1 的邻居是 2 和 4，而 2 和 4 的邻居里都有 3。从两边各走到 3，不做记录的话，会造出几个 3 撇？')
+    + cards([[2,'两条路都通到 3','经 2 走到一次，经 4 又走到一次','amber'],
+             [3,"造出两个 3'",'新图变成 5 个节点，形状错了','coral'],
+             [4,'要求：一一对应','一个旧节点，只能对应一个新节点','mint']])),
+  say:[
+  '一一对应，意思是原图里每个节点，在新图里恰好有一个复制品，不多不少。',
+  '这一幕要回答的是：2 和 4 的邻居里都有 3。从两边各走到 3，不做记录的话，会造出几个 3 撇？',
+  '看橙色的两条边：从 2 能走到 3，从 4 也能走到 3。两条路都通向同一个节点。',
+  '每走到一次就造一个，就会有两个 3 撇。新图变成五个节点，形状就错了。',
+  '所以要求很明确：一个旧节点，只能对应一个新节点。再走到它时，要拿出之前造好的那个，而不是重新造。'
+]});
+
+/* ===== 4 登记簿 ===== */
+add({ch:4, title:'一本<em>"旧 → 新"登记簿</em>', vis:
+  gloss(0,[['哈希表 dict','Python 的字典：按"键"存"值"，查一次很快'],['old2new','我们的登记簿：键是旧节点，值是它的复制品']])
+  + q(1,'一本旧节点到新节点的登记簿，怎么同时解决环和重复这两个坑？')
+  + flow([[2,'走到一个节点','先查登记簿'],[3,'登记过','直接拿出复制品，不再往下走'],[4,'没登记过','造新节点，立刻登记'],[4,'再处理邻居','每个邻居都走同一套流程']])
+  + cards([[5,'为什么要"立刻"登记','邻居里会绕回来找它，那时它必须已经在登记簿里','amber']]),
+  say:[
+  '哈希表在 Python 里就是字典，按键存值，查一次很快。我们的登记簿叫 old2new：键是旧节点，值是它的复制品。',
+  '这一幕要回答的是：这本登记簿，怎么同时解决环和重复这两个坑？',
+  '规则很简单：每走到一个节点，先查登记簿。',
+  '登记过，就直接拿出它的复制品，不再往下走。这一条同时堵住了两个坑：绕回来的环在这里停下，第二次走到 3 也拿到同一个 3 撇。',
+  '没登记过，就造一个新节点，立刻写进登记簿，然后再去处理它的每个邻居。',
+  '为什么必须立刻登记？因为处理邻居时会绕回来找它。比如复制 2 时会回头找 1，那时 1 必须已经在登记簿里，不然又会无限循环。'
+]});
+
+/* ===== 5 DFS 一步步走 ===== */
+add({ch:5, title:'DFS 走一遍（上）：<em>一路往深处造</em>', vis:
+  gloss(0,[['DFS','深度优先搜索：一条路走到底，走不通再退回来'],['橙色圈','程序此刻正在处理的原图节点']])
+  + q(1,"从节点 1 出发，四个复制品是按什么顺序造出来的？")
+  + walk(0, 4),
+  say:[
+  'DFS 是深度优先搜索，一条路走到底，走不通再退回来。橙色圈表示程序此刻正在处理原图里的哪个节点。',
+  '这一幕要回答的是：从节点 1 出发，四个复制品是按什么顺序造出来的？',
+  '第一步，处理 1。登记簿里没有，造出 1 撇，立刻登记一到一撇。然后看 1 的邻居，第一个是 2。',
+  '第二步，处理 2。也没登记过，造出 2 撇，登记。2 的邻居第一个是 1。',
+  '第三步，回头看 1：登记簿里有。直接拿出 1 撇，放进 2 撇的邻居列表。这里就是环被堵住的地方，没有再去复制 1。',
+  '第四步，2 的下一个邻居是 3。没登记过，造出 3 撇，登记。顺序到这里是 1、2、3，一路往深处走。'
+]});
+
+add({ch:5, title:'DFS 走一遍（下）：<em>一路返回，把边补上</em>', vis:
+  gloss(0,[['返回','递归函数做完了，把造好的复制品交回给上一层']])
+  + q(1,'所有复制品造完以后，那些还没连上的边是怎么补上的？')
+  + walk(4),
+  say:[
+  '返回，就是递归函数做完了，把造好的复制品交回给调用它的上一层。',
+  '这一幕要回答的是：所有复制品造完以后，还没连上的边是怎么补上的？',
+  '第五步，处理 3：它的第一个邻居 2 已经登记过，拿出 2 撇放进 3 撇的列表。下一个邻居 4 没登记过，造出 4 撇，登记。四个复制品的顺序就是 1、2、3、4。',
+  '第六步，处理 4：邻居 1 和 3 都登记过，直接拿出 1 撇和 3 撇，放进 4 撇的列表。4 处理完，把 4 撇返回给 3。',
+  '第七步，一路返回：3 拿到 4 撇，放进自己的列表；3 撇返回给 2，2 撇的列表补上 3 撇；2 撇返回给 1，1 撇的列表补上 2 撇。',
+  '第八步，1 还剩一个邻居 4，登记簿里有，拿出 4 撇放进去。四个新节点、每个两个邻居，和原图一模一样。最后返回 1 撇。'
+]});
+
+/* ===== 6 写代码 ===== */
+add({ch:6, title:'DFS 代码：<em>先登记，再走邻居</em>', vis:
+  gloss(0,[['None','Python 里的"什么都没有"，空图就传进来 None'],['append','往列表末尾加一个元素']])
+  + term('solution.py',[
+    [2,'o','def cloneGraph(node):'],
+    [2,'o','    if not node:'],
+    [2,'o','        return None'],
+    [2,'o','    old2new = {}'],
+    [3,'o','    def dfs(cur):'],
+    [3,'o','        if cur in old2new:'],
+    [3,'o','            return old2new[cur]'],
+    [4,'o','        copy = Node(cur.val)'],
+    [4,'hl','        old2new[cur] = copy      # 先登记，再走邻居'],
+    [5,'o','        for nb in cur.neighbors:'],
+    [5,'o','            copy.neighbors.append(dfs(nb))'],
+    [5,'o','        return copy'],
+    [5,'o','    return dfs(node)']])
+  + q(1,'高亮这一行：为什么 old2new[cur] = copy 必须写在 for 循环前面？'),
+  say:[
+  'None 是 Python 里的什么都没有，题目说图可以是空的，那时传进来的就是 None。append 是往列表末尾加一个元素。',
+  '这一幕要回答的是：为什么登记这一行，必须写在 for 循环前面？',
+  '先看开头：如果传进来的是空，直接返回空。然后准备一本空的登记簿 old2new。',
+  'dfs 函数第一件事是查登记簿：这个节点登记过，就直接返回它的复制品。',
+  '没登记过，就造一个新节点，值和原来一样，然后马上登记。这就是答案：后面的 for 循环会去递归邻居，邻居会绕回来找它，所以它必须先在登记簿里。',
+  '最后，对每个邻居调用 dfs，拿到邻居的复制品，加进自己的邻居列表，返回自己的复制品。整题的答案，就是 dfs 节点 1 的返回值。'
+]});
+
+/* ===== 7 BFS ===== */
+add({ch:7, title:'BFS 版本：<em>用队列，一圈一圈复制</em>', vis:
+  gloss(0,[['BFS','广度优先搜索：先处理离起点近的，再处理远的，像水波一圈圈扩'],['队列 deque','排队用的容器：从后面进，从前面出']])
+  + term('solution_bfs.py',[
+    [2,'o','def cloneGraph(node):'],
+    [2,'o','    if not node:'],
+    [2,'o','        return None'],
+    [2,'o','    old2new = {node: Node(node.val)}'],
+    [2,'o','    q = deque([node])'],
+    [2,'o','    while q:'],
+    [2,'o','        cur = q.popleft()'],
+    [2,'o','        for nb in cur.neighbors:'],
+    [3,'hl','            if nb not in old2new:'],
+    [3,'hl','                old2new[nb] = Node(nb.val)'],
+    [3,'hl','                q.append(nb)'],
+    [4,'hl','            old2new[cur].neighbors.append(old2new[nb])'],
+    [4,'o','    return old2new[node]']])
+  + q(1,'BFS 里，什么时候造新节点？什么时候连边？'),
+  say:[
+  'BFS 是广度优先搜索，先处理离起点近的节点，再处理远的，像水波一圈圈往外扩。队列就是排队用的容器，从后面进，从前面出。',
+  '这一幕要回答的是：BFS 里，什么时候造新节点？什么时候连边？',
+  '开头先把起点复制好、登记好，放进队列。然后不停从队头取出一个节点，看它的每个邻居。',
+  '造新节点只发生在第一次见到某个邻居时：它不在登记簿里，就造一个、登记、放进队列排队。见过的就不再排队，环和重复都在这里被拦住。',
+  '连边则是每次都做：不管邻居是不是第一次见，都把它的复制品加进当前节点复制品的邻居列表。原图里每条边，就这样在新图里各补一次。'
+]});
+
+/* ===== 8 复杂度 ===== */
+add({ch:8, title:'复杂度：<em>每个点一次，每条边两次</em>', vis:
+  gloss(0,[['V','节点数，vertex 的缩写'],['E','边数，edge 的缩写'],['O(V+E)','步数和"节点数加边数"成正比']])
+  + q(1,'一张有 V 个节点、E 条边的图，克隆一遍要多少步？')
+  + cards([[2,'每个节点造一次','登记簿拦住了重复，一共 V 次','sky'],
+           [3,'每条边看两次','无向边两头各在对方的邻居列表里，一共 2E 次','sky'],
+           [4,'时间 O(V+E)，空间 O(V)','登记簿存 V 个节点；递归栈或队列最多也是 V','mint'],
+           [5,'这题最多 100 个节点','递归不会太深；图很大时换 BFS 更稳','amber']]),
+  say:[
+  'V 是节点数，E 是边数。大 O 的 V 加 E，意思是步数和节点数加边数成正比。',
+  '这一幕要回答的是：一张有 V 个节点、E 条边的图，克隆一遍要多少步？',
+  '每个节点只造一次，因为登记簿拦住了重复，一共 V 次。',
+  '每条边会被看两次：无向边 1 连 2，1 的列表里有 2，2 的列表里也有 1，两头各看一次，一共两倍的 E。',
+  '所以时间是大 O 的 V 加 E。空间是大 O 的 V：登记簿存所有节点，递归栈或队列最多也装下所有节点。',
+  '题目规定最多一百个节点，递归不会太深。如果面试官说图很大，就主动说换 BFS，避免栈溢出。'
+]});
+
+/* ===== 9 易错点 ===== */
+add({ch:9, title:'四个<em>常见坑</em>', vis:
+  gloss(0,[['空图','一个节点都没有，题目传进来 None']])
+  + q(1,'这道题最容易错在哪几个地方？')
+  + cards([[2,'空图没处理','传进来 None，要直接返回 None','coral'],
+           [3,'先递归、后登记','登记写在 for 循环后面，环会让程序无限循环','coral'],
+           [4,'邻居指回旧图','邻居列表里放了原节点，而不是复制品；或者直接 return node','coral'],
+           [5,'拿什么当键','用节点对象当键最通用；这题 val 1 到 100 互不相同，用 val 也行','amber']]),
+  say:[
+  '空图就是一个节点都没有，题目会传进来 None。',
+  '这一幕要回答的是：这道题最容易错在哪几个地方？',
+  '第一，空图没处理。传进来 None，直接返回 None，不然访问 None 的属性会报错。',
+  '第二，先递归、后登记。登记写在 for 循环后面，复制 2 时回头找 1，1 还没登记，就会无限循环。',
+  '第三，邻居指回旧图。邻居列表里放了原节点而不是复制品，或者干脆直接返回原来的 node，都是浅拷贝，判题会判错。',
+  '第四，拿什么当键。用节点对象本身当键最通用。这题规定 val 从 1 到 100 互不相同，用 val 当键也可以，但面试时说清这个前提。'
+]});
+
+/* ===== 10 面试怎么讲 ===== */
+add({ch:10, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："为什么一定要哈希表？"你怎么答？')
+  + flow([[2,'深拷贝','每个节点都新造'],[3,'两个坑','环会死循环，多路会重复造'],[4,'登记簿','旧 → 新，先登记再走邻居'],[5,'复杂度','O(V+E) 时间，O(V) 空间']])
+  + chips(5,['deep copy','hash map old → new','visited','cycle','DFS / BFS','O(V+E)']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，为什么一定要哈希表？',
+  '先说题目要的是深拷贝，每个节点都要新造，新图不能连回旧图。',
+  '再说难点有两个：图里有环，直接递归会死循环；多条路通向同一个节点，会被重复造。',
+  '所以我用一个哈希表，把旧节点映射到新节点。走到一个节点先查表，有就直接用；没有就造一个，先登记，再去复制邻居。',
+  '最后报复杂度：时间是 V 加 E，空间是 V；图很大我就用 BFS。英文关键词是 deep copy 和 hash map from old node to new node。'
+]});
+
+/* ===== 11 收尾 ===== */
+add({ch:11, title:'三句<em>必记</em>', vis:
+  flow([[0,'深拷贝','每个节点都新造'],[0,'两个坑','环、重复'],[0,'登记簿','旧 → 新'],[0,'DFS / BFS','先登记再走邻居'],[0,'复杂度','O(V+E)']])
+  + cards([[1,'① 深拷贝：新图不能有一条边连回旧图','邻居也要复制，邻居的邻居也要','amber'],
+           [2,'② 一本 old2new 登记簿，同时解决环和重复','见过就直接拿复制品','sky'],
+           [3,'③ 先登记，再走邻居','时间 O(V+E)，空间 O(V)','mint']]),
+  say:[
+  '回顾一遍主线：题目要深拷贝；直接递归有两个坑，环和重复；一本旧到新的登记簿把它们都解决；DFS 和 BFS 都行，复杂度是 V 加 E。',
+  '第一句：深拷贝就是新图里不能有一条边连回旧图，邻居要复制，邻居的邻居也要复制。',
+  '第二句：一本 old2new 登记簿同时解决环和重复，见过的节点直接拿出复制品。',
+  '第三句：先登记，再走邻居。顺序反了就会死循环。以后遇到复制链表、复制树、复制图这类题，都是同一个套路。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/48046a8e93c1.mp3", "0-1": "a/33571d429fb4.mp3", "0-2": "a/ce336cf882fe.mp3", "0-3": "a/9b3aff9096e9.mp3", "1-0": "a/709615cf4ee9.mp3", "1-1": "a/e6489725a86f.mp3", "1-2": "a/3b14aa155394.mp3", "1-3": "a/3347dca4999e.mp3", "2-0": "a/bc11119869a7.mp3", "2-1": "a/40d574436759.mp3", "2-2": "a/4b4f5cfd8ba3.mp3", "2-3": "a/048c4a4d93b2.mp3", "3-0": "a/3c51d567e045.mp3", "3-1": "a/f2226978d95b.mp3", "3-2": "a/1964aec57d2d.mp3", "3-3": "a/2ba3e07ebb21.mp3", "3-4": "a/3e291659c88b.mp3", "4-0": "a/78990553efc8.mp3", "4-1": "a/da7b7e2dc86f.mp3", "4-2": "a/48ac2891e767.mp3", "4-3": "a/11222514533c.mp3", "4-4": "a/05c73c9dfb9f.mp3", "5-0": "a/cbc9c2d6df59.mp3", "5-1": "a/244ff9a45284.mp3", "5-2": "a/e061f47258e4.mp3", "5-3": "a/10c273977aba.mp3", "5-4": "a/6f7cc4dd6392.mp3", "5-5": "a/465a6331b99c.mp3", "6-0": "a/354b8c8ef72d.mp3", "6-1": "a/7ec64c8a7a06.mp3", "6-2": "a/861c971b68e0.mp3", "6-3": "a/10fc0817095f.mp3", "6-4": "a/d43ec6e834ea.mp3", "6-5": "a/a82216aea610.mp3", "7-0": "a/5717bc0ba5d7.mp3", "7-1": "a/eb86022c89c7.mp3", "7-2": "a/653cc13b7282.mp3", "7-3": "a/a3f2c431ffa9.mp3", "7-4": "a/eee5fa47caa9.mp3", "7-5": "a/5a74e455c3c2.mp3", "8-0": "a/d3a6b2f758dd.mp3", "8-1": "a/a21c210ef68a.mp3", "8-2": "a/1d007687d88e.mp3", "8-3": "a/410d0a7c7587.mp3", "8-4": "a/939ded001c4e.mp3", "8-5": "a/aab23403a2a0.mp3", "9-0": "a/8b0d42b35596.mp3", "9-1": "a/413af9de0adf.mp3", "9-2": "a/4564b500c63a.mp3", "9-3": "a/9bc045e021f7.mp3", "9-4": "a/7ec4164acca2.mp3", "10-0": "a/4fde93220106.mp3", "10-1": "a/0a33755f5dd9.mp3", "10-2": "a/739950c5f210.mp3", "10-3": "a/0bdb9bdaa265.mp3", "10-4": "a/6d938687f613.mp3", "10-5": "a/34b2fec13e45.mp3", "11-0": "a/e52781a38df5.mp3", "11-1": "a/5175cca2fe04.mp3", "11-2": "a/39d13679c394.mp3", "11-3": "a/64fce5d92c0f.mp3", "11-4": "a/b633b6232318.mp3", "11-5": "a/da2774825bd8.mp3", "12-0": "a/d20e68caeba7.mp3", "12-1": "a/6892d367366b.mp3", "12-2": "a/33df35b430a4.mp3", "12-3": "a/be10279b292e.mp3", "12-4": "a/2631854b7e19.mp3", "12-5": "a/ac0e05bf69e4.mp3", "13-0": "a/b3952710f86c.mp3", "13-1": "a/7163fda91e32.mp3", "13-2": "a/b1d64bbee922.mp3", "13-3": "a/7dbddf5c2ab9.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

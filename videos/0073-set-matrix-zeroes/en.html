@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zero the Cross</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Zero the Cross', template:'prep', lang:'en', sub:'LeetCode 73 Set Matrix Zeroes · animated walkthrough', key:'lc73envid', doc:'LeetCode 73', blurb:'Start from "paint it as soon as you see a 0" and watch its own zeros fool it until the whole matrix is 0; fix it by recording first with two sets, then move the record into the first row and column with one col0 flag for O(1) space.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a cross','The problem: a 0 paints a cross','Paint as you scan: where it breaks','Record first, then paint','Two passes, walked through','Follow-up: the notebook is the matrix','Two snags: the corner and column 0','Animation: the marker phase','Animation: the fill phase','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- matrix frames: frames stack in one place; the latest revealed frame is the one you see ----------
+   codes per cell: '.' plain, 'o' original zero (coral), 'n' newly written zero (mint),
+   'f' fake zero mistaken for an original (dashed coral), 'm' marker (sky); UPPERCASE = same + amber ring, 'R' = ring only */
+const MCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.mx{display:grid;justify-content:center;margin:0 auto}
+.mx>.fr{grid-area:1/1;transform:none!important;box-shadow:none!important}
+.mx>.fr.s:not(.on){opacity:0}
+.mx>.fr:has(~ .fr.on){opacity:0!important}
+.mg{display:grid;gap:5px;justify-content:center}
+.mg>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.mg>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.mg>.rx{height:2.5em}
+.mg>.v{border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.3em}
+.mg>.v.o{background:rgba(255,122,107,.38);border-color:var(--coral)}
+.mg>.v.n{background:rgba(98,224,180,.3);border-color:var(--mint)}
+.mg>.v.f{background:rgba(255,122,107,.25);border:2px dashed var(--coral)}
+.mg>.v.m{background:rgba(127,180,255,.32);border-color:var(--sky)}
+.mg>.v.r{box-shadow:0 0 0 3px var(--amber)}
+.mx .cap{text-align:center;font-size:.8em;color:var(--dim);margin-top:.45em;max-width:17em;margin-inline:auto;min-height:2.6em}
+.mx .cap b{color:var(--amber);font-weight:600}
+</style>`;
+function grid(vals, codes){
+  const m = vals.length, n = vals[0].length;
+  let h = `<div class="mg" style="grid-template-columns:1.4em repeat(${n},2.6em)"><div class="ix"></div>`;
+  h += [...Array(n).keys()].map(j=>`<div class="ix">${j}</div>`).join('');
+  vals.forEach((row,i)=>{
+    h += `<div class="ix rx">${i}</div>`;
+    row.forEach((v,j)=>{ const ch = (codes&&codes[i]&&codes[i][j])||'.'; const lo = ch.toLowerCase();
+      const cls = (lo==='.'||lo==='r'?'':lo) + (ch!==lo||ch==='R'?' r':'');
+      h += `<div class="v ${cls}">${v}</div>`; });
+  });
+  return h + `</div>`;
+}
+// base: [vals, codes, caption]; frames: [[step, vals, codes, caption]]
+function mx(base, frames=[]){
+  let h = MCSS + `<div class="mx"><div class="fr">${grid(base[0],base[1])}<div class="cap">${base[2]||''}</div></div>`;
+  frames.forEach(([s,v,cd,cap])=>h += `<div class="fr s" data-s="${s}">${grid(v,cd)}<div class="cap">${cap||''}</div></div>`);
+  return h + `</div>`;
+}
+// the two examples (all states below were printed by running the code)
+const A  = [[1,1,1],[1,0,1],[1,1,1]];
+const AR = [[1,0,1],[0,0,0],[1,0,1]];
+const B  = [[0,1,2,0],[3,4,5,2],[1,3,1,5]];
+const BR = [[0,0,0,0],[0,4,5,0],[0,3,1,0]];
+const Ao = ['...','.o.','...'];
+const Bo = ['o..o','....','....'];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Zero the Cross<br><em>LeetCode 73</em>', vis:
+  gloss(0,[['matrix','A table of numbers with m rows and n columns'],['in-place','Do not build a new matrix; change the one you were given'],['marker','A note you write first, like "this row must be zeroed", and act on later']])
+  + flow([[1,'Read','0 → whole row and column'],[1,'Instinct','paint as you scan'],[2,'Breaks','fake zeros spread'],[2,'Record first','two sets'],[3,'Follow-up','first row and column as the notebook'],[3,'Code','O(1) space']]),
+  say:[
+  'This lesson covers LeetCode 73, Set Matrix Zeroes. First, three words. A matrix is a table of numbers with m rows and n columns. In-place means you do not build a new matrix; you change the one you were given. A marker is a note you write first, like "this row must be zeroed", and act on later.',
+  'Here is the route. We read the problem, then try the most natural idea: paint as you scan, zeroing a row and column the moment you see a 0.',
+  'We will watch it break with our own eyes: the zeros we write get mistaken for original zeros, and they spread. The fix is to record first, then paint.',
+  'Finally, the follow-up: use only constant extra space. The trick is to write the record into the first row and column, and patch one hole with a small flag.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>a 0 paints a cross</em>', vis:
+  gloss(0,[['matrix[i][j]','The number in row i, column j; rows and columns both count from 0'],['cross','The whole row of a cell, plus its whole column']])
+  + duo(mx([A,Ao,'The original 0 is at row 1, column 1'],[[3,AR,['.n.','non','.n.'],'Answer: <b>5</b> zeros']]),
+    q(1,'[[1,1,1],[1,0,1],[1,1,1]]: set the whole row and column of every 0 to 0. What do you get?')
+    + cards([[2,'Only one 0','At row 1, column 1; its cross is row 1 plus column 1','amber'],
+             [3,'Answer [[1,0,1],[0,0,0],[1,0,1]]','The four corners stay 1; 5 zeros in total','mint'],
+             [4,'Change it in place','The function returns nothing; it edits matrix directly','sky']])),
+  say:[
+  'matrix of i, j is the number in row i, column j, and rows and columns both count from zero. A cross is the whole row of a cell, plus its whole column.',
+  'The question for this scene: a 3 by 3 matrix has a 0 in the middle and 1 everywhere else. If we set the whole row and column of every 0 to 0, what do we get?',
+  'There is only one 0, at row 1, column 1. Its cross is row 1 plus column 1.',
+  'After painting, the four corners are still 1, and the cross in the middle is all 0. That is 5 zeros in total.',
+  'The problem also wants it in place: the function does not return a new matrix; it edits the matrix it was given.'
+]});
+
+/* ===== 2 Paint as you scan ===== */
+add({ch:2, title:'Instinct: <em>paint as you scan</em>, and where it breaks', vis:
+  gloss(0,[['scan','Look at the cells one by one, top to bottom, left to right'],['fake zero','A 0 we just wrote ourselves; it was not 0 originally']])
+  + duo(mx([A,Ao,'Start scanning at the top left'],[
+      [2,AR,['.n.','nOn','.n.'],'At (1, 1): paint the cross, <b>looks right</b>'],
+      [3,[[1,0,0],[0,0,0],[1,0,0]],['.nn','noF','.nn'],'At (1, 2): a <b>fake zero</b>, column 2 gets wiped'],
+      [4,[[1,0,0],[0,0,0],[0,0,0]],['.nn','nof','nFn'],'At (2, 1): another fake zero, row 2 gets wiped'],
+      [5,[[1,0,0],[0,0,0],[0,0,0]],['.nn','nof','nff'],'Done: <b>8</b> zeros, the answer has 5']]),
+    q(1,'Each time you see a 0, immediately zero its row and column. On this matrix, is the result right?')
+    + cards([[5,'8 zeros, 3 too many','Only the top-left corner is still 1; the other three corners were wiped by fake zeros','coral'],
+             [6,'Example 2 is worse','[[0,1,2,0],[3,4,5,2],[1,3,1,5]] gets painted all the way to all zeros','coral']])),
+  say:[
+  'To scan is to look at the cells one by one, top to bottom, left to right. A fake zero is a 0 we just wrote ourselves; it was not 0 originally.',
+  'The question for this scene: each time you see a 0, you immediately zero its row and column. On this matrix, is the result right?',
+  'Start at the top left. The first four cells are 1. At row 1, column 1 there is a 0, so we zero row 1 and column 1 right away. At this moment the matrix is exactly the answer.',
+  'But the scan is not over. The next cell is row 1, column 2, and it is now 0. We just wrote that 0, but the code cannot tell, so it treats it as original and wipes all of column 2.',
+  'Then we scan row 2. Cell 0 is 1. Cell 1 is a 0 we just wrote, it gets believed again, and the whole of row 2 is wiped too.',
+  'The last cell is also a fake zero; painting again changes nothing. We end up with 8 zeros, but the answer has only 5. Only the top-left corner is still 1; the other three corners were wiped by mistake.',
+  'Example 2 is worse: the fake zeros keep spreading until the whole matrix is 0. The flaw in one sentence: a 0 you wrote looks exactly like an original 0.'
+]});
+
+/* ===== 3 Record first, then paint ===== */
+add({ch:3, title:'Fix 1: <em>record first, then paint</em>', vis:
+  gloss(0,[['set','A collection of distinct numbers where checking "is it in here" is fast'],['rows, cols','The set of row numbers and the set of column numbers to zero'],['O(m + n) space','At most rows plus columns extra slots']])
+  + q(1,'We cannot tell written zeros from original zeros. How do we keep them from interfering?')
+  + cards([[2,'Root cause: reading and writing are mixed','We read the matrix to find zeros while writing zeros into the same matrix','coral'],
+           [3,'Split into two passes','Pass 1 only reads and records rows and cols; pass 2 only writes and never looks for zeros','sky'],
+           [4,'Example 1: rows = {1}, cols = {1}','Pass 2: if the row is in rows or the column is in cols, write 0 → exactly 5 zeros','mint'],
+           [5,'Extra space O(m + n)','rows holds at most m row numbers, cols at most n column numbers','amber']]),
+  say:[
+  'A set is a collection of distinct numbers where checking whether a number is in it is fast. rows and cols are the set of row numbers and the set of column numbers to zero. Big O of m plus n space means at most rows plus columns extra slots.',
+  'The question for this scene: we cannot tell written zeros from original zeros, so how do we keep them from interfering?',
+  'The root cause is that reading and writing are mixed: we read the matrix to find zeros while writing zeros into the same matrix.',
+  'So split it into two passes. Pass 1 only reads and never changes the matrix: it puts the row of each 0 into rows and its column into cols. Pass 2 only writes and never looks for zeros.',
+  'On example 1, pass 1 gives rows equal to 1 and cols equal to 1. Pass 2 writes zeros from the sets, and we get exactly 5 zeros. Fake zeros never get a chance.',
+  'The cost is big O of m plus n extra space: rows holds at most m row numbers, and cols at most n column numbers.'
+]});
+
+/* ===== 4 Two passes, walked through ===== */
+add({ch:4, title:'Two passes, <em>on example 2</em>', vis:
+  gloss(0,[['pass 1','Read only: record the rows and columns that have a 0'],['pass 2','Write only: if i is in rows or j is in cols, write 0']])
+  + duo(mx([B,Bo,'Example 2: the original zeros are at (0, 0) and (0, 3)'],[
+      [2,B,['O..O','....','....'],'Pass 1: rows = <b>{0}</b>, cols = <b>{0, 3}</b>'],
+      [3,BR,['onno','n..n','n..n'],'Pass 2: row 0, column 0, column 3 → 0']]),
+    q(1,'Example 2: [[0,1,2,0],[3,4,5,2],[1,3,1,5]]. What do two passes give?')
+    + cards([[2,'Pass 1: two zeros','Both in row 0: rows = {0}, cols = {0, 3}','sky'],
+             [3,'Pass 2: [[0,0,0,0],[0,4,5,0],[0,3,1,0]]','The 4, 5, 3, 1 in the middle survive','mint'],
+             [4,'The interviewer follows up','Can you skip the sets and use O(1) extra space?','amber']])),
+  say:[
+  'Pass 1 only reads and records the rows and columns that have a 0. Pass 2 only writes: if i is in rows or j is in cols, write 0.',
+  'The question for this scene: on example 2, with 3 rows and 4 columns, what do two passes give?',
+  'Pass 1: the matrix has two zeros, at row 0, column 0 and at row 0, column 3. So rows is 0, and cols is 0 and 3.',
+  'Pass 2: row 0, column 0 and column 3 all become 0. The 4, 5, 3 and 1 in the middle survive, and that is the correct answer.',
+  'This already passes. But the follow-up asks: can you skip the sets and use only constant extra space?'
+]});
+
+/* ===== 5 Follow-up: the notebook is the matrix ===== */
+add({ch:5, title:'Follow-up: <em>the notebook is the matrix</em>', vis:
+  gloss(0,[['O(1) space','Only a few extra variables, no matter how big the matrix'],['row marker matrix[i][0]','Set to 0 to mean "row i must be zeroed"'],['column marker matrix[0][j]','Set to 0 to mean "column j must be zeroed"']])
+  + q(1,'No sets allowed. Where do rows and cols go?')
+  + cards([[2,'rows needs m slots, cols needs n','The first column has exactly m cells, the first row exactly n','sky'],
+           [3,'(i, j) is 0 → write two markers','matrix[i][0] = 0, matrix[0][j] = 0','amber'],
+           [4,'Writing markers does no damage','That row and column end up 0 anyway; the marker 0 is already the answer','mint'],
+           [5,'Still two passes','Write markers first, then paint the inner cells from the markers','sky']]),
+  say:[
+  'Constant space means only a few extra variables, no matter how big the matrix is. The row marker is matrix of i, 0; setting it to 0 means row i must be zeroed. The column marker is matrix of 0, j; setting it to 0 means column j must be zeroed.',
+  'The question for this scene: no sets allowed, so where do rows and cols go?',
+  'rows needs m slots, one per row, and cols needs n slots, one per column. The first column of the matrix has exactly m cells, and the first row has exactly n. The sizes match.',
+  'So in pass 1, when row i, column j is 0, we write two markers: a 0 in the leftmost cell of row i, and a 0 in the top cell of column j.',
+  'Why does this do no damage? Row i is going to be all 0 in the end anyway, and so is column j. The 0 a marker writes is already the final answer.',
+  'The rest is the same as fix 1, still two passes: write the markers first, then paint the inner cells from the markers.'
+]});
+
+/* ===== 6 Two snags ===== */
+add({ch:6, title:'Two snags: <em>the corner and column 0</em>', vis:
+  gloss(0,[['corner matrix[0][0]','The one cell shared by row 0 and column 0'],['col0','A True or False that records whether column 0 originally had a 0']])
+  + q(1,'The first row and column are both the notebook and data. What goes wrong?')
+  + cards([[2,'One corner cell, two jobs','"Zero row 0" and "zero column 0" are squeezed into the same cell','coral'],
+           [3,'Split the jobs: the corner only means row 0','Column 0 gets its own variable, col0, the only extra space','sky'],
+           [4,'Compute col0 before writing markers','In example 1, a marker sets matrix[1][0] to 0; computed later, column 0 gets wiped','coral'],
+           [5,'When marking, j starts at 1','Zeros in column 0 belong to col0; leave the corner alone','amber']]),
+  say:[
+  'The corner is matrix of 0, 0, the one cell shared by row 0 and column 0. col0 is a true or false value that records whether column 0 originally had a 0.',
+  'The question for this scene: the first row and column are both the notebook and data, so what goes wrong?',
+  'The first snag is the corner. It is the row marker for row 0 and also the column marker for column 0. Two jobs in one cell, so you cannot tell which one a 0 there means.',
+  'The fix is to split the jobs: the corner only means row 0, and whether column 0 must be zeroed goes into its own variable, col0. That is the only extra space in the whole algorithm.',
+  'The second snag is timing: col0 must be computed before any marker is written. In example 1, a marker sets row 1, column 0 to 0, so checking afterwards would wipe column 0 by mistake.',
+  'So when writing markers, the columns start at 1. Original zeros in column 0 are handled only by col0, and the corner is left alone.'
+]});
+
+/* ===== 7 The marker phase ===== */
+add({ch:7, title:'Animation: <em>the marker phase</em>', vis:
+  gloss(0,[['marker phase','Pass 1: only write markers, do not paint the inside'],['sky-blue cell','A cell being used as a marker'],['amber ring','The cells being looked at in this step']])
+  + duo(mx([B,Bo,'Example 2, untouched'],[
+      [2,B,['O..o','R...','R...'],'Check column 0 first: it has a 0 → col0 = <b>True</b>'],
+      [3,B,['M..M','....','....'],'At (0, 3): mark the corner and matrix[0][3], already 0'],
+      [4,B,['m..m','.RRR','.RRR'],'Rows 1 and 2 (j from 1): no zeros, no markers'],
+      [5,B,['m..m','....','....'],'Notebook: corner → row 0, (0, 3) → column 3, col0 → column 0']]),
+    q(1,'In the marker phase on example 2, what ends up in the notebook?')
+    + cards([[5,'Three things recorded','Row 0, column 3, column 0: exactly fix 1\'s rows = {0}, cols = {0, 3}','mint']])),
+  say:[
+  'The marker phase is pass 1: it only writes markers and does not paint the inside. A sky-blue cell is a cell being used as a marker, and the amber ring shows the cells being looked at in this step.',
+  'The question for this scene: in the marker phase on example 2, what ends up in the notebook?',
+  'Before writing any marker, check column 0. Row 0, column 0 is already 0, so col0 is true.',
+  'Then scan row 0, with columns starting at 1. Row 0, column 3 is 0, so we write two markers: a 0 in the corner and a 0 at row 0, column 3. Both cells were already 0, so the matrix looks unchanged.',
+  'Then scan rows 1 and 2, columns 1 to 3. There is not a single 0, so no markers are written.',
+  'The notebook now records three things. The corner is 0, so row 0 must be zeroed. Row 0, column 3 is 0, so column 3 must be zeroed. col0 is true, so column 0 must be zeroed. Exactly the same as the two sets in fix 1.'
+]});
+
+/* ===== 8 The fill phase ===== */
+add({ch:8, title:'Animation: <em>the fill phase</em>', vis:
+  gloss(0,[['fill phase','Pass 2: write zeros by following the markers'],['inner cells','i ≥ 1 and j ≥ 1, not in the first row or column']])
+  + duo(mx([B,['m..m','....','....'],'Marker phase done'],[
+      [2,[[0,1,2,0],[3,4,5,0],[1,3,1,0]],['m..m','...N','...N'],'Inside: matrix[0][3] is 0 → (1, 3), (2, 3)'],
+      [3,[[0,0,0,0],[3,4,5,0],[1,3,1,0]],['MNNM','...n','...n'],'The corner is 0 → paint row 0'],
+      [4,BR,['onno','N..n','N..n'],'col0 is True → paint column 0 last']]),
+    q(1,'Paint from the notebook. Why must the first row and column wait until last?')
+    + cards([[4,'Correct result','[[0,0,0,0],[0,4,5,0],[0,3,1,0]]','mint'],
+             [5,'If you paint row 0 first','Row 0 becomes all 0, every column "looks marked", and the whole matrix becomes 0','coral']])),
+  say:[
+  'The fill phase is pass 2: it writes zeros by following the markers. Inner cells are the ones with i at least 1 and j at least 1, not in the first row or column.',
+  'The question for this scene: when painting from the notebook, why must the first row and column wait until last?',
+  'Paint the inner cells first. Each one checks for a 0 at the left end of its row or the top of its column. Column 3 has a 0 on top, so row 1, column 3 and row 2, column 3 become 0, and nothing else changes.',
+  'Only after the inside is done is the notebook no longer needed. Now check the corner: it is 0, so paint the whole of row 0.',
+  'Last, check col0: it is true, so paint the whole of column 0. That is the correct answer, and the 4, 5, 3 and 1 in the middle all survive.',
+  'If you painted row 0 first, it would become all 0, every column would look marked, and the whole matrix would become 0. Same trap again: mistaking a 0 you wrote for a record.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>four blocks, four steps</em>', vis:
+  gloss(0,[['any(...)','Returns True if at least one item inside is true'],['range(1, n)','Counts from 1 to n − 1, skipping column 0']])
+  + term('solution.py',[
+    [2,'o','def setZeroes(matrix):'],
+    [2,'o','    m, n = len(matrix), len(matrix[0])'],
+    [2,'hl','    col0 = any(matrix[i][0] == 0 for i in range(m))  # column 0 first'],
+    [3,'o','    for i in range(m):                     # marker phase'],
+    [3,'o','        for j in range(1, n):'],
+    [3,'o','            if matrix[i][j] == 0:'],
+    [3,'hl','                matrix[i][0] = 0'],
+    [3,'hl','                matrix[0][j] = 0'],
+    [4,'o','    for i in range(1, m):                  # inside first'],
+    [4,'o','        for j in range(1, n):'],
+    [4,'o','            if matrix[i][0] == 0 or matrix[0][j] == 0:'],
+    [4,'o','                matrix[i][j] = 0'],
+    [5,'o','    if matrix[0][0] == 0:                  # then row 0'],
+    [5,'o','        for j in range(n):'],
+    [5,'o','            matrix[0][j] = 0'],
+    [5,'hl','    if col0:                               # column 0 last'],
+    [5,'o','        for i in range(m):'],
+    [5,'o','            matrix[i][0] = 0']])
+  + q(1,'Which step of the animation does each block of code match?'),
+  say:[
+  'any returns true if at least one item inside is true. range of 1 to n counts from 1 to n minus 1, skipping column 0.',
+  'The question for this scene: which step of the animation does each block of code match?',
+  'Block one: get the number of rows and columns, then, before writing any marker, compute col0: whether column 0 originally had a 0.',
+  'Block two is the marker phase: scan every row, with columns starting at 1. On a 0, set the left end of its row and the top of its column to 0.',
+  'Block three paints the inside: rows and columns both start at 1, and if either marker is 0, write 0.',
+  'Block four comes last: if the corner is 0, paint row 0; if col0 is true, paint column 0.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>four traps</em>', vis:
+  gloss(0,[['O(m × n)','Each cell is looked at a constant number of times']])
+  + q(1,'What are the time and space? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(m × n), extra space O(1)','Each pass scans the matrix once; only col0 is extra','sky'],
+           [3,'Trap 1: paint as you scan','Written zeros get mistaken for original ones and spread','coral'],
+           [3,'Trap 2: computing col0 too late','Checking after the markers wipes column 0 by mistake','coral'],
+           [4,'Trap 3: painting the first row or column first','The notebook is erased; example 2 becomes all 0','coral'],
+           [4,'Trap 4: the corner doing two jobs','Without col0, [[1,0],[1,1]] becomes all 0; the answer is [[0,0],[1,0]]','coral']]),
+  say:[
+  'Big O of m times n means each cell is looked at a constant number of times.',
+  'The question for this scene: what are the time and space, and where is it easiest to go wrong?',
+  'Time is big O of m times n, since each pass scans the matrix once. Extra space is big O of 1, just one col0.',
+  'Trap 1: painting as you scan, where written zeros get mistaken for original ones and spread. Trap 2: computing col0 too late; checking after the markers wipes column 0 by mistake.',
+  'Trap 3: painting the first row or column first, which erases the notebook, and example 2 becomes all 0. Trap 4: letting the corner do two jobs without col0. Then 1, 0 over 1, 1 becomes all 0, while the answer is 0, 0 over 1, 0.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first; write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "O(m + n) is good. Can you do O(1)?" How do you answer?')
+  + flow([[2,'Trap','painting as you scan spreads'],[2,'Fix 1','two sets, two passes'],[3,'O(1)','first row and column as markers'],[3,'col0','corner only means row 0'],[4,'Order','inside → row 0 → column 0']])
+  + chips(4,['in-place','two passes','first row and column as markers','col0 flag','O(m × n) time','O(1) space']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, big O of m plus n is good, but can you do constant space?',
+  'First say why you cannot paint as you scan: a written 0 gets mistaken for an original 0. So use two passes: record the rows and columns that have a 0 in two sets, then paint. That is big O of m plus n.',
+  'Then the constant-space version: move those two sets into the matrix itself, into the first column and the first row. The corner only means row 0, and whether column 0 had a 0 is saved up front in col0.',
+  'Last, the order: paint the inside, then row 0, then column 0, because the notebook is needed until the very end. Time is big O of m times n, space is big O of 1.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Trap','fake zeros spread'],[0,'Fix 1','record, then paint'],[0,'O(1)','first row and column as the notebook'],[0,'col0','compute first'],[0,'Order','notebook painted last']])
+  + cards([[1,'① Never paint as you scan','A written 0 looks exactly like an original 0 and keeps spreading','amber'],
+           [2,'② Record first, then paint','Two sets cost O(m + n); move them into the first row and column for O(1)','sky'],
+           [3,'③ col0 first, notebook last','The corner only means row 0; paint inside → row 0 → column 0','mint']]),
+  say:[
+  'One more pass over the main line: painting as you scan lets fake zeros spread; the fix is to record first, then paint; moving the record into the first row and column gives constant space; col0 is computed first; the notebook is painted last.',
+  'One: never paint as you scan. A 0 you wrote looks exactly like an original 0, and it keeps spreading.',
+  'Two: record first, then paint. Two sets cost big O of m plus n; move them into the first row and column, and it is big O of 1.',
+  'Three: col0 first, notebook last. The corner only means row 0, and the painting order is the inside, then row 0, then column 0.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/f67568018a82.mp3", "0-1": "a/c126b368aa8a.mp3", "0-2": "a/17d64ce73b12.mp3", "0-3": "a/22de9870f600.mp3", "1-0": "a/197fb9bbbda0.mp3", "1-1": "a/45c6eac0af2c.mp3", "1-2": "a/fd73ec6fc15b.mp3", "1-3": "a/2c2f38002c9c.mp3", "1-4": "a/e6faa293ac52.mp3", "2-0": "a/4e89f3a88138.mp3", "2-1": "a/b320890d59a5.mp3", "2-2": "a/0525bb647393.mp3", "2-3": "a/5d4025c300ed.mp3", "2-4": "a/748a7fa5713c.mp3", "2-5": "a/49a5c35fc492.mp3", "2-6": "a/b7e86c859b1c.mp3", "3-0": "a/dee45c242b01.mp3", "3-1": "a/55d039766e49.mp3", "3-2": "a/006aae6178d6.mp3", "3-3": "a/1eb9dda85bfb.mp3", "3-4": "a/b5dfe612bfc9.mp3", "3-5": "a/11a8de464776.mp3", "4-0": "a/51cc60d73e26.mp3", "4-1": "a/fe1338bd1e3a.mp3", "4-2": "a/f68328884c1f.mp3", "4-3": "a/dfe72b2e2634.mp3", "4-4": "a/62bf01ac67f2.mp3", "5-0": "a/f836f0944635.mp3", "5-1": "a/fd94e6fb78ce.mp3", "5-2": "a/27bc8d527c05.mp3", "5-3": "a/cd0b553c5546.mp3", "5-4": "a/5b15b00e1d3e.mp3", "5-5": "a/a533874aeddf.mp3", "6-0": "a/47b055ef26c3.mp3", "6-1": "a/f275a0fef842.mp3", "6-2": "a/c9ae723acef3.mp3", "6-3": "a/1ef5b8fba2df.mp3", "6-4": "a/38da08155f87.mp3", "6-5": "a/3c109ec5841b.mp3", "7-0": "a/7dcec46e270c.mp3", "7-1": "a/4ab74ed8431a.mp3", "7-2": "a/5793cbe35ae5.mp3", "7-3": "a/64259137edb1.mp3", "7-4": "a/c7a3c1cf6a03.mp3", "7-5": "a/aefe80e822d4.mp3", "8-0": "a/0316926ee336.mp3", "8-1": "a/b3ec4f734830.mp3", "8-2": "a/815eb77676ac.mp3", "8-3": "a/234ebc22dc15.mp3", "8-4": "a/b64157f7dad5.mp3", "8-5": "a/e0c67802199f.mp3", "9-0": "a/ba839099a642.mp3", "9-1": "a/a61ee823ab46.mp3", "9-2": "a/858f5d61300c.mp3", "9-3": "a/0e4111afc726.mp3", "9-4": "a/6607e0e2e454.mp3", "9-5": "a/1f9d8c415c77.mp3", "10-0": "a/e4767937d7ce.mp3", "10-1": "a/3b394bf662cc.mp3", "10-2": "a/1c98ee0fd933.mp3", "10-3": "a/ef7823985228.mp3", "10-4": "a/687e20a2316a.mp3", "11-0": "a/6d6195f05908.mp3", "11-1": "a/f2358f4e6d31.mp3", "11-2": "a/be84b37a8bf4.mp3", "11-3": "a/052688af59e7.mp3", "11-4": "a/4b6915fad940.mp3", "12-0": "a/43a0805e7e9f.mp3", "12-1": "a/c56dd0078424.mp3", "12-2": "a/dae867ec4237.mp3", "12-3": "a/b947e81417c8.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

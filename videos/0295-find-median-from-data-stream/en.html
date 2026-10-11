@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Two Heaps, One Middle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Two Heaps, One Middle', template:'prep', lang:'en', sub:'LeetCode 295 Find Median from Data Stream · animated walkthrough', key:'lc295envid', doc:'LeetCode 295', blurb:'Numbers arrive one by one and you must give the median at any time: first try keeping everything sorted, which stalls because inserting shifts items; then cut the numbers into a smaller half and a larger half, keep them in a max-heap and a min-heap, and the median sits on the two heap tops.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: numbers that keep coming','The problem: what is a median','Instinct: keep it sorted','Only the middle two matter','Heap: the smallest, any time','Two rules','addNum: three steps','Walk through: 1, 2, 3','Walk through: 5, 4, 0','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- cells & two heaps: amber frame = heap top, mint = moved this step, red = breaks a rule ---------- */
+const MCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.mf{max-width:340px;margin:0 auto;width:100%}
+.mf .stk{display:grid}
+.mf .stk>.lay{grid-area:1/1}
+.mf .lay.s{transform:none;box-shadow:none!important}
+.mf .lay.s:not(.on){opacity:0}
+.mf .only.s{opacity:0!important} .mf .only.s.now{opacity:1!important}
+.mf .cells{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+.mf i.v{font-style:normal;position:relative;width:2.6em;height:2.3em;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.15em;color:var(--paper)}
+.mf i.v.top{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+.mf i.v.mv{background:rgba(98,224,180,.32);border-color:var(--mint)}
+.mf i.v.bad{background:rgba(255,122,107,.42);border-color:var(--coral)}
+.mf i.v.gap{border-style:dashed;background:none}
+.mf .hd{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;font-size:.78em;color:var(--dim);margin-bottom:6px}
+.mf .hd b{display:block;color:var(--paper);font-family:var(--f-mono);font-size:1.15em}
+.mf .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mf .col{display:flex;flex-direction:column;gap:5px;align-items:center;min-height:9.4em;border:1px dashed var(--line);border-radius:10px;padding:6px 4px}
+.mf .col .e{color:var(--dim);font-size:.85em;margin:auto}
+.mf .nt{text-align:center;font-size:.85em;color:var(--dim);margin-top:8px;min-height:2.6em}
+.mf .nt b{color:var(--amber)} .mf .nt em{font-style:normal;color:var(--mint)}
+.mf .sp{display:flex;gap:5px;justify-content:center;align-items:center}
+.mf .sp .bar.s{width:3px;height:2.8em;border-radius:2px;background:var(--amber);transform:none;box-shadow:none!important}
+.mf .sp i.tn.s,.mf .sp i.rg.s{position:absolute;inset:0;border-radius:7px;transform:none;box-shadow:none}
+.mf .sp i.tn.l{background:rgba(110,190,255,.28)} .mf .sp i.tn.r{background:rgba(98,224,180,.28)}
+.mf .sp i.rg.s{inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)!important}
+.mf .sp .s:not(.on){opacity:0}
+.mf .spl.s{display:grid;grid-template-columns:1fr 1fr;text-align:center;font-size:.8em;color:var(--dim);margin-top:6px;transform:none;box-shadow:none!important}
+.mf .spl.s:not(.on){opacity:0}
+</style>`;
+// x: '4' plain, '4^' top, '4+' moved, '4!' breaks a rule, '_' empty slot
+function cell(x, top=false){
+  if(x==='_') return `<i class="v gap"></i>`;
+  const f = x.replace(/[0-9.]/g,''), v = x.replace(/[^0-9.]/g,'');
+  return `<i class="v ${top||f.includes('^')?'top':''} ${f.includes('+')?'mv':''} ${f.includes('!')?'bad':''}">${v}</i>`;
+}
+const lay = (st, last, inner) => `<div class="lay s ${last?'':'only'}" data-s="${st}">${inner}</div>`;
+// states: [step, cells[], note]; the last state stays on screen
+function row(states){
+  return MCSS + `<div class="mf"><div class="stk">${states.map(([st,cs,nt],i)=>lay(st, i===states.length-1,
+    `<div class="cells">${cs.map(x=>cell(x)).join('')}</div><div class="nt">${nt}</div>`)).join('')}</div></div>`;
+}
+// states: [step, small (top first), large (top first), note]
+function heaps(states){
+  const col = a => `<div class="col">${a.length?a.map((x,j)=>cell(x,j===0)).join(''):'<span class="e">empty</span>'}</div>`;
+  return MCSS + `<div class="mf"><div class="hd"><div><b>small</b>smaller half · top = largest</div><div><b>large</b>larger half · top = smallest</div></div><div class="stk">${
+    states.map(([st,sm,lg,nt],i)=>lay(st, i===states.length-1, `<div class="two">${col(sm)}${col(lg)}</div><div class="nt">${nt}</div>`)).join('')}</div></div>`;
+}
+// sorted strip cut into two halves: tint at sSplit, rings on the two middle numbers at sTop
+function strip(nums, cut, sSplit, sTop){
+  return MCSS + `<div class="mf"><div class="sp">${nums.map((v,k)=>`<i class="v">${v}<i class="tn ${k<cut?'l':'r'} s" data-s="${sSplit}"></i>${k===cut-1||k===cut?`<i class="rg s" data-s="${sTop}"></i>`:''}</i>${k===cut-1?`<div class="bar s" data-s="${sSplit}"></div>`:''}`).join('')}</div>
+  <div class="spl s" data-s="${sSplit}"><span>smaller half</span><span>larger half</span></div></div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Two Heaps, One Middle<br><em>LeetCode 295</em>', vis:
+  gloss(0,[['median','The number right in the middle once everything is sorted'],['data stream','Numbers arrive one at a time, and you can be asked at any moment'],['heap','A pile of numbers where the smallest is always on top, reachable in one step']])
+  + flow([[1,'Read','median at any time'],[1,'Instinct','keep it sorted'],[2,'Stuck','insert shifts items'],[2,'Split in two','two heaps'],[3,'Two rules','order + size'],[3,'Code','three-step addNum']]),
+  say:[
+  'This lesson covers LeetCode 295, Find Median from Data Stream. First, three words. The median is the number right in the middle once everything is sorted. A data stream means numbers arrive one at a time, and you can be asked at any moment. A heap is a pile of numbers where the smallest is always on top, reachable in one step.',
+  'We start with the most natural idea: keep the numbers sorted all the time. Then on a tiny example we see where it gets slow: every new number shifts a whole block of items.',
+  'The fix is to cut the numbers into two halves, a smaller half and a larger half, each kept in a heap. As long as two rules hold, the median sits on the two heap tops.',
+  'Finally we run both heaps through six numbers, and then write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>what is a median</em>', vis:
+  gloss(0,[['median','The middle number after sorting; with an even count, the average of the middle two'],['addNum / findMedian','Add one number / ask for the current median']])
+  + q(1,'addNum(1), addNum(2), ask for the median; then addNum(3) and ask again. What are the two answers?')
+  + cards([[2,'[1, 2] → 1.5','Even count: average of the middle two, (1 + 2) / 2','sky'],
+           [3,'[1, 2, 3] → 2','Odd count: the one in the middle','mint'],
+           [4,'The hard part: numbers keep coming','Each new one may be followed by a question right away','amber']]),
+  say:[
+  'The median is the middle number after sorting. With an even count there are two numbers in the middle, and we take their average. addNum adds one number, and findMedian asks for the current median.',
+  'The question for this scene: add 1 and 2, then ask for the median; add 3, then ask again. What are the two answers?',
+  'With just 1 and 2 the count is even. The middle two are 1 and 2, and their average is 1.5.',
+  'After adding 3 the count is odd. Sorted, it is 1, 2, 3, and the middle is 2.',
+  'The hard part is not computing a median. It is that numbers keep coming, and each one may be followed by a question right away, so every operation must be fast.'
+]});
+
+/* ===== 2 Instinct: keep it sorted ===== */
+add({ch:2, title:'Instinct: <em>keep it sorted</em>', vis:
+  gloss(0,[['sorted list','A list that always stays in order from small to large'],['O(n)','n is how many numbers have arrived; O(n) means the time grows along with n']])
+  + duo(row([[2,['1','2','3','5'],'<b>4</b> arrives: it goes between 3 and 5'],
+             [3,['1','2','3','_','5!'],'5 shifts right first to make room'],
+             [4,['1','2','3^','4+','5'],'Inserted: the median is the middle one, <em>3</em>']]),
+    q(1,'The natural idea: keep everything sorted and look at the middle when asked. Where does it get slow?')
+    + cards([[5,'Insert is O(n)','Finding the spot is fast, shifting items is unavoidable','coral'],
+             [5,'Re-sort on every question: O(n log n)','Even slower','coral']])),
+  say:[
+  'A sorted list always stays in order from small to large. n is how many numbers have arrived, and big O of n means the time grows along with n.',
+  'The question for this scene: the natural idea is to keep everything sorted and look at the middle when asked. Where does it get slow?',
+  'Right now the list is 1, 2, 3, 5, and a 4 arrives. It belongs between 3 and 5.',
+  'But the slots in a list sit right next to each other, so 5 must first shift one slot to the right to make room.',
+  'After inserting, the list is 1, 2, 3, 4, 5. Look at the middle: the median is 3. Asking is fast, just one step.',
+  'The slow part is inserting. If the new number is small, every number after it shifts one slot, so one insert is big O of n. The other option, re-sorting on every question, is big O of n log n, which is even slower.'
+]});
+
+/* ===== 3 Only the middle two matter ===== */
+add({ch:3, title:'Only the <em>middle two numbers</em> matter', vis:
+  gloss(0,[['dividing line','The line that cuts the sorted numbers into two halves right in the middle'],['smaller half / larger half','The numbers left / right of the dividing line']])
+  + duo(strip([0,1,2,3,4,5],3,2,3),
+    q(1,'To answer the median, do we really need the whole row sorted?')
+    + cards([[4,'Only two numbers','The largest of the smaller half, the smallest of the larger half','mint'],
+             [5,'We need a container','Gets the max or the min at any time, and inserting is fast too','amber']])),
+  say:[
+  'The dividing line cuts the sorted numbers into two halves right in the middle. The left side is the smaller half, and the right side is the larger half.',
+  'The question for this scene: to answer the median, do we really need the whole row sorted?',
+  'Take the six numbers 0 through 5 and cut right in the middle: 0, 1, 2 on the left are the smaller half, and 3, 4, 5 on the right are the larger half.',
+  'The median is the average of 2 and 3, which is 2.5. 2 is the largest of the smaller half, and 3 is the smallest of the larger half. How each half is ordered inside does not change the answer.',
+  'So we only need two numbers: the largest one in the smaller half, and the smallest one in the larger half.',
+  'That calls for a container that gets the max or the min at any time, and that is also fast to insert into. That container is a heap.'
+]});
+
+/* ===== 4 Heap ===== */
+add({ch:4, title:'Heap: <em>the smallest, any time</em>', vis:
+  gloss(0,[['heap','A pile of numbers with the smallest always on top, called the heap top'],['O(1) / O(log n)','O(1): one step; O(log n): doubling n adds just one step'],['heapq','The heap built into Python, a min-heap']])
+  + q(1,'How do you get the smallest number at any time, and still insert and remove fast? What about the largest?')
+  + term('heap_demo.py',[
+    [2,'o','h = []'],
+    [2,'o','for x in [5, 2, 8, 1]: heapq.heappush(h, x)'],
+    [2,'hl','h[0]              # 1: peek at the top'],
+    [3,'o','heapq.heappop(h)  # 1: remove the top'],
+    [3,'hl','h[0]              # 2: the next smallest rises'],
+    [4,'o','m = []'],
+    [4,'o','for x in [5, 2, 8, 1]: heapq.heappush(m, -x)'],
+    [4,'hl','-m[0]             # 8: store negatives = max-heap']])
+  + cards([[5,'Peek O(1), push / pop O(log n)','A heap is a tree; each change walks one path from top to bottom','sky']]),
+  say:[
+  'A heap is a pile of numbers with the smallest always on top, called the heap top. Big O of 1 means one step; big O of log n means doubling n adds just one step. heapq is the heap built into Python, and it is a min-heap.',
+  'The question for this scene: how do you get the smallest number at any time, and still insert and remove fast? And how do you get the largest?',
+  'Push 5, 2, 8, 1 into the heap h, one by one. h of 0 is the heap top, the smallest number 1, visible in one step.',
+  'heappop removes the top and returns 1. The smallest of the rest, 2, rises to the top on its own, so h of 0 becomes 2.',
+  'heapq only has a min-heap. For a max-heap, store negatives: 5, 2, 8, 1 become minus 5, minus 2, minus 8, minus 1. The smallest is minus 8; take it out, flip the sign, and you get the largest, 8.',
+  'Why is it fast? Inside, a heap is a tree. A push or a pop only adjusts along one path from top to bottom, and that path has length log n. Peeking at the top is big O of 1.'
+]});
+
+/* ===== 5 Two rules ===== */
+add({ch:5, title:'Two heaps, <em>two rules</em>', vis:
+  gloss(0,[['small','The smaller half, in a max-heap: its top is the largest of this half'],['large','The larger half, in a min-heap: its top is the smallest of this half']])
+  + q(1,'What must the two heaps satisfy so the median can be read straight off the tops?')
+  + cards([[2,'Rule one: every small ≤ every large','The dividing line stays clean','sky'],
+           [3,'Rule two: equal sizes, or small has 1 extra','The dividing line sits in the middle','sky'],
+           [4,'Odd count → the top of small','The extra one is the middle','mint'],
+           [5,'Even count → average of the two tops','(small top + large top) / 2','mint']]),
+  say:[
+  'small holds the smaller half in a max-heap, so its top is the largest of this half. large holds the larger half in a min-heap, so its top is the smallest of this half.',
+  'The question for this scene: what must the two heaps satisfy so the median can be read straight off the tops?',
+  'Rule one, order: every number in small is less than or equal to every number in large. Only then is there a real dividing line between the two heaps.',
+  'Rule two, size: the two heaps are the same size, or small has one extra. Only then is the dividing line in the middle.',
+  'With both rules in place: when the total count is odd, the extra number in small is exactly the middle, so the median is the top of small.',
+  'When the total count is even, the two middle numbers are exactly the two heap tops, so we take their average. Either way, we only look at the tops.'
+]});
+
+/* ===== 6 addNum: three steps ===== */
+add({ch:6, title:'addNum: <em>three steps</em>', vis:
+  gloss(0,[['move','Pop the top of one heap and push it into the other'],['red','A number that breaks a rule'],['green','A number moved in this step']])
+  + duo(heaps([[2,['2','1'],['3','5'],'Now: small [2, 1], large [3, 5], <b>4</b> arrives'],
+               [3,['4!','2','1'],['3','5'],'① Into small: 4 is bigger than 3, rule one broken'],
+               [4,['2','1'],['3','4+','5'],'② Top of small, 4 → large'],
+               [5,['3+','2','1'],['4','5'],'③ large is bigger: top 3 → small&nbsp;&nbsp;median <em>3</em>']]),
+    q(1,'A new number arrives. How do you place it so neither rule breaks?')
+    + cards([[6,'Three steps, one line of code each','Into small → move small top to large → if large is bigger, move back','mint']])),
+  say:[
+  'A move means popping the top of one heap and pushing it into the other. Red marks a number that breaks a rule, and green marks a number moved in this step.',
+  'The question for this scene: a new number arrives. How do you place it so neither rule breaks?',
+  'Example: small holds 2 and 1, large holds 3 and 5, and both rules hold. Now a 4 arrives.',
+  'Step one: whatever the new number is, push it into small first. 4 is bigger than 3, the top of large, so rule one is broken.',
+  'Step two: move the top of small over to large. The top of small is the largest number in small, so removing it repairs rule one. Here the number moved is exactly 4.',
+  'Step three: large has 3 numbers and small has only 2, so large is bigger. Move the top of large, 3, back to small. 3 is the smallest in large, so moving it keeps the order. The median is the top of small, 3.',
+  'So addNum is three steps: push into small, move its top to large, and if large is bigger, move one back. One line of code for each step.'
+]});
+
+/* ===== 7 Walk through: 1, 2, 3 ===== */
+add({ch:7, title:'Walk through: <em>1, 2, 3</em>', vis:
+  gloss(0,[['orange frame','The heap top'],['green','A number moved this time']])
+  + duo(heaps([[1,[],[],'Both heaps are empty'],
+               [2,['1+'],[],'Add 1: moved to large, then back&nbsp;&nbsp;median <em>1</em>'],
+               [3,['1'],['2+'],'Add 2: 2 moves to large, equal sizes&nbsp;&nbsp;median <em>1.5</em>'],
+               [4,['2+','1'],['3+'],'Add 3: 3 moves to large, 2 moves back&nbsp;&nbsp;median <em>2</em>']]),
+    q(1,'Using the three steps, add 1, 2, 3 in order. What is the median each time?')
+    + cards([[5,'1 → 1.5 → 2','Same as our hand calculation in the problem','mint']])),
+  say:[
+  'The orange frame is the heap top, and green marks a number moved this time.',
+  'The question for this scene: using the three steps, add 1, 2, 3 in order. What is the median each time? Both heaps start out empty.',
+  'Add 1: push into small, then move it to large. large is bigger, so 1 moves back to small. The median is 1.',
+  'Add 2: push into small; the top of small is 2, so it moves to large. One on each side, equal sizes, so the median is 1 plus 2 over 2, which is 1.5.',
+  'Add 3: push into small, its top 3 moves to large, and large becomes 2, 3, which is bigger. Move its top 2 back to small. Now small is 2, 1 and large is 3, so the median is 2.',
+  'The three answers are 1, 1.5, 2, the same as our hand calculation when reading the problem.'
+]});
+
+/* ===== 8 Walk through: 5, 4, 0 ===== */
+add({ch:8, title:'Keep going: <em>5, 4, 0</em>', vis:
+  gloss(0,[['keep adding','Continue from the last scene: small [2, 1], large [3]']])
+  + duo(heaps([[1,['2','1'],['3'],'Continuing from the last scene'],
+               [2,['2','1'],['3','5+'],'Add 5: 5 moves to large, equal sizes&nbsp;&nbsp;median <em>2.5</em>'],
+               [3,['3+','2','1'],['4+','5'],'Add 4: 4 moves to large, 3 moves back&nbsp;&nbsp;median <em>3</em>'],
+               [4,['2','1','0'],['3+','4','5'],'Add 0: 0 stays, 3 is pushed out to large&nbsp;&nbsp;median <em>2.5</em>']]),
+    q(1,'Keep adding 5, 4, 0. How do the two heaps change? And the median?')
+    + cards([[5,'1, 1.5, 2, 2.5, 3, 2.5','All six answers checked against "sort and take the middle"','mint']])),
+  say:[
+  'Keep adding means we continue from where the last scene ended: small holds 2 and 1, and large holds 3.',
+  'The question for this scene: keep adding 5, 4, 0. How do the two heaps change? And the median?',
+  'Add 5: push into small; the top of small is 5, so it moves to large. Two on each side, equal sizes, so the median is 2 plus 3 over 2, which is 2.5.',
+  'Add 4: push into small, 4 moves to large, and large now has 3, which is too many, so its top 3 moves back to small. small is 3, 2, 1, and the median is 3.',
+  'Add 0: push into small. This time the top of small is 3, not 0. 3 is pushed out to large, and 0 stays in small. Three on each side, so the median is 2 plus 3 over 2, which is 2.5.',
+  'Six numbers, six answers: 1, 1.5, 2, 2.5, 3, 2.5. Every one matches sorting and taking the middle.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>three steps, three lines</em>', vis:
+  gloss(0,[['-num','Negate when pushing into small, negate again when reading it out'],['self.small[0]','The top of small, stored as a negative']])
+  + term('solution.py',[
+    [2,'o','import heapq'],
+    [2,'o','class MedianFinder:'],
+    [2,'o','    def __init__(self):'],
+    [2,'o','        self.small = []   # smaller half: max-heap, negatives'],
+    [2,'o','        self.large = []   # larger half: min-heap'],
+    [3,'o','    def addNum(self, num: int) -> None:'],
+    [3,'hl','        heapq.heappush(self.small, -num)                        # 1 into small'],
+    [3,'hl','        heapq.heappush(self.large, -heapq.heappop(self.small))  # 2 top to large'],
+    [4,'o','        if len(self.large) > len(self.small):                   # 3 large bigger'],
+    [4,'hl','            heapq.heappush(self.small, -heapq.heappop(self.large))'],
+    [5,'o','    def findMedian(self) -> float:'],
+    [5,'o','        if len(self.small) > len(self.large):'],
+    [5,'hl','            return -self.small[0]'],
+    [5,'hl','        return (-self.small[0] + self.large[0]) / 2']])
+  + q(1,'Which lines are the three steps and the two rules?'),
+  say:[
+  'Minus num means we negate a number when pushing it into small, and negate again when reading it out. self dot small of 0 is the top of small, stored as a negative.',
+  'The question for this scene: which lines of the code are the three steps and the two rules?',
+  'First we set up two empty heaps: small is a max-heap, so it stores negatives; large is a plain min-heap.',
+  'Step one pushes minus num into small. Step two pops the top of small, flips it back to the real number, and pushes it into large. This line protects rule one.',
+  'Step three: if large is bigger than small, pop the top of large, negate it, and push it back into small. This line protects rule two.',
+  'findMedian: if small has one extra, the count is odd, so return the top of small, remembering to negate it. If they are equal, return the average of the two tops, dividing by 2 with a single slash.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three traps</em>', vis:
+  gloss(0,[['n','How many numbers have been added']])
+  + q(1,'How fast is each operation? Where do people slip up most?')
+  + cards([[2,'addNum O(log n), findMedian O(1)','At most 3 pushes and 2 pops; asking only looks at the tops. Space O(n)','sky'],
+           [3,'Forgetting to negate','small stores negatives: negate going in, and negate coming out','coral'],
+           [4,'Reading the wrong heap when odd','The extra one lives in small: return -self.small[0]','coral'],
+           [4,'Integer division','Write / 2, not // 2: 1.5 must not become 1','coral']]),
+  say:[
+  'n is how many numbers have been added.',
+  'The question for this scene: how fast is each operation? Where do people slip up most?',
+  'addNum does at most three pushes and two pops, each big O of log n, so it is big O of log n. findMedian only looks at the tops, big O of 1. Every number is stored in the two heaps, so space is big O of n.',
+  'Trap one: forgetting to negate. small stores negatives, so negate going in, and negate coming out too.',
+  'Trap two: reading the wrong heap when the count is odd. We decided small may hold one extra, so for an odd count return the top of small. Trap three: integer division. Divide by 2 with a single slash; a double slash turns 1.5 into 1.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, and write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why not just keep one sorted list?"')
+  + flow([[2,'Instinct','sorted list: insert O(n)'],[3,'Split in two','small max-heap / large min-heap'],[3,'Two rules','order + size'],[4,'Three steps','into small → move → move back'],[4,'Complexity','O(log n) / O(1)']])
+  + chips(4,['two heaps','max-heap','min-heap','heapq','median','data stream']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why not just keep one sorted list?',
+  'Start with the instinct: a sorted list answers fast, but inserting has to shift items, big O of n each time.',
+  'Then the improvement: the median only needs the middle two numbers. The smaller half goes in a max-heap, the larger half in a min-heap, and with the order rule and the size rule in place, the median sits on the tops.',
+  'Finally the three steps and the complexity: push into small, move its top to large, and if large is bigger, move one back. addNum is big O of log n, and findMedian is big O of 1. The English keyword is two heaps.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Split in two','small / large'],[0,'Two rules','order + size'],[0,'Three steps','in → move → move back'],[0,'Read the tops','O(1) median']])
+  + cards([[1,'① The median only needs the middle two numbers','Smaller half in a max-heap, larger half in a min-heap; a Python max-heap stores negatives','amber'],
+           [2,'② Two rules: small ≤ large, and small is equal or 1 bigger','Odd: top of small; even: average of the two tops','sky'],
+           [3,'③ addNum: into small → top to large → move back if large is bigger','One line per step, O(log n)','mint']]),
+  say:[
+  'The main line once more: split the numbers in two and keep them in two heaps; hold the two rules; place each new number in three steps; read the median off the tops.',
+  'One: the median only needs the middle two numbers. The smaller half goes in a max-heap, the larger half in a min-heap, and a Python max-heap works by storing negatives.',
+  'Two: the two rules. Every number in small is less than or equal to every number in large, and small is the same size as large or one bigger. Odd count, read the top of small; even count, average the two tops.',
+  'Three: addNum is three steps. Push into small, move its top to large, and if large is bigger, move its top back. One line of code per step, big O of log n.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/8e55ea3b0e1f.mp3", "0-1": "a/20c84bdd41ea.mp3", "0-2": "a/530948b6bbf9.mp3", "0-3": "a/cf318f82ce1c.mp3", "1-0": "a/952115d4b27a.mp3", "1-1": "a/4125a2d35cb9.mp3", "1-2": "a/886d4a5f43ca.mp3", "1-3": "a/7e121bd0a852.mp3", "1-4": "a/91bd6ca35baa.mp3", "2-0": "a/18caa9dc1ccc.mp3", "2-1": "a/28fec09daff7.mp3", "2-2": "a/b186cfd62fb4.mp3", "2-3": "a/b0cf5cb53d8e.mp3", "2-4": "a/5bc623d1b088.mp3", "2-5": "a/8476486a4e5d.mp3", "3-0": "a/c5d7ffdd9417.mp3", "3-1": "a/388f7555dc32.mp3", "3-2": "a/5c07c0491a7b.mp3", "3-3": "a/4fe657962367.mp3", "3-4": "a/3406bf79fddb.mp3", "3-5": "a/096db3b08de7.mp3", "4-0": "a/821121bdcfa4.mp3", "4-1": "a/387fb96d5e7a.mp3", "4-2": "a/764eb40e8efa.mp3", "4-3": "a/1fd9099d5dae.mp3", "4-4": "a/bee4954c507f.mp3", "4-5": "a/94d1f1a31ce3.mp3", "5-0": "a/d97da21261bc.mp3", "5-1": "a/4cf5085a4bc6.mp3", "5-2": "a/7d0703f3d6d2.mp3", "5-3": "a/d7a89390cfef.mp3", "5-4": "a/c814a6bac376.mp3", "5-5": "a/eb09dddb82fe.mp3", "6-0": "a/0db2bbed06f0.mp3", "6-1": "a/3d18586d933a.mp3", "6-2": "a/77bdda259656.mp3", "6-3": "a/b03096e92b44.mp3", "6-4": "a/1e70c3dca26e.mp3", "6-5": "a/25a771224a06.mp3", "6-6": "a/066685403193.mp3", "7-0": "a/1bbc6dc5bc6d.mp3", "7-1": "a/6e2c535e6ab7.mp3", "7-2": "a/9fa1c84d3d65.mp3", "7-3": "a/ce405b573145.mp3", "7-4": "a/538862377e36.mp3", "7-5": "a/1f3501b85b56.mp3", "8-0": "a/934313f5d40e.mp3", "8-1": "a/8ca6dfa829ed.mp3", "8-2": "a/c77488d4b2ba.mp3", "8-3": "a/c5c0d7708f20.mp3", "8-4": "a/bf0988fe0974.mp3", "8-5": "a/2b893d0ddeb1.mp3", "9-0": "a/d6e830d09aa2.mp3", "9-1": "a/0bbcb2edbfda.mp3", "9-2": "a/ca15629a2b73.mp3", "9-3": "a/43ef728013e1.mp3", "9-4": "a/680c3b56cc4f.mp3", "9-5": "a/1c00a626576e.mp3", "10-0": "a/4798ffed372e.mp3", "10-1": "a/3ab07872b936.mp3", "10-2": "a/a327ffe68cf5.mp3", "10-3": "a/35583a61c6aa.mp3", "10-4": "a/77695ea7272f.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/9bcd50978cda.mp3", "11-2": "a/ae940e38ead5.mp3", "11-3": "a/fe6bd6d163e1.mp3", "11-4": "a/343d1d8d8835.mp3", "12-0": "a/fce807dccfea.mp3", "12-1": "a/89695dfd9b4a.mp3", "12-2": "a/29a6c1185685.mp3", "12-3": "a/e94383a4c3d7.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

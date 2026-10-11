@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Houses in a Circle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Houses in a Circle', template:'prep', lang:'en', sub:'LeetCode 213 House Robber II · animated walkthrough', key:'lc213envid', doc:'LeetCode 213', blurb:'First rebuild the straight-line version, 198, from zero: each house is rob or skip, with two variables moving right; then bend the street into a circle, see why running 198 directly fails, and fix it by splitting into two ranges and taking the larger result.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of houses','The problem: straight-line 198','Only two choices per house','Walk through: [1, 2, 3, 1]','The problem: a circle','Just run 198: it breaks','Split into two ranges','Two passes: [1, 2, 3, 1]','Check: [2, 3, 2] and [1, 2, 3]','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a row of houses: mint = robbed, grey = not allowed this pass, amber ring = deciding now, arc = first and last are neighbors ---------- */
+const HCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.hwrap{margin:0 auto 10px}
+.hwrap .cap{text-align:center;font-family:var(--f-mono);font-size:.8em;color:var(--dim);margin-bottom:4px}
+.hs{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.hs>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.hs>.lb{color:var(--dim);font-size:.78em;justify-items:end;padding-right:.3em}
+.hs>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.hs>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.hs>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.hs>.d{border:1px dashed var(--line)}
+.hs>.d b{font-family:var(--f-display);font-weight:400;font-size:1.25em;color:var(--mint)}
+.hs .s:not(.on){opacity:0}
+.hs .tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(98,224,180,.38);transform:none}
+.hs .off.s{position:absolute;inset:0;border-radius:7px;background:rgba(120,130,150,.6);z-index:2;transform:none}
+.hs i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.hs i.ring.s.now{opacity:1!important}
+.hs>.arc{height:1.7em;position:relative}
+.hs>.arc svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.hs>.arc path{fill:none;stroke:var(--coral);stroke-width:3;vector-effect:non-scaling-stroke}
+.hs>.arc span{position:relative;z-index:1;font-size:.75em;color:var(--coral);padding:0 .3em;transform:translateY(-.55em)}
+</style>`;
+// o: {cap, arc:step, off:{k:step}, rob:{k:step}, ring:[[step,k]], vals:[[k,v,step]]}
+function hs(nums, o={}){
+  const n = nums.length, ring = o.ring||[], vals = o.vals, off = o.off||{}, rob = o.rob||{};
+  let h = HCSS + `<div class="hwrap">${o.cap?`<div class="cap">${o.cap}</div>`:''}<div class="hs" style="grid-template-columns:3.6em repeat(${n},2.7em)">`;
+  if(o.arc!=null){
+    const a = 50/n, b = 100-50/n;
+    h += `<div class="lb arc"></div><div class="arc s" data-s="${o.arc}" style="grid-column:2/-1"><svg viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true"><path d="M${a},20 Q50,-14 ${b},20"/></svg><span>neighbors</span></div>`;
+  }
+  h += `<div class="lb ix">#</div>` + nums.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += `<div class="lb">cash</div>` + nums.map((v,k)=>`<div class="v"><b>${v}</b>${rob[k]!=null?`<i class="tint s" data-s="${rob[k]}"></i>`:''}${off[k]!=null?`<i class="off s" data-s="${off[k]}"></i>`:''}${ring.filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  if(vals) h += `<div class="lb">best</div>` + nums.map((_,k)=>`<div class="d">${vals.filter(v=>v[0]===k).map(([,v,s])=>`<b class="s" data-s="${s}">${v}</b>`).join('')}</div>`).join('');
+  return h + `</div></div>`;
+}
+
+/* ===== 0 intro ===== */
+add({ch:0, cover:true, title:'Houses in a Circle<br><em>LeetCode 213</em>', vis:
+  gloss(0,[['adjacent','two houses next to each other, indexes differ by 1; robbing both in one night sets off the alarm'],['dynamic programming, dp','write down answers to small problems, then build later answers from them'],['circular','the houses form a ring: the last house also touches the first']])
+  + flow([[1,'Straight 198','rob / skip'],[1,'Two variables','prev2, prev1'],[2,'A circle','first and last touch'],[2,'Just run 198','[2, 3, 2] breaks'],[3,'Two ranges','run each, take the max'],[3,'Code','n = 1 special case']]),
+  say:[
+  'This lesson covers LeetCode 213, House Robber II. First, three words. Adjacent means two houses next to each other; robbing both in one night sets off the alarm. Dynamic programming means writing down answers to small problems and building later answers from them. Circular means the houses form a ring, so the last house also touches the first.',
+  '213 is an upgrade of 198. So first we rebuild the straight-line version, 198, from zero: each house has only two choices, rob or skip, and two variables carry us to the right.',
+  'Then we bend the street into a circle. The most natural idea is to just run 198, and we will watch it break on 2, 3, 2.',
+  'The fix is to split into two ranges, reuse the 198 function twice, and take the larger result. Finally we write the code, and we do not forget the case with only one house.'
+]});
+
+/* ===== 1 the problem: straight-line 198 ===== */
+add({ch:1, title:'First the straight line: <em>problem 198</em>', vis:
+  gloss(0,[['nums[i]','the cash in house number i'],['no two adjacent houses','rob house i, and houses i − 1 and i + 1 are both off limits']])
+  + duo(hs([1,2,3,1],{rob:{0:3,2:3}}),
+    q(1,'A row of houses [1, 2, 3, 1], no two adjacent houses: what is the most cash you can take?')
+    + cards([[2,'Rob houses 1 and 2? No','they touch, the alarm goes off','coral'],
+             [3,'Rob houses 0 and 2: 1 + 3 = 4','this is the most','mint'],
+             [4,'This is problem 198','213 upgrades it; build 198 first','amber']])),
+  say:[
+  'nums of i is the cash in house number i. There is only one rule: no two adjacent houses. If you rob house i, both of its neighbors are off limits.',
+  'The question for this scene: a row of houses 1, 2, 3, 1, with no two adjacent houses robbed. What is the most cash you can take?',
+  'First try one that fails: rob houses 1 and 2, that is 2 plus 3 equals 5, but they touch, so the alarm goes off.',
+  'Rob houses 0 and 2: 1 plus 3 equals 4, with a house between them, so it is legal. After trying every option, 4 is the most.',
+  'This is problem 198, where the houses stand in a straight line. 213 just bends that line into a circle, so we build the 198 method first.'
+]});
+
+/* ===== 2 only two choices ===== */
+add({ch:2, title:'Only <em>two choices</em> per house', vis:
+  gloss(0,[['best(i)','looking only at houses 0 through i, the most you can take'],['rob / skip','at house i, this is the only decision you make']])
+  + duo(hs([2,1,1,2],{rob:{0:2,3:2}}),
+    q(1,'Walking from left to right, how do you decide at house i?')
+    + cards([[2,'Instinct: rob every other house?','[2, 1, 1, 2]: every other house gives only 3; the two ends give 2 + 2 = 4','coral'],
+             [3,'Rob house i','i − 1 is off limits → best(i − 2) + nums[i]','sky'],
+             [4,'Skip house i','anything before is fine → best(i − 1)','sky'],
+             [5,'best(i) = the larger one','it uses only the last two numbers: two variables, prev2 and prev1','mint']])),
+  say:[
+  'best of i means the most you can take looking only at houses 0 through i. At house i, you make one decision only: rob it, or skip it.',
+  'The question for this scene: walking from left to right, how do you decide at house i?',
+  'The most natural idea is to rob every other house. Try 2, 1, 1, 2: houses 0 and 2 give 3, and houses 1 and 3 also give 3. But robbing the two 2s at the ends, skipping two houses in the middle, gives 4. A fixed pattern fails, so every house needs a real choice.',
+  'If you rob house i, then house i minus 1 is off limits, so the earlier part can only go up to i minus 2. Robbing gives best of i minus 2, plus the cash in this house.',
+  'If you skip house i, anything before it is fine, so the result is best of i minus 1.',
+  'best of i is the larger of the two. It only uses the previous two answers, so we do not need a whole table; two variables are enough. prev2 is the most up to two houses back, and prev1 is the most up to the previous house.'
+]});
+
+/* ===== 3 walk through [1, 2, 3, 1] ===== */
+add({ch:3, title:'Walk through: <em>[1, 2, 3, 1]</em>', vis:
+  gloss(0,[['prev1','the most you can take up to the previous house'],['prev2','the most you can take up to two houses back'],['amber box','the house being decided now']])
+  + duo(hs([1,2,3,1],{vals:[[0,1,3],[1,2,4],[2,4,5],[3,4,6]], ring:[[3,0],[4,1],[5,2],[6,3]], rob:{0:7,2:7}}),
+    q(1,'With two variables, walk once from left to right. What do we end with?')
+    + term('two variables',[
+      [2,'o','start         prev2 = 0  prev1 = 0'],
+      [3,'o','#0 cash 1   rob 0+1=1  skip 0 → 1'],
+      [4,'o','#1 cash 2   rob 0+2=2  skip 1 → 2'],
+      [5,'o','#2 cash 3   rob 1+3=4  skip 2 → 4'],
+      [6,'o','#3 cash 1   rob 2+1=3  skip 4 → 4'],
+      [7,'hl','answer prev1 = 4: rob houses 0 and 2']])),
+  say:[
+  'prev1 is the most you can take up to the previous house, and prev2 is the most up to two houses back. The amber box is the house being decided now.',
+  'The question for this scene: with two variables, walk once from left to right. What do we end with?',
+  'Before we start, no house has been seen, so both variables are zero.',
+  'House 0 has 1 dollar. Rob: prev2 is zero, plus 1 is 1. Skip: prev1 is zero. Take the larger, the best is 1.',
+  'House 1 has 2. Rob: the best up to two houses back is zero, plus 2 is 2. Skip: the best up to the previous house is 1. Take the larger, the best is 2.',
+  'House 2 has 3. Rob: the best up to two houses back is 1, plus 3 is 4. Skip: 2. Take the larger, the best is 4.',
+  'House 3 has 1. Rob: the best up to two houses back is 2, plus 1 is 3. Skip: 4. This time skipping wins, and the best stays 4.',
+  'We are done. The answer is prev1, which is 4, the same as our hand count.'
+]});
+
+/* ===== 4 the problem: a circle ===== */
+add({ch:4, title:'213: the houses <em>form a circle</em>', vis:
+  gloss(0,[['first and last','house 0 and the last house, number n − 1'],['n','the number of houses, at least 1']])
+  + duo(hs([2,3,2],{arc:2}),
+    q(1,'[2, 3, 2] in a circle: what is the most you can take?')
+    + cards([[2,'Houses 0 and 2 are now neighbors','in a circle, the house right of the last one is the first','coral'],
+             [3,'All three touch each other: rob only one','take the middle 3; the answer is 3','mint']])),
+  say:[
+  'First and last means house 0 and the last house, number n minus 1. n is the number of houses, and the problem guarantees at least one.',
+  'The question for this scene: 2, 3, 2 in a circle. What is the most you can take?',
+  'In a circle, the house to the right of the last one is the first one. So houses 0 and 2 are now neighbors too; look at the red arc.',
+  'Now all three houses touch each other, so you can rob only one. Take the middle 3, and the answer is 3.'
+]});
+
+/* ===== 5 just run 198 ===== */
+add({ch:5, title:'Just run 198: <em>it breaks</em>', vis:
+  gloss(0,[['just run it','hand the array to the 198 code as is, with no changes']])
+  + duo(hs([2,3,2],{vals:[[0,2,2],[1,3,2],[2,4,2]], rob:{0:3,2:3}, arc:4}),
+    q(1,'The most natural idea: just run the 198 code. What does [2, 3, 2] give?')
+    + cards([[2,'198 gives 4','fill in 2, 3, 4 along the way','sky'],
+             [3,'4 = 2 + 2','it robbed houses 0 and 2','amber'],
+             [4,'But first and last touch → alarm','198 does not know about this edge','coral'],
+             [5,'Every other neighbor pair is fine','only the first-last pair is new','mint']])),
+  say:[
+  'Just running it means handing the array to the 198 code as is, with no changes.',
+  'The question for this scene: the most natural idea is to just run the 198 code. What does 2, 3, 2 give?',
+  'Fill it in: the best at house 0 is 2, at house 1 it is 3, and at house 2, robbing gives 2 plus 2 equals 4, bigger than skipping at 3. So 198 gives 4.',
+  'Where does that 4 come from? It is 2 plus 2, robbing houses 0 and 2.',
+  'But in the circle, houses 0 and 2 are first and last, they touch, and the alarm goes off. 198 only knows neighbors along the line; it does not know about the edge between first and last. The correct answer is 3.',
+  'The good news: 198 already handles every other neighbor pair. The only new trouble is the first-last pair.'
+]});
+
+/* ===== 6 split into two ranges ===== */
+add({ch:6, title:'First and last cannot both go: <em>split into two</em>', vis:
+  gloss(0,[['case A','skip the last house: look only at houses 0 to n − 2'],['case B','skip the first house: look only at houses 1 to n − 1'],['grey','the house that is off limits in this case']])
+  + duo(hs([2,3,2],{off:{2:3}, cap:'A: 0 to n − 2'}) + hs([2,3,2],{off:{0:4}, cap:'B: 1 to n − 1'}),
+    q(1,'First and last cannot both be robbed. How do we turn the circle back into a row?')
+    + cards([[2,'Rob at most one of first and last','so at least one of them is skipped','amber'],
+             [3,'A: skip the last house','0 to n − 2 is left: a row, no circle','sky'],
+             [4,'B: skip the first house','1 to n − 1 is left: also a row','sky'],
+             [5,'Answer = max(A, B)','every legal plan falls in A or B; use 198 twice','mint']])),
+  say:[
+  'Case A skips the last house and looks only at houses 0 to n minus 2. Case B skips the first house and looks only at houses 1 to n minus 1. Grey marks the house that is off limits in that case.',
+  'The question for this scene: first and last cannot both be robbed. How do we turn the circle back into a row?',
+  'Start from the premise: of the first-last pair, you rob at most one. So in any legal plan, at least one of the first and last houses is skipped.',
+  'If the skipped one is the last house, that is case A: houses 0 to n minus 2 remain. Remove the last house and the circle breaks open into a row. Note that A does not force you to rob the first house; it only forbids touching the last one.',
+  'If the skipped one is the first house, that is case B: houses 1 to n minus 1 remain, which is also a row.',
+  'Every legal plan falls in A or B, and each case is legal on its own. So the answer is to run 198 on each range and take the larger result. The 198 function does not change a single line; we just call it twice.'
+]});
+
+/* ===== 7 two passes on [1, 2, 3, 1] ===== */
+add({ch:7, title:'Two passes: <em>[1, 2, 3, 1]</em>', vis:
+  gloss(0,[['pass one','case A: leave the last house alone, run houses 0 to 2'],['pass two','case B: leave the first house alone, run houses 1 to 3']])
+  + duo(hs([1,2,3,1],{off:{3:2}, vals:[[0,1,3],[1,2,3],[2,4,4]], rob:{0:4,2:4}, cap:'pass one: [1, 2, 3]'})
+      + `<div class="s" data-s="5">${hs([1,2,3,1],{off:{0:5}, vals:[[1,2,6],[2,3,6],[3,3,7]], cap:'pass two: [2, 3, 1]'})}</div>`,
+    q(1,'[1, 2, 3, 1] in a circle: what does each pass give, and what is the final answer?')
+    + cards([[8,'max(4, 3) = 4','rob houses 0 and 2: 1 + 3, first and last not both robbed','mint']])),
+  say:[
+  'Pass one is case A: leave the last house alone and run houses 0 to 2. Pass two is case B: leave the first house alone and run houses 1 to 3.',
+  'The question for this scene: 1, 2, 3, 1 in a circle. What does each pass give, and what is the final answer?',
+  'Pass one: grey out house 3, leaving 1, 2, 3 in a row.',
+  'Rob house 0 for 1, so the best is 1. At house 1, robbing gives 0 plus 2 equals 2, skipping gives 1, so the best is 2.',
+  'At house 2, robbing gives 1 plus 3 equals 4, skipping gives 2, so the best is 4. Pass one gives 4, robbing houses 0 and 2.',
+  'Pass two: grey out house 0, leaving 2, 3, 1.',
+  'Rob house 1 for 2, so the best is 2. At house 2, robbing gives 0 plus 3 equals 3, skipping gives 2, so the best is 3.',
+  'At house 3, robbing gives 2 plus 1 equals 3, and skipping is also 3, so the best is 3. Pass two gives 3.',
+  'Take the larger of the two: 4 versus 3, so 4. We rob houses 0 and 2, and the first and last houses, 0 and 3, are not both robbed, so it is legal.'
+]});
+
+/* ===== 8 check ===== */
+add({ch:8, title:'Check: <em>[2, 3, 2] and [1, 2, 3]</em>', vis:
+  gloss(0,[['check','try more examples and see if the rule still holds']])
+  + duo(hs([2,3,2],{off:{2:2}, vals:[[0,2,2],[1,3,2]], cap:'[2, 3, 2] pass one: [2, 3]'})
+      + `<div class="s" data-s="3">${hs([2,3,2],{off:{0:3}, vals:[[1,3,3],[2,3,3]], cap:'[2, 3, 2] pass two: [3, 2]'})}</div>`,
+    q(1,'Back to [2, 3, 2], which broke before, and also [1, 2, 3]: what does each pass give?')
+    + cards([[4,'[2, 3, 2] → max(3, 3) = 3','the two 2s are never robbed together','mint'],
+             [5,'[1, 2, 3] → max(2, 3) = 3','pass one [1, 2] gives 2; pass two [2, 3] gives 3','sky']])),
+  say:[
+  'A check means trying more examples to see if the rule still holds.',
+  'The question for this scene: back to 2, 3, 2, which broke before, and also 1, 2, 3. What does each pass give?',
+  'For 2, 3, 2, pass one leaves the last house alone, leaving 2, 3. The best at house 0 is 2, and robbing house 1 gives 3, which is bigger than 2, so we get 3.',
+  'Pass two leaves the first house alone, leaving 3, 2. The best at house 1 is 3; at house 2, robbing gives 2 and skipping gives 3, so we get 3.',
+  'The larger of the two is 3. The two neighboring 2s at first and last are never robbed together, and that is exactly the right answer.',
+  'Now 1, 2, 3: pass one runs 1, 2 and gives 2; pass two runs 2, 3 and gives 3. The larger is 3.'
+]});
+
+/* ===== 9 code ===== */
+add({ch:9, title:'Code: <em>use the 198 function twice</em>', vis:
+  gloss(0,[['nums[:-1]','a new list without the last element'],['nums[1:]','a new list without the first element'],['a, b = c, d','compute the whole right side first, then assign both at once']])
+  + term('solution.py',[
+    [2,'o','def rob_line(houses):          # this is 198'],
+    [2,'o','    prev2 = prev1 = 0'],
+    [3,'o','    for x in houses:'],
+    [3,'hl','        prev2, prev1 = prev1, max(prev1, prev2 + x)'],
+    [3,'o','    return prev1'],
+    [4,'o','def rob(nums):'],
+    [4,'hl','    if len(nums) == 1:            # only one house'],
+    [4,'o','        return nums[0]'],
+    [5,'hl','    return max(rob_line(nums[:-1]), rob_line(nums[1:]))']])
+  + q(1,'How do we reuse the 198 function as is, twice? Why does a single house need its own case?'),
+  say:[
+  'nums colon minus 1 is a new list without the last element. nums 1 colon is a new list without the first element. a comma b equals c comma d means compute the whole right side first, then assign both at once.',
+  'The question for this scene: how do we reuse the 198 function as is, twice? And why does a single house need its own case?',
+  'First write rob line, which is just 198. Both variables start at zero.',
+  'The loop is one line: the new prev2 is the old prev1, and the new prev1 is the larger of skip and rob, where skip is prev1 and rob is prev2 plus x. At the end, return prev1.',
+  'Then write rob. With only one house, say 5, both slices are empty lists, rob line returns zero for each, and the max is still zero, but the answer is 5. So with one house, return nums of 0 directly.',
+  'Otherwise it is one line: run once without the last house, run once without the first house, and return the larger.'
+]});
+
+/* ===== 10 complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','the number of steps grows in proportion to the number of houses'],['slice copy','nums[:-1] copies out a new list, which takes O(n) space']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(n)','one scan per pass; slices take O(n), passing indexes makes it O(1)','sky'],
+           [3,'Just running 198','[2, 3, 2] gives 4: first and last robbed together','coral'],
+           [4,'Forgetting the single house','[5] makes both ranges empty and returns 0','coral'],
+           [4,'Updating the two variables on two lines','write prev2 = prev1 first, and rob uses the new value: [1, 2, 3, 1] gives 7','coral']]),
+  say:[
+  'Big O of n means the number of steps grows in proportion to the number of houses. A slice copy means nums colon minus 1 copies out a new list, which takes big O of n space.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Time is big O of n, one scan per pass. Space is big O of n, from the two slice copies; if you pass start and end indexes instead, space drops to big O of 1.',
+  'Pitfall one: just running 198. 2, 3, 2 gives 4, robbing first and last together.',
+  'Pitfall two: forgetting the single house, so 5 returns zero. Pitfall three: updating the two variables on two lines. If you write prev2 equals prev1 first, the rob step uses the value you just changed, which is like robbing every house, and 1, 2, 3, 1 gives 7. A single line that assigns both at once avoids this.'
+]});
+
+/* ===== 11 interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the method out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why does splitting into two ranges never miss the best answer?"')
+  + flow([[2,'Straight line','rob / skip, two variables'],[3,'Circle','first and last not both'],[3,'Two ranges','0..n−2, 1..n−1'],[4,'Answer','max of both; n = 1 case'],[4,'Complexity','O(n)']])
+  + chips(4,['house robber','circular array','rob or skip','max(rob(0..n-2), rob(1..n-1))','edge case n == 1','O(n) time']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why does splitting into two ranges never miss the best answer?',
+  'Start with the straight line: each house is rob or skip. Rob means the best up to two houses back plus this house; skip means the best up to the previous house. Two variables move to the right.',
+  'Then explain why: in a circle, first and last cannot both be robbed, so the best plan skips at least one of them. If it skips the last house, it lives in 0 to n minus 2; if it skips the first house, it lives in 1 to n minus 1. Both ranges are rows, so running each and taking the larger is sure to find it.',
+  'Finally add: a single house is a special case, and the complexity is big O of n. The key English terms are circular array, and rob or skip.'
+]});
+
+/* ===== 12 wrap-up ===== */
+add({ch:12, title:'Three things to <em>remember</em>', vis:
+  flow([[0,'198','rob / skip'],[0,'Circle','first and last touch'],[0,'Two ranges','run each'],[0,'Max','n = 1 case']])
+  + cards([[1,'1. Each house is rob or skip','rob = prev2 + this house, skip = prev1, take the larger','amber'],
+           [2,'2. First and last not both → split in two','0 to n − 2 and 1 to n − 1, use 198 twice, take the max','sky'],
+           [3,'3. A single house returns directly','otherwise both ranges are empty and you get 0','mint']]),
+  say:[
+  'One more pass over the main line: build the straight version first, each house rob or skip; in a circle, first and last touch; split into two ranges and run each; take the larger, and handle the single house.',
+  'Number one: each house is rob or skip. Rob is prev2 plus this house\'s cash, skip is prev1, and you take the larger.',
+  'Number two: first and last cannot both be robbed, so split into two ranges, 0 to n minus 2 and 1 to n minus 1, use the 198 function twice, and take the larger.',
+  'Number three: with a single house, return its cash directly; otherwise both ranges are empty and you get zero.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/a01c59a8a9d5.mp3", "0-1": "a/8ff1b5061fdb.mp3", "0-2": "a/e6017ba22048.mp3", "0-3": "a/e25e085765ac.mp3", "1-0": "a/716626dd4130.mp3", "1-1": "a/a30c75a05590.mp3", "1-2": "a/4eba88da47fb.mp3", "1-3": "a/b0dd82a74f92.mp3", "1-4": "a/d4be7e427cd3.mp3", "2-0": "a/3dad683d4393.mp3", "2-1": "a/e84e3d1c29a0.mp3", "2-2": "a/a1c07536c719.mp3", "2-3": "a/422d877538e7.mp3", "2-4": "a/df581b0c8baf.mp3", "2-5": "a/e4cd19ec56f4.mp3", "3-0": "a/3f5d1189d47e.mp3", "3-1": "a/d8cf8f3e113c.mp3", "3-2": "a/354ec5d6d374.mp3", "3-3": "a/554d321491f5.mp3", "3-4": "a/242a206be6ae.mp3", "3-5": "a/a68a4f0730ea.mp3", "3-6": "a/b8b8e30ebd4d.mp3", "3-7": "a/9d1fe56098c0.mp3", "4-0": "a/e8d460d58d53.mp3", "4-1": "a/9a501d5cf201.mp3", "4-2": "a/fa196322faa0.mp3", "4-3": "a/2bd0e2bbecc4.mp3", "5-0": "a/2a967fa3f526.mp3", "5-1": "a/c9aa278d21f8.mp3", "5-2": "a/39e785da0941.mp3", "5-3": "a/30f063c60914.mp3", "5-4": "a/137f13e6448e.mp3", "5-5": "a/05e0128eddf2.mp3", "6-0": "a/5addb537353e.mp3", "6-1": "a/1320fff1fbeb.mp3", "6-2": "a/c0b4748c3314.mp3", "6-3": "a/c9367471cb14.mp3", "6-4": "a/9b2a33f3af12.mp3", "6-5": "a/91a89adeef24.mp3", "7-0": "a/dbe10dc81410.mp3", "7-1": "a/83c233abd6cd.mp3", "7-2": "a/6ffc1fe82a9c.mp3", "7-3": "a/3c3b5f81fc36.mp3", "7-4": "a/218896f4e41e.mp3", "7-5": "a/5a28303563a3.mp3", "7-6": "a/c88de0cc91d0.mp3", "7-7": "a/372b0a54f42c.mp3", "7-8": "a/3b709f0aebb0.mp3", "8-0": "a/7a6c2e98af20.mp3", "8-1": "a/3d8bf68ceb4b.mp3", "8-2": "a/927b0b27d70b.mp3", "8-3": "a/a2d907098e2f.mp3", "8-4": "a/02a64ab67095.mp3", "8-5": "a/7ab8f1e96778.mp3", "9-0": "a/ae6298e81078.mp3", "9-1": "a/b5346e9b9739.mp3", "9-2": "a/bd35d558eb0f.mp3", "9-3": "a/2ad5e2dce8f5.mp3", "9-4": "a/06298368a78f.mp3", "9-5": "a/68f687c4dd3c.mp3", "10-0": "a/b7103a210ba0.mp3", "10-1": "a/7c35137176fb.mp3", "10-2": "a/ab29b3ad4326.mp3", "10-3": "a/58e2e4e14b62.mp3", "10-4": "a/d67d58136499.mp3", "11-0": "a/a8b2325e73e6.mp3", "11-1": "a/3c360672bc67.mp3", "11-2": "a/69d57c5f6ccc.mp3", "11-3": "a/b9ed9eaf5d90.mp3", "11-4": "a/5db0955171ee.mp3", "12-0": "a/33e9eb745e18.mp3", "12-1": "a/afd2ff5058a0.mp3", "12-2": "a/db242230dbba.mp3", "12-3": "a/b852fe662407.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

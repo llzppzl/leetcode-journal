@@ -1,0 +1,817 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>头尾交替</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'头尾交替', template:'prep', sub:'LeetCode 143 Reorder List · 算法动画', key:'lc143vid', doc:'LeetCode 143 题', blurb:'先用数组加双指针做出来，再看清原地版本只是三个老招拼在一起：快慢指针找中点、反转后半段、两条链表一人一个交替合并。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：重排链表','链表是什么','读题：头尾交替','直觉：抄进数组','关键：三招拼起来','第一招：快慢指针找中点','第二招：反转后半段','第三招：交替合并','验证：偶数长度','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- linked-list frames: each frame is a full picture shown at its own steps (.only + .now) ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ll{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.ll .s:not(.on){opacity:0}
+.ll .only.s{opacity:0!important} .ll .only.s.now{opacity:1!important}
+.ll rect{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.ll rect.back{fill:rgba(255,184,77,.25);stroke:var(--amber)}
+.ll rect.done{fill:rgba(98,224,180,.3);stroke:var(--mint)}
+.ll rect.cell{stroke:var(--line)}
+.ll path{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ll path.new{stroke:var(--mint);stroke-width:3}
+.ll path.bad{stroke:var(--coral);stroke-width:3.5}
+.ll text{fill:var(--paper);font-family:var(--f-display);font-size:19px;text-anchor:middle;dominant-baseline:central}
+.ll text.nil{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.ll text.ptr{font-family:var(--f-mono);font-size:12px;fill:var(--amber)}
+.ll text.ix{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.cap{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.cap .s{position:absolute;left:0;right:0}
+.cap .only.s{opacity:0!important} .cap .only.s.now{opacity:1!important}
+.cap b{color:var(--amber)} .cap em{font-style:normal;color:var(--mint)}
+</style>`;
+const NW = 34, NH = 32;
+let LLN = 0;
+const half = k => k[0]==='N' ? [17,9] : [NW/2, NH/2];
+function cut(u, v, [hw, hh]){ return Math.min(Math.abs(u)>1e-6?hw/Math.abs(u):1e9, Math.abs(v)>1e-6?hh/Math.abs(v):1e9); }
+function arrow(f, a, b, cls, bend, uid){
+  const [x1,y1]=f.n[a], [x2,y2]=f.n[b];
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const t1=cut(ux,uy,half(a))+2, t2=cut(ux,uy,half(b))+6;
+  const sx=x1+ux*t1, sy=y1+uy*t1, ex=x2-ux*t2, ey=y2-uy*t2;
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  return `<path class="${cls}" marker-end="url(#${uid}${cls?'-'+cls:''})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+// f = {s:[steps], n:{key:[x,y,cls]}, e:[[from,to,cls,bend]], p:[[label,key,'u'|'d']], t:[[x,y,text]], cap, keep}
+// keys starting with N are drawn as the text "None"; keep:true means the frame stays on from its step onward
+function frame(f, uid){
+  let g = '';
+  (f.e||[]).forEach(([a,b,cls,bend])=> g += arrow(f,a,b,cls||'',bend||0,uid));
+  Object.entries(f.n).forEach(([k,[x,y,cls]])=>{
+    if(k[0]==='N') g += `<text class="nil" x="${x}" y="${y}">None</text>`;
+    else g += `<rect class="${cls||''}" x="${x-NW/2}" y="${y-NH/2}" width="${NW}" height="${NH}" rx="${cls==='cell'?3:8}"/><text x="${x}" y="${y}">${k}</text>`;
+  });
+  const used = {};
+  (f.p||[]).forEach(([lab,k,side])=>{
+    const [x,y]=f.n[k], id=k+side, m=used[id]=(used[id]||0)+1, hh=half(k)[1];
+    const yy = side==='d' ? y+hh+11+(m-1)*14 : y-hh-10-(m-1)*14;
+    g += `<text class="ptr" x="${x}" y="${yy}">${lab}</text>`;
+  });
+  (f.t||[]).forEach(([x,y,txt])=> g += `<text class="ix" x="${x}" y="${y}">${txt}</text>`);
+  return g;
+}
+function ll(frames, h, label){
+  const uid = 'llm'+(LLN++);
+  const mk = (id, col) => `<marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--${col});stroke:none"/></marker>`;
+  let s = LCSS + `<svg class="ll" viewBox="0 0 340 ${h}" role="img" aria-label="${label||'链表'}"><defs>${mk(uid,'sky')}${mk(uid+'-new','mint')}${mk(uid+'-bad','coral')}</defs>`;
+  let caps = '';
+  frames.forEach(f => f.s.forEach(st => {
+    s += `<g class="${f.keep?'':'only '}s" data-s="${st}">${frame(f,uid)}</g>`;
+    if(f.cap) caps += `<span class="only s bare" data-s="${st}">${f.cap}</span>`;
+  }));
+  return s + `</svg>` + (caps ? `<div class="cap">${caps}</div>` : '');
+}
+const rg = (a, b) => Array.from({length:b-a+1}, (_,i)=>a+i);
+// common layouts
+const X5 = [26,84,142,200,258];
+const row = (vals, y, cls={}) => { const n={}; vals.forEach((v,i)=>n[v]=[X5[i],y,cls[v]]); n.NE=[316,y]; return n; };
+const chain = (vals, cls={}) => vals.map((v,i)=>[v, vals[i+1]||'NE', cls[v]||'']);
+const ORIG = {n:row(['1','2','3','4','5'],50), e:chain(['1','2','3','4','5'])};
+const DONE = {n:row(['1','5','2','4','3'],50,{'5':'back','4':'back'}), e:chain(['1','5','2','4','3'])};
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'头尾交替<br><em>LeetCode 143</em>', vis:
+  gloss(0,[['链表 linked list','一串节点，每个节点用箭头指向下一个'],['.next','节点里那根"指向下一个"的箭头'],['快慢指针','一个每次走 1 步，一个每次走 2 步'],['反转','把一段链表的箭头全部掉头']])
+  + flow([[1,'读题','头、尾、头、尾……'],[1,'直觉','抄进数组，两头取'],[2,'追问','O(1) 空间？'],[2,'中点','快慢指针'],[3,'反转','后半段掉头'],[3,'合并','一人一个']]),
+  say:[
+  '这节课讲力扣 143 题，重排链表。链表是一串节点，每个用一根叫 next 的箭头指向下一个。快慢指针，一个每次走一步，一个走两步。反转，是把箭头全部掉头。',
+  '题目要把链表排成头、尾、第二个、倒数第二个这样交替。最自然的想法是抄进数组，从两头往中间取。',
+  '面试官会追问：能不能不用数组？答案是三个老招拼在一起。',
+  '我们在 1 到 5 上把三步动画走一遍，再用 1 到 4 验证，最后写代码。'
+]});
+
+/* ===== 1 链表是什么 ===== */
+add({ch:1, title:'链表：<em>只能顺着箭头走</em>', vis:
+  gloss(0,[['节点 node','一个小格子：装一个值 val，加一根箭头 next'],['head','链表的第一个节点，我们手里只有它'],['None','箭头指向空：链表到这里结束']])
+  + duo(ll([{...ORIG, s:rg(0,2), p:[['head','1','u']]},
+            {...ORIG, s:[3,4], p:[['head','1','u'],['cur','5','d']], cap:'cur 从 head 出发，走了 <b>4</b> 步才到 5'}], 100),
+    q(1,'链表和数组有什么不一样？为什么不能直接拿最后一个？')
+    + cards([[2,'只能从 head 顺着 next 走','没有下标，不能说"给我第 5 个"','sky'],
+             [3,'找最后一个要走 n − 1 步','5 个节点，走 4 步','amber'],
+             [4,'箭头是单向的','到了 5，想回到 4？没有往回的箭头','coral']])),
+  say:[
+  '节点是一个小格子，装一个值 val，加一根箭头 next 指向下一个。head 是第一个节点，题目只给我们它。None 表示箭头指向空，链表结束。',
+  '这一幕要回答的是：链表和数组有什么不一样？为什么不能直接拿最后一个？',
+  '数组能用下标直接拿任意一格。链表没有下标，只能从 head 顺着 next 一个个往后走。',
+  '想拿最后一个，就得从 head 出发一步步走。五个节点要走四步，n 个节点要走 n 减一步。',
+  '更麻烦的是箭头单向。走到 5 以后想回到 4，没有往回的箭头。这就是这道题的难处。'
+]});
+
+/* ===== 2 读题 ===== */
+add({ch:2, title:'读题：<em>头、尾、头、尾</em>', vis:
+  gloss(0,[['重排 reorder','把节点换个顺序重新连起来'],['原地 in place','不新建节点，只改每个节点的 next']])
+  + duo(ll([{...ORIG, s:rg(0,3), p:[['head','1','u']]},
+            {...DONE, s:[4,5], p:[['head','1','u']], cap:'<b>1 → 5 → 2 → 4 → 3</b>'}], 100),
+    q(1,'1 → 2 → 3 → 4 → 5，要重排成什么？')
+    + cards([[2,'规则：第一个、最后一个、第二个、倒数第二个……','头尾交替着拿','sky'],
+             [3,'1，5，2，4，最后剩下中间的 3','两头往中间收','amber'],
+             [5,'不能改 val，只能改 next','函数不返回东西，直接改原链表','coral']])),
+  say:[
+  '重排就是把节点换个顺序重新连起来。原地的意思是不新建节点，只改每个节点的 next 箭头。',
+  '这一幕要回答的是：1、2、3、4、5 这条链表，要重排成什么？',
+  '规则是：第一个、最后一个、第二个、倒数第二个，头尾交替着拿。',
+  '拿一遍：先拿头 1，再拿尾 5；然后拿 2，再拿 4；最后剩下中间的 3。',
+  '连起来就是 1、5、2、4、3。橙色的 5 和 4 是从后面拿来的节点。',
+  '两条要求：不能改节点里的值，只能改 next；函数不返回东西，直接改好原链表。'
+]});
+
+/* ===== 3 直觉：抄进数组 ===== */
+const AX = [50,110,170,230,290];
+const arr = (s, i, j, cap) => { const n={}; ['1','2','3','4','5'].forEach((v,k)=>n[v]=[AX[k],55,'cell']);
+  const p=[]; if(i!=null) p.push(['i',String(i+1),'u']); if(j!=null) p.push(['j',String(j+1),'u']);
+  return {s, n, p, t:AX.map((x,k)=>[x,88,k]), cap}; };
+add({ch:3, title:'直觉：<em>抄进数组，两头取</em>', vis:
+  gloss(0,[['数组','一排有编号的格子，用下标直接拿任意一格'],['双指针','i 从左往右走，j 从右往左走']])
+  + duo(ll([arr([0,1]), arr([2],0,4,'nodes = [1, 2, 3, 4, 5]'), arr([3],1,3,'已接好：<em>1 → 5 → 2</em>'),
+            arr([4],2,2,'已接好：<em>1 → 5 → 2 → 4 → 3</em>'), arr([5,6],2,2,'nodes[2].next = <b>None</b>')], 105, '数组'),
+    q(1,'链表不能从后面拿，那先把节点抄进数组呢？')
+    + cards([[5,'能做对：1 → 5 → 2 → 4 → 3','i 和 j 碰头时，把那一个的 next 设成 None','mint'],
+             [6,'追问：额外空间 O(n)','面试官："能不能只用 O(1) 额外空间？"','coral']])),
+  say:[
+  '数组能用下标直接拿任意一格。双指针是 i 从左往右走，j 从右往左走。',
+  '这一幕要回答的是：链表不能从后面拿，那先把所有节点抄进一个数组，行不行？',
+  '走一遍链表，把五个节点按顺序放进数组 nodes。i 指向下标零，j 指向下标四。',
+  '第一轮：nodes 零的 next 指向 nodes 四，也就是 1 接 5；i 加一。5 再接 nodes 一，也就是 2；j 减一。',
+  '第二轮：2 接 4，i 加一；4 接 3，j 减一。现在 i 和 j 都等于二，碰头了。',
+  '最后把碰头的 nodes 二，也就是 3 的 next 设成 None，作为结尾。结果 1、5、2、4、3，做对了。',
+  '可是数组多占了 n 格空间。面试官追问：能不能只用 O 1 的额外空间，也就是几个变量？'
+]});
+
+/* ===== 4 关键：三招拼起来 ===== */
+add({ch:4, title:'关键：<em>答案里藏着三步</em>', vis:
+  gloss(0,[['前半段','1 → 2 → 3，答案里按原顺序出现'],['后半段','4 → 5，答案里倒着出现：先 5 后 4']])
+  + duo(ll([{...DONE, s:rg(0,2), cap:'白色 <b>1 2 3</b> 正着走，橙色 <b>5 4</b> 倒着走'},
+            {s:rg(3,5), n:{'1':[60,45],'2':[150,45],'3':[240,45],NA:[310,45],'5':[105,125,'back'],'4':[195,125,'back'],NB:[275,125]},
+             e:[['1','2'],['2','3'],['3','NA'],['5','4','new'],['4','NB','new']], cap:'后半段掉个头，就能<em>从 5 开始往后走</em>'}], 165),
+    q(1,'不用数组，怎么拿到"从后往前"的顺序？')
+    + flow([[4,'① 找中点','快慢指针'],[4,'② 反转后半','箭头掉头'],[4,'③ 交替合并','一人一个']])
+    + cards([[5,'三步都是老招','找中点是 876 题，反转是 206 题','mint']])),
+  say:[
+  '把答案拆开看：前半段 1、2、3 按原顺序出现；后半段 4、5 倒着出现，先 5 后 4。',
+  '这一幕要回答的是：不用数组，怎么拿到从后往前的顺序？',
+  '看图：白色的 1、2、3 一直往后走，链表擅长；橙色的 5、4 是从后往前拿的，链表做不到。',
+  '那就把后半段掉个头，变成 5 指向 4。倒着拿，就变成了从头正着走。',
+  '于是原地版本就是三步：找中点，分成两半；反转后半段；两条链表一人一个交替合并。',
+  '这三步都是老招：找中点是力扣 876 题，反转链表是 206 题。'
+]});
+
+/* ===== 5 第一招：找中点 ===== */
+const CUT5 = {n:{'1':[26,45],'2':[84,45],'3':[142,45],NA:[200,45],'4':[200,120],'5':[258,120],NB:[316,120]},
+  e:[['1','2'],['2','3'],['3','NA','new'],['4','5'],['5','NB']]};
+add({ch:5, title:'第一招：<em>快慢指针找中点</em>', vis:
+  gloss(0,[['slow 慢指针','每次走 1 步'],['fast 快指针','每次走 2 步'],['切断','把前半段最后一个的 next 改成 None']])
+  + duo(ll([{...ORIG, s:[0,1,2], p:[['slow','1','u'],['fast','1','d']], cap:'起点：slow = fast = head'},
+            {...ORIG, s:[3], p:[['slow','2','u'],['fast','3','d']], cap:'slow 走 1 步，fast 走 2 步'},
+            {...ORIG, s:[4,5], p:[['slow','3','u'],['fast','5','d']], cap:'fast.next 是 None → <b>停</b>'},
+            {...CUT5, s:[6], p:[['slow','3','u'],['cur','4','u']], cap:'cur = slow.next，<b>slow.next = None</b>'}], 165),
+    q(1,'不知道链表多长，怎么一次走到中间？')
+    + cards([[5,'fast 到头时，slow 正好在中间','fast 走的路是 slow 的两倍','sky'],
+             [6,'切断：slow.next = None','前半 1 → 2 → 3，后半 4 → 5，不切会成环','coral']])),
+  say:[
+  'slow 每次走一步，fast 每次走两步。切断，是把前半段最后一个的 next 改成 None。',
+  '这一幕要回答的是：不知道链表有多长，怎么一次走到中间？',
+  '两个指针都从 head，也就是 1 出发。规则是：只要 fast 后面还有两个节点，就继续走。',
+  '第一次：slow 走一步到 2，fast 走两步到 3。',
+  '第二次：slow 到 3，fast 到 5。fast 的 next 是 None，后面没有两个节点了，停。',
+  '为什么在中间？fast 走的路总是 slow 的两倍。fast 到尾巴时，slow 正好走了一半，停在 3。',
+  '然后切断：cur 记住 slow 的 next，也就是 4，再把 slow 的 next 设成 None。前半 1、2、3，后半 4、5。不切的话，3 还连着 4，最后会成环。'
+]});
+
+/* ===== 6 第二招：反转后半段 ===== */
+const RV = (s, e, p, cap) => ({s, n:{NL:[40,70],'4':[130,70],'5':[220,70],NR:[305,70]}, e, p, cap});
+add({ch:6, title:'第二招：<em>反转后半段</em>', vis:
+  gloss(0,[['prev','已经掉好头的那一段的第一个，开始是 None'],['cur','正在处理的节点'],['nxt','改箭头之前，先存下 cur 原来的下一个']])
+  + duo(ll([RV([0,1,2],[['4','5'],['5','NR']],[['prev','NL','u'],['cur','4','u']],'prev = None，cur = 4'),
+            RV([3],[['4','5'],['5','NR']],[['prev','NL','u'],['cur','4','u'],['nxt','5','d']],'<b>nxt = cur.next</b>：先存下 5'),
+            RV([4],[['4','NL','new'],['5','NR']],[['prev','NL','u'],['cur','4','u'],['nxt','5','d']],'<b>cur.next = prev</b>：4 掉头'),
+            RV([5],[['4','NL'],['5','NR']],[['prev','4','u'],['cur','5','u']],'prev = cur，cur = nxt：各走一步'),
+            RV([6,7],[['4','NL'],['5','4','new']],[['prev','5','u'],['cur','NR','u']],'5 也掉头；cur 是 None，<em>结束</em>')], 115),
+    q(1,'4 → 5 怎么变成 5 → 4，而且一个节点都不丢？')
+    + cards([[3,'先存后改','先改 4 的箭头，就再也找不到 5 了','amber'],
+             [7,'结束时 prev 就是新头','后半段变成 5 → 4 → None','mint']])),
+  say:[
+  'prev 是已经掉好头那段的第一个，开始是 None。cur 是正在处理的节点。nxt 先存下 cur 原来的下一个。',
+  '这一幕要回答的是：4 指向 5，怎么变成 5 指向 4，而且一个节点都不丢？',
+  '开始时 prev 是 None，cur 是后半段的头 4。',
+  '第一件事：先用 nxt 存下 cur 的 next，也就是 5。因为下一步要改 4 的箭头，改完就再也找不到 5 了。',
+  '第二件事：cur 的 next 改成 prev。4 的箭头掉头，指向 None。5 没丢，nxt 还拿着它。',
+  '第三件事：prev 走到 cur，cur 走到 nxt。prev 是 4，cur 是 5。',
+  '对 5 再做一遍：存下 None，5 掉头指向 4，prev 走到 5，cur 变成 None，结束。',
+  '结束时 prev 就是反转后的新头 5。后半段变成了 5、4、None。'
+]});
+
+/* ===== 7 第三招：交替合并 ===== */
+const MP = {'1':[40,45],'2':[150,45],'3':[260,45],NA:[315,45],'5':[95,135,'back'],'4':[205,135,'back'],NB:[265,135]};
+add({ch:7, title:'第三招：<em>一人一个，交替合并</em>', vis:
+  gloss(0,[['first','前半段当前的节点'],['second','后半段当前的节点'],['n1、n2','改箭头前，先存下两人原来的下一个']])
+  + duo(ll([{s:[0,1,2], n:MP, e:[['1','2'],['2','3'],['3','NA'],['5','4'],['4','NB']], p:[['first','1','u'],['second','5','d']], cap:'first = head，second = prev'},
+            {s:[3], n:MP, e:[['1','2'],['2','3'],['3','NA'],['5','4'],['4','NB']], p:[['first','1','u'],['n1','2','u'],['second','5','d'],['n2','4','d']], cap:'<b>先存</b>：n1 = 2，n2 = 4'},
+            {s:[4], n:MP, e:[['1','5','new'],['5','2','new'],['2','3'],['3','NA'],['4','NB']], p:[['n1','2','u'],['n2','4','d']], cap:'1 接 5，5 接 2'},
+            {s:[5], n:MP, e:[['1','5'],['5','2'],['2','3'],['3','NA'],['4','NB']], p:[['first','2','u'],['second','4','d']], cap:'first = n1，second = n2'},
+            {s:[6], n:MP, e:[['1','5'],['5','2'],['2','4','new'],['4','3','new'],['3','NA']], p:[['first','3','u'],['second','NB','d']], cap:'2 接 4，4 接 3；second 变成 None'},
+            {s:[7], n:row(['1','5','2','4','3'],70,{'5':'back','4':'back'}), e:chain(['1','5','2','4','3']), cap:'<em>1 → 5 → 2 → 4 → 3</em>'}], 175),
+    q(1,'1 → 2 → 3 和 5 → 4，怎么一人一个接起来？')
+    + cards([[3,'又是先存后改','改完 1 的箭头，2 就找不到了','amber'],
+             [7,'second 走完就停','3 本来就指向 None，正好当结尾','mint']])),
+  say:[
+  'first 是前半段当前的节点，second 是后半段当前的节点。n1、n2 先存下两人原来的下一个。',
+  '这一幕要回答的是：前半段 1、2、3，后半段 5、4，怎么一人一个接起来？',
+  '开始时 first 是 head 1，second 是反转后的新头 5。',
+  '还是先存后改：n1 存下 2，n2 存下 4。不存的话，改完 1 的箭头，2 就找不到了。',
+  '然后改两根箭头：first 的 next 指向 second，1 接 5；second 的 next 指向 n1，5 接 2。',
+  '两人各走一步：first 变成 n1，也就是 2；second 变成 n2，也就是 4。',
+  '第二轮一样：先存，2 接 4，4 接 3。second 走到 n2，也就是 None。',
+  'second 是 None，循环结束。3 切断时就指向 None，正好当结尾。结果 1、5、2、4、3。'
+]});
+
+/* ===== 8 验证：偶数长度 ===== */
+const O4 = {n:{'1':[26,50],'2':[84,50],'3':[142,50],'4':[200,50],NE:[258,50]}, e:[['1','2'],['2','3'],['3','4'],['4','NE']]};
+const C4 = {'1':[26,45],'2':[84,45],NA:[142,45]};
+add({ch:8, title:'验证：<em>1 → 2 → 3 → 4</em>', vis:
+  gloss(0,[['偶数长度','节点个数是 2、4、6……，没有正中间那一个']])
+  + duo(ll([{...O4, s:[0,1]},
+            {...O4, s:[2], p:[['slow','2','u'],['fast','3','d']], cap:'① fast.next.next 是 None → 停，slow = 2'},
+            {s:[3], n:{...C4,'3':[142,125],'4':[200,125],NB:[258,125]}, e:[['1','2'],['2','NA','new'],['3','4'],['4','NB']], cap:'切断：1 → 2 和 3 → 4'},
+            {s:[4], n:{...C4,'4':[142,125,'back'],'3':[200,125,'back'],NB:[258,125]}, e:[['1','2'],['2','NA'],['4','3','new'],['3','NB','new']], cap:'② 反转：4 → 3'},
+            {s:[5], n:{'1':[26,50],'4':[84,50,'back'],'2':[142,50],'3':[200,50,'back'],NE:[258,50]}, e:[['1','4','new'],['4','2','new'],['2','3','new'],['3','NE']], cap:'③ 合并：<em>1 → 4 → 2 → 3</em>'}], 165),
+    q(1,'4 个节点，三步走完是不是 1 → 4 → 2 → 3？')
+    + cards([[5,'结果 1 → 4 → 2 → 3，对了','前半段 1 → 2，后半段 4 → 3，一人一个','mint']])),
+  say:[
+  '偶数长度，就是节点个数是二、四、六这样的，没有正中间的那一个。',
+  '这一幕要回答的是：1、2、3、4 这四个节点，三步走完，是不是 1、4、2、3？',
+  '第一步找中点：slow 到 2，fast 到 3。fast 后面只剩一个节点 4，不够两个，停。slow 停在 2。',
+  '切断：cur 记住 3，2 的 next 设成 None。前半段 1、2，后半段 3、4。',
+  '第二步反转后半段：3、4 变成 4、3，新头是 4。',
+  '第三步合并：1 接 4，4 接 2，2 接 3。second 走完，结束。结果 1、4、2、3，和答案一样。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>三段，对应三招</em>', vis:
+  gloss(0,[['prev, cur = cur, nxt','Python 同时赋值：右边先算好，再一起放进左边']])
+  + term('solution.py',[
+    [2,'o','def reorderList(head):'],
+    [2,'o','    slow = fast = head                    # ① 找中点'],
+    [2,'o','    while fast.next and fast.next.next:'],
+    [2,'o','        slow = slow.next'],
+    [2,'o','        fast = fast.next.next'],
+    [3,'o','    cur = slow.next                       # ② 切断，反转后半'],
+    [3,'hl','    slow.next = None'],
+    [3,'o','    prev = None'],
+    [3,'o','    while cur:'],
+    [3,'hl','        nxt = cur.next                    # 先存'],
+    [3,'o','        cur.next = prev                   # 再改'],
+    [3,'o','        prev, cur = cur, nxt'],
+    [4,'o','    first, second = head, prev            # ③ 交替合并'],
+    [4,'o','    while second:'],
+    [4,'hl','        n1, n2 = first.next, second.next  # 先存'],
+    [4,'o','        first.next = second'],
+    [4,'o','        second.next = n1'],
+    [4,'o','        first, second = n1, n2']])
+  + q(1,'代码的每一段，对应哪一招？'),
+  say:[
+  'prev 逗号 cur 等于 cur 逗号 nxt，是 Python 的同时赋值：右边先全部算好，再一起放进左边。',
+  '这一幕要回答的是：代码的每一段，对应哪一招？',
+  '第一段找中点：只要 fast 的 next 和 next 的 next 都存在，slow 走一步，fast 走两步。',
+  '第二段切断再反转：cur 记住后半段的头，slow 的 next 设成 None。每轮先存 nxt，再让 cur 指向 prev，两人各走一步。',
+  '第三段交替合并：first 从 head、second 从 prev 开始，每轮先存 n1、n2，再接两根箭头。函数没有 return，原链表已经改好。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(1) 额外空间','只用几个指针变量，不随链表变长而变多']])
+  + duo(ll([{keep:true, s:[3], n:{'1':[26,60],'5':[84,60],'2':[142,60],'4':[200,60],'3':[258,60]},
+             e:[['1','5'],['5','2'],['2','4'],['4','3','bad',30],['3','4','bad',30]]}], 120, '成环'),
+    q(1,'时间空间各是多少？最容易错在哪？')
+    + cards([[2,'时间 O(n)，额外空间 O(1)','三步各走一遍链表，只用几个指针','sky'],
+             [3,'坑一：忘了切断 → 成环','3 还指向 4，4 又指向 3，打印时停不下来','coral'],
+             [4,'坑二：先改箭头，后存 next','下一个节点就丢了；反转和合并都要先存','coral'],
+             [5,'坑三：合并循环写成 while first','奇数长度时前半多一个，second 先变 None','coral']])),
+  say:[
+  'O 1 额外空间，意思是只用几个指针变量，链表再长，变量也不会变多。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n：找中点、反转、合并各走一遍。额外空间 O 1，只用了几个指针。',
+  '坑一：忘了 slow 的 next 等于 None。3 还连着 4，合并时 4 又接到 3。看红色箭头，3 和 4 互相指，成环，遍历停不下来。',
+  '坑二：先改箭头再存 next，下一个节点就丢了。反转和合并都要先存后改。',
+  '坑三：合并循环看 second，不看 first。奇数长度时前半多一个，second 先变成 None，再取它的 next 就报错。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："不用数组，你怎么拿到后面的节点？"')
+  + flow([[2,'朴素','数组 + 双指针，O(n) 空间'],[3,'找中点','快慢指针 + 切断'],[3,'反转','后半段掉头'],[3,'合并','一人一个'],[4,'复杂度','O(n) / O(1)']])
+  + chips(4,['linked list','fast and slow pointers','reverse linked list','merge in place','O(1) extra space','876','206']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，不用数组，你怎么拿到后面的节点？',
+  '先讲朴素做法：把节点抄进数组，双指针从两头往中间接，时间 O n，但额外空间也是 O n。',
+  '再讲关键：答案里后半段是倒着出现的。所以我用快慢指针找中点并切断，反转后半段，再一人一个交替合并。改箭头前，都先存下 next。',
+  '最后讲复杂度：时间 O n，额外空间 O 1。英文关键词是 fast and slow pointers。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'找中点','快慢指针'],[0,'切断','slow.next = None'],[0,'反转','后半段掉头'],[0,'合并','一人一个']])
+  + cards([[1,'① 答案 = 前半正着 + 后半倒着，交替拿','所以原地版本就是：找中点、反转后半、交替合并','amber'],
+           [2,'② 找中点后一定要切断','slow.next = None，否则 3 和 4 互相指，成环','coral'],
+           [3,'③ 改箭头前，先存下 next','反转存 nxt，合并存 n1、n2','mint']]),
+  say:[
+  '回顾一遍主线：快慢指针找中点，切断成两半，反转后半段，再一人一个交替合并。',
+  '第一句：答案是前半段正着、后半段倒着，交替着拿。所以原地版本就是找中点、反转后半、交替合并。',
+  '第二句：找到中点以后一定要切断，slow 的 next 设成 None。不切的话，3 和 4 会互相指，成环。',
+  '第三句：改箭头之前，先存下原来的 next。反转时存 nxt，合并时存 n1 和 n2。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/4a89bf78dd3e.mp3", "0-1": "a/d87d202653ae.mp3", "0-2": "a/65ae9b8af72c.mp3", "0-3": "a/80657c020c99.mp3", "1-0": "a/da969d03fa34.mp3", "1-1": "a/9dd168793741.mp3", "1-2": "a/857105283d3c.mp3", "1-3": "a/b2a74e6eb940.mp3", "1-4": "a/31faf9e375db.mp3", "2-0": "a/898dc127ef1d.mp3", "2-1": "a/90b47e157bf0.mp3", "2-2": "a/701c1facd056.mp3", "2-3": "a/2670ad38ebe9.mp3", "2-4": "a/870c62dfea96.mp3", "2-5": "a/ac4191d8634b.mp3", "3-0": "a/16dfb50ff17c.mp3", "3-1": "a/92b5c30ac480.mp3", "3-2": "a/6d8382786d11.mp3", "3-3": "a/4dd51af39cd0.mp3", "3-4": "a/b8e46736aabd.mp3", "3-5": "a/5cddd705c368.mp3", "3-6": "a/b18c5f022bfb.mp3", "4-0": "a/aeb492a8f47e.mp3", "4-1": "a/a33fad6a488c.mp3", "4-2": "a/1a69f400a461.mp3", "4-3": "a/b68d3f76e175.mp3", "4-4": "a/760154d9d9cc.mp3", "4-5": "a/43977057a01d.mp3", "5-0": "a/b300034cecf7.mp3", "5-1": "a/3a4fba6e029f.mp3", "5-2": "a/4aefd6c31967.mp3", "5-3": "a/deecb5ecf5d0.mp3", "5-4": "a/e781968a4062.mp3", "5-5": "a/c22110f574e5.mp3", "5-6": "a/8db822eb76f5.mp3", "6-0": "a/6f19648411c3.mp3", "6-1": "a/aa77e44aa727.mp3", "6-2": "a/52e5d25ab6d5.mp3", "6-3": "a/1066c6a9ef27.mp3", "6-4": "a/4c615ca18fc1.mp3", "6-5": "a/b63f89301f5f.mp3", "6-6": "a/b725dcc3cd7e.mp3", "6-7": "a/b88b7e055483.mp3", "7-0": "a/451da461dc6f.mp3", "7-1": "a/e0da816de1e9.mp3", "7-2": "a/c87b57cf0af5.mp3", "7-3": "a/c40c69490aa0.mp3", "7-4": "a/989521fcf5b2.mp3", "7-5": "a/f9d9bb76314c.mp3", "7-6": "a/37435a4ba41a.mp3", "7-7": "a/086982ef7c4a.mp3", "8-0": "a/1fd0ad32d089.mp3", "8-1": "a/ace28bf77fbe.mp3", "8-2": "a/75c726eea7cd.mp3", "8-3": "a/02dda5aa77a8.mp3", "8-4": "a/6d5fe5d9d639.mp3", "8-5": "a/9f8dbf9d9894.mp3", "9-0": "a/6ff5a4f70aea.mp3", "9-1": "a/21260e902df1.mp3", "9-2": "a/86285991d848.mp3", "9-3": "a/bb9b5afef7de.mp3", "9-4": "a/c2924e27b7e4.mp3", "10-0": "a/832e795fe387.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/b548fa756ea8.mp3", "10-3": "a/65722f2445c1.mp3", "10-4": "a/2df0f1a50e62.mp3", "10-5": "a/cfc06d13e3a1.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/2cc4c490ad26.mp3", "11-2": "a/33db69166bda.mp3", "11-3": "a/cbce61aa0c81.mp3", "11-4": "a/14bd02437a99.mp3", "12-0": "a/e10c3d3a795e.mp3", "12-1": "a/07e550603615.mp3", "12-2": "a/35e1031e3e4e.mp3", "12-3": "a/989851284dda.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>
