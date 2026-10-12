@@ -59,6 +59,7 @@ The Blind 75 problems that are hard, hard to see, or need a specific trick. No j
 | 207 | Course Schedule | take the courses with zero prerequisites left, then see what unlocks; leftovers mean a cycle | [中文](https://llzppzl.github.io/leetcode-journal/videos/0207-course-schedule/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0207-course-schedule/en.html) |
 | 212 | Word Search II | put the words in a trie and walk the board and the trie together in one DFS | [中文](https://llzppzl.github.io/leetcode-journal/videos/0212-word-search-ii/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0212-word-search-ii/en.html) |
 | 213 | House Robber II | the circle forbids first + last together: run House Robber twice, without first and without last | [中文](https://llzppzl.github.io/leetcode-journal/videos/0213-house-robber-ii/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0213-house-robber-ii/en.html) |
+| 230 | Kth Smallest Element in a BST | inorder visits a BST in increasing order; stop the stack walk after k nodes | [中文](https://llzppzl.github.io/leetcode-journal/videos/0230-kth-smallest-element-in-a-bst/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0230-kth-smallest-element-in-a-bst/en.html) |
 | 238 | Product of Array Except Self | no division: product of everything left of i times everything right of i | [中文](https://llzppzl.github.io/leetcode-journal/videos/0238-product-of-array-except-self/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0238-product-of-array-except-self/en.html) |
 | 295 | Find Median from Data Stream | two heaps: the small half (max-heap) and the large half (min-heap); the median sits on top | [中文](https://llzppzl.github.io/leetcode-journal/videos/0295-find-median-from-data-stream/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0295-find-median-from-data-stream/en.html) |
 | 297 | Serialize and Deserialize Binary Tree | preorder alone is ambiguous; add a marker for every missing child | [中文](https://llzppzl.github.io/leetcode-journal/videos/0297-serialize-and-deserialize-binary-tree/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0297-serialize-and-deserialize-binary-tree/en.html) |
@@ -68,5 +69,12 @@ The Blind 75 problems that are hard, hard to see, or need a specific trick. No j
 | 424 | Longest Repeating Character Replacement | a window is fixable when length − max count ≤ k; why a stale max count is still correct | [中文](https://llzppzl.github.io/leetcode-journal/videos/0424-longest-repeating-character-replacement/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0424-longest-repeating-character-replacement/en.html) |
 | 435 | Non-overlapping Intervals | remove the fewest = keep the most; sort by end and keep whatever ends earliest | [中文](https://llzppzl.github.io/leetcode-journal/videos/0435-non-overlapping-intervals/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/0435-non-overlapping-intervals/en.html) |
 | 1143 | Longest Common Subsequence | don't pick which pointer to move, try both: diagonal + 1 on a match, else max(up, left) | [中文](https://llzppzl.github.io/leetcode-journal/videos/1143-longest-common-subsequence/zh.html) · [English](https://llzppzl.github.io/leetcode-journal/videos/1143-longest-common-subsequence/en.html) |
+
+### High-frequency interview problems
+
+Beyond Blind 75: the problems interviewers ask most often (monotonic stacks, backtracking, LRU, …), same format.
+
+| # | Problem | The idea | Watch |
+|---|---|---|---|
 
 The pages are static HTML served by GitHub Pages from `videos/`; the narration clips sit next to each page in `a/`.

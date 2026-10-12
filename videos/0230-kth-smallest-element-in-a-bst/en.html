@@ -1,0 +1,782 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Count to K</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Count to K', template:'prep', lang:'en', sub:'LeetCode 230 Kth Smallest Element in a BST · animated walkthrough', key:'lc230envid', doc:'LeetCode 230', blurb:'Start from "collect everything and sort", see that the inorder traversal of a binary search tree already comes out smallest to largest, then use a stack to go left, pop and count, and stop the moment you reach k.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: where is the kth smallest','The problem: binary search trees','Inorder: left, root, right','Why inorder is smallest to largest','Instinct: collect everything first','Key idea: stop at k','Animation: stack and counter','Two more examples','Write the code','Complexity and pitfalls','Follow-up: frequent updates','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- binary tree: labels, rings (one step only), marks, plus a per-step stack row ---------- */
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.bt{width:100%;max-width:420px;margin:0 auto;display:block;overflow:visible}
+.bt .s:not(.on){opacity:0}
+.bt .only.s{opacity:0!important} .bt .only.s.now{opacity:1!important}
+.bt line{stroke:var(--sky);stroke-width:3}
+.bt line.hot{stroke:var(--mint);stroke-width:5}
+.bt circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.bt circle.good{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.bt circle.bad{fill:rgba(255,122,107,.5);stroke:var(--coral)}
+.bt circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.bt rect.zone{fill:rgba(255,184,77,.08);stroke:var(--amber);stroke-width:2;stroke-dasharray:6 5}
+.bt text{fill:var(--paper);font-family:var(--f-display);font-size:20px;text-anchor:middle;dominant-baseline:central}
+.bt text.rg{font-family:var(--f-mono);font-size:13px;fill:var(--amber)}
+.bt text.lab{font-family:var(--f-body);font-size:13px;fill:var(--dim)}
+.bt text.ord{font-family:var(--f-mono);font-size:14px;fill:var(--sky);font-weight:700}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow .keep.s:not(.on){opacity:0}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow i{font-style:normal;color:var(--coral)}
+.ks{position:relative;min-height:2.6em;margin-top:6px}
+.ks .s{position:absolute;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:6px;flex-wrap:wrap;font-family:var(--f-mono);font-size:.85em;color:var(--dim)}
+.ks .only.s{opacity:0!important} .ks .only.s.now{opacity:1!important}
+.ks b{display:inline-block;min-width:1.9em;padding:.15em .3em;border:2px solid var(--sky);border-radius:6px;color:var(--paper);text-align:center;font-weight:400}
+.ks b.top{border-color:var(--amber);color:var(--amber)}
+.ks em{font-style:normal;color:var(--mint)}
+</style>`;
+const R = 21;
+// o: {n:{id:[x,y,val]}, e:[[a,b]], lab:[[step,id,text,pos,cls]], ring:[[step,id]], mark:[[step,id,cls]], hot:[[step,a,b]], zone:[[step,x,y,w,h]], st:[[step,html,keep]], ks:[[step,stack[],count,k]], h}
+function bt(o){
+  const h = o.h||250, P = o.n;
+  const at = (id,pos) => { const [x,y]=P[id];
+    return pos==='r'?[x+R+6,y,'start']:pos==='l'?[x-R-6,y,'end']:pos==='t'?[x,y-R-12,'middle']:[x,y+R+13,'middle']; };
+  let s = TCSS + `<svg class="bt" viewBox="0 0 340 ${h}" role="img" aria-label="binary tree">`;
+  (o.zone||[]).forEach(([st,x,y,w,hh])=>s+=`<rect class="zone s" data-s="${st}" x="${x}" y="${y}" width="${w}" height="${hh}" rx="14"/>`);
+  o.e.forEach(([a,b])=>s+=`<line x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}"/>`);
+  (o.hot||[]).forEach(([st,a,b])=>s+=`<line class="hot s" data-s="${st}" x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}"/>`);
+  Object.values(P).forEach(([x,y])=>s+=`<circle cx="${x}" cy="${y}" r="${R}"/>`);
+  (o.mark||[]).forEach(([st,id,c])=>s+=`<circle class="${c} s" data-s="${st}" cx="${P[id][0]}" cy="${P[id][1]}" r="${R}"/>`);
+  (o.ring||[]).forEach(([st,id])=>s+=`<circle class="ring only s" data-s="${st}" cx="${P[id][0]}" cy="${P[id][1]}" r="${R+7}"/>`);
+  Object.values(P).forEach(([x,y,v])=>s+=`<text x="${x}" y="${y}">${v}</text>`);
+  (o.lab||[]).forEach(([st,id,t,pos,cls])=>{ const [x,y,a]=at(id,pos); s+=`<text class="${cls||'rg'} s" data-s="${st}" x="${x}" y="${y}" style="text-anchor:${a}">${t}</text>`; });
+  s += `</svg>`;
+  if(o.st) s += `<div class="qrow">${o.st.map(([st,t,keep])=>`<span class="${keep?'keep':'only'} s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  if(o.ks) s += `<div class="ks">${o.ks.map(([st,arr,cnt,k])=>`<span class="only s" data-s="${st}">stack ${arr.length?arr.map((v,i)=>`<b class="${i===arr.length-1?'top':''}">${v}</b>`).join(''):'<b>empty</b>'} · count <em>${cnt}</em> / k = ${k}</span>`).join('')}</div>`;
+  return s;
+}
+// trees
+const T1 = {n:{r:[170,40,2], a:[95,125,1], b:[245,125,3]}, e:[['r','a'],['r','b']], h:180};
+const TM = {n:{r:[190,34,5], a:[110,104,3], b:[270,104,6], c:[60,174,2], d:[160,174,4], e:[30,244,1]}, e:[['r','a'],['r','b'],['a','c'],['a','d'],['c','e']], h:272};
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Count to K<br><em>LeetCode 230</em>', vis:
+  gloss(0,[['binary search tree (BST)','Everything in the left subtree is smaller, everything in the right subtree is larger'],['inorder traversal','Walk the left subtree, then the node itself, then the right subtree'],['stack','A pile of plates: the last one you put on is the first one you take off']])
+  + flow([[1,'Problem','Who is 3rd smallest'],[1,'Inorder','left, root, right'],[2,'Fact','inorder is sorted'],[2,'Instinct','collect, then pick'],[3,'Key idea','stop at k'],[3,'Animation','stack + count']]),
+  say:[
+  'This lesson covers LeetCode 230, Kth Smallest Element in a BST. Three words first. A binary search tree is a tree where everything in the left subtree is smaller and everything in the right subtree is larger. Inorder traversal means walk the left subtree, then the node itself, then the right subtree. A stack is like a pile of plates: the last one you put on is the first one you take off.',
+  'We will build up binary search trees and inorder traversal from zero, then see one key fact on a small tree: walking inorder, the numbers come out from smallest to largest.',
+  'Then we start from the most natural idea: collect every number and pick the kth one. We will see where it wastes work, and change it to count as we walk and stop at the kth node.',
+  'Finally we animate that walk with a stack, then cover the code, the complexity, and the follow-up for a tree that changes often.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>who is 3rd smallest</em>', vis:
+  gloss(0,[['node','One circle in the tree, holding one number'],['subtree','A node plus every node below it'],['kth smallest','Sort everything from small to large; the number in position k']])
+  + duo(bt({...TM, zone:[[3,4,76,190,196]], mark:[[4,'a','good']]}),
+    q(1,'root = [5, 3, 6, 2, 4, null, null, 1], k = 3. What is the answer?')
+    + cards([[2,'Read level by level, left to right','5 is the root; 3 and 6 are level two; 2 and 4 hang under 3; 1 hangs left of 2','sky'],
+             [3,'Smaller left, larger right, at every node','5\'s left subtree 3, 2, 4, 1 is all < 5; 6 on the right is > 5','amber'],
+             [4,'Sorted: 1, 2, 3, 4, 5, 6','The 3rd one is 3 → answer 3','mint'],
+             [5,'1 ≤ k ≤ n','k is always valid; no "not found" case','sky']])),
+  say:[
+  'A node is one circle in the tree, holding one number. A subtree is a node plus every node below it. The kth smallest is the number in position k once you sort everything from small to large.',
+  'The question for this scene: root is 5, 3, 6, 2, 4, null, null, 1, and k is 3. What is the answer?',
+  'This list is read level by level, left to right. 5 is the root. 3 and 6 are the second level. 2 and 4 hang under 3. The two nulls are the empty spots under 6, and the last value, 1, hangs to the left of 2.',
+  'This is a binary search tree. The dashed box is the left subtree of 5: 3, 2, 4 and 1 are all smaller than 5, and 6 on the right is larger. Every single node follows smaller left, larger right.',
+  'Sort the six numbers: 1, 2, 3, 4, 5, 6. The third one is 3, so the answer is 3.',
+  'The problem guarantees k is between 1 and n, where n is the number of nodes. So the kth smallest always exists, and we never handle a not found case.'
+]});
+
+/* ===== 2 Inorder traversal ===== */
+add({ch:2, title:'Inorder: <em>left, root, right</em>', vis:
+  gloss(0,[['traversal','Reaching every node in the tree exactly once'],['visit','It is this node\'s turn; take its value and use it'],['recursion','For a subtree, apply the same rule again']])
+  + duo(bt({...T1, lab:[[3,'a','#1','r','ord'],[4,'r','#2','r','ord'],[5,'b','#3','r','ord']], ring:[[3,'a'],[4,'r'],[5,'b']], st:[[5,'visit order: 1, 2, 3',true]]}),
+    q(1,'In what order does inorder traversal visit the nodes? Walk it on [2, 1, 3].')
+    + cards([[2,'Rule: left subtree → self → right subtree','"In" means the node sits in the middle','sky'],
+             [6,'Same inside every subtree','Entering any subtree, start again with "left, root, right"','amber']])),
+  say:[
+  'A traversal reaches every node in the tree exactly once. To visit a node means it is that node\'s turn, so we take its value and use it. Recursion means that for a subtree, we apply the same rule again.',
+  'The question for this scene: in what order does inorder traversal visit the nodes? We will walk it on the small tree 2, 1, 3.',
+  'The rule is one sentence: finish the left subtree, then visit the node itself, then do the right subtree. It is called inorder because the node sits in the middle, between left and right.',
+  'Start at the root, 2. Do not visit 2 yet; go to its left subtree first. That subtree is just 1, which has no children, so we visit 1. It is number one.',
+  'The left subtree is done, so we come back and visit the root, 2. It is number two.',
+  'Last, the right subtree: visit 3. It is number three. The visit order is 1, 2, 3.',
+  'If a subtree is bigger, we apply the same rule inside it: left first, then root, then right. That is recursion.'
+]});
+
+/* ===== 3 Why inorder is sorted ===== */
+add({ch:3, title:'Key fact: <em>inorder is smallest to largest</em>', vis:
+  gloss(0,[['increasing','Each number is larger than the one before'],['#number','The position in which inorder visits this node']])
+  + duo(bt({...TM, zone:[[2,4,76,190,196]],
+      lab:[[3,'e','#1','r','ord'],[3,'c','#2','r','ord'],[3,'a','#3','r','ord'],[3,'d','#4','r','ord'],[4,'r','#5','r','ord'],[4,'b','#6','r','ord']],
+      st:[[4,'inorder: 1, 2, 3, 4, 5, 6',true]]}),
+    q(1,'Why does inorder on a binary search tree always come out smallest to largest?')
+    + cards([[2,'Everything below 5 is on the left','Inorder finishes the left side first → all of it comes before 5','amber'],
+             [3,'Same reason inside the left subtree','Split at 3: 1 and 2 before it, 4 after it','sky'],
+             [5,'The kth visited = the kth smallest','No sorting needed; count to k and that is the answer','mint']])),
+  say:[
+  'Increasing means each number is larger than the one before. The number with a hash sign next to a node is the position in which inorder visits it.',
+  'The question for this scene: why does inorder on a binary search tree always come out smallest to largest?',
+  'Start at the root, 5. Every number smaller than 5 lives in its left subtree, the dashed box. Inorder finishes that whole left subtree before visiting 5, so all those smaller numbers come out before 5.',
+  'Inside the left subtree the same reasoning repeats. Split at 3: 1 and 2 are smaller and on its left, so they come first; 4 is larger and on its right, so it comes after. That gives 1, 2, 3, 4.',
+  'Then we visit 5, and last the right subtree gives 6. The full order is 1, 2, 3, 4, 5, 6, exactly smallest to largest.',
+  'Conclusion: in a binary search tree, the kth node visited by inorder is the kth smallest. No sorting needed; count to k and that is the answer.'
+]});
+
+/* ===== 4 Instinct: collect everything ===== */
+add({ch:4, title:'Instinct: <em>collect everything, then pick</em>', vis:
+  gloss(0,[['O(n log n)','Roughly how many steps sorting n numbers takes'],['index [k − 1]','Lists count from 0, so the kth item is at k minus 1']])
+  + q(1,'What is the most natural approach, and where is it slow?')
+  + cards([[2,'Idea 1: collect → sort → take [k − 1]','[5, 3, 2, 1, 4, 6] sorted, then [2] = 3; time O(n log n)','sky'],
+           [3,'Idea 2: collect inorder → take [k − 1]','Already sorted, no sort needed; time O(n), space O(n)','amber'],
+           [4,'Stuck: even k = 1 walks everything','The answer 1 shows up first, yet we still walk and store all 6','coral'],
+           [5,'Can we stop at the kth node?','The rest of the tree never needs touching','mint']]),
+  say:[
+  'Big O of n log n is roughly how many steps it takes to sort n numbers. Index k minus 1 is used because lists count from 0, so the kth item sits at position k minus 1.',
+  'The question for this scene: what is the most natural approach, and where is it slow?',
+  'Idea one: walk the tree in any order and collect every number into a list, say 5, 3, 2, 1, 4, 6. Sort it and take index 2, which is 3. That is big O of n log n, and it ignores the smaller left, larger right structure completely.',
+  'Idea two: collect with inorder traversal. As we just saw, inorder is already sorted, so skip the sort and take index k minus 1. Time drops to big O of n, but the list holds n numbers, so space is big O of n too.',
+  'But here is the problem: if k is 1, the answer 1 is the very first node visited, yet we still walk and store all 6 nodes. With ten thousand nodes, it would be the same.',
+  'So the real question is: can we walk inorder, count as we go, and stop at the kth node? The rest of the tree never needs touching.'
+]});
+
+/* ===== 5 Key idea: stop at k ===== */
+add({ch:5, title:'Key idea: <em>walk inorder with your own stack</em>', vis:
+  gloss(0,[['iterative','Using a loop instead of recursion'],['top of stack','The item on top, the next one to be popped'],['push / pop','Put on top / take off the top']])
+  + q(1,'How do we step through inorder one node at a time and stop whenever we want?')
+  + cards([[2,'Stopping recursion midway is awkward','You must pass the answer back up level by level; a stack holds "the way back" for you','sky'],
+           [3,'① Go left as far as possible, pushing each node','Smaller numbers are still to their left, so do not visit them yet','amber'],
+           [4,'② Pop the top = visit it, count plus 1','Count equals k → return it right away','amber'],
+           [5,'③ Move to its right child, back to ①','The right subtree is larger; now it is their turn','amber'],
+           [6,'The top is always "the smallest left"','So the pop order is exactly inorder','mint']]),
+  say:[
+  'Iterative means using a loop instead of recursion. The top of the stack is the item on top, the next one to be popped. Push means put on top; pop means take off the top.',
+  'The question for this scene: how do we step through inorder one node at a time, and stop whenever we want?',
+  'Stopping a recursive version midway is awkward: once you find the answer, you have to pass it back up level by level. With our own stack, we hold the way back ourselves, and we can simply return when we are done.',
+  'Rule one: from the current node, go left as far as possible, pushing every node you pass. Smaller numbers are still to their left, so we do not visit them yet; we keep them waiting.',
+  'Rule two: once we hit the bottom, pop the top of the stack. That is visiting it, so count goes up by 1. If count equals k, this node is the answer, and we return it.',
+  'Rule three: move to the right child of the node we just popped, then go back to rule one. The right subtree is larger, so now it is their turn. If the right child is empty, we just pop the next one.',
+  'Why is this right? The top of the stack is always the smallest number not yet visited, so the order we pop nodes is exactly the inorder order.'
+]});
+
+/* ===== 6 Animation ===== */
+add({ch:6, title:'Animation: <em>stack and counter</em>', vis:
+  gloss(0,[['amber ring','The node being handled right now'],['stack row','Left end is the bottom; the amber box is the top'],['green #number','Already visited, and in which position']])
+  + duo(bt({...TM,
+      hot:[[2,'r','a'],[2,'a','c'],[2,'c','e']],
+      ring:[[2,'e'],[3,'e'],[4,'c'],[5,'a']],
+      mark:[[3,'e','good'],[4,'c','good'],[5,'a','good']],
+      lab:[[3,'e','#1','r','ord'],[4,'c','#2','r','ord'],[5,'a','#3','r','ord']],
+      st:[[2,'go left: push 5, 3, 2, 1'],[3,'pop <b>1</b>, count 1; right is empty'],[4,'pop <b>2</b>, count 2; right is empty'],[5,'pop <b>3</b>, count 3 = k <em>→ return 3</em>'],[6,'4, 5, 6 never touched',true]],
+      ks:[[2,[5,3,2,1],0,3],[3,[5,3,2],1,3],[4,[5,3],2,3],[5,[5],3,3],[6,[5],3,3]]}),
+    q(1,'With k = 3, what do the stack and the counter look like at each step?')
+    + cards([[6,'Only 3 nodes visited','The stack peaks at 4 levels, the tree height','mint']])),
+  say:[
+  'The amber ring is the node being handled right now. The row underneath is the stack: the left end is the bottom, and the amber box is the top. Green nodes with a hash number have been visited.',
+  'The question for this scene: with k equal to 3, what do the stack and the counter look like at each step?',
+  'Start at the root, 5, and go left: push 5, go left to 3, push 3, go left to 2, push 2, go left to 1, push 1. Node 1 has no left child, so we stop. The stack is 5, 3, 2, 1, and count is 0.',
+  'Pop the top, 1, and visit it. Count becomes 1. That is not 3, so move to the right child of 1. It is empty, so nothing gets pushed.',
+  'Pop the next top, 2. Count becomes 2. The right child of 2 is empty too.',
+  'Pop the next top, 3. Count becomes 3, which equals k, so we return 3. That matches the answer we got by sorting.',
+  'The whole walk visited only 3 nodes; 4, 5 and 6 were never touched. The stack peaked at 4 levels, exactly the number of levels from the root to the deepest node.'
+]});
+
+/* ===== 7 Two more examples ===== */
+add({ch:7, title:'Check: <em>k = 6, and another tree</em>', vis:
+  gloss(0,[['turn right','After popping a node, go to its right child, then go left from there']])
+  + duo(bt({...TM,
+      hot:[[3,'a','d'],[5,'r','b']],
+      ring:[[3,'d'],[4,'d'],[5,'r'],[6,'b']],
+      mark:[[2,'e','good'],[2,'c','good'],[2,'a','good'],[4,'d','good'],[5,'r','good'],[6,'b','good']],
+      lab:[[2,'e','#1','r','ord'],[2,'c','#2','r','ord'],[2,'a','#3','r','ord'],[4,'d','#4','r','ord'],[5,'r','#5','r','ord'],[6,'b','#6','r','ord']],
+      st:[[2,'same as before: visit 1, 2, 3'],[3,'right child of 3 is 4: push 4'],[4,'pop <b>4</b>, count 4'],[5,'pop <b>5</b>, count 5; turn right, push 6'],[6,'pop <b>6</b>, count 6 = k <em>→ return 6</em>'],[7,'k = 6 → 6',true]],
+      ks:[[2,[5],3,6],[3,[5,4],3,6],[4,[5],4,6],[5,[6],5,6],[6,[],6,6],[7,[],6,6]]}),
+    q(1,'With k = 6, how does the stack walk the whole tree? And [3, 1, 4, null, 2] with k = 1?')
+    + cards([[7,'[3, 1, 4, null, 2], k = 1','Push 3, 1; pop 1, count 1 → return 1','sky']])),
+  say:[
+  'Turning right means after popping a node, go to its right child, then push your way left from there. The last scene never needed it; this one will.',
+  'The question for this scene: with k equal to 6, how does the stack walk the whole tree? And for the other tree, 3, 1, 4, null, 2, with k equal to 1?',
+  'The start is the same as last time: visit 1, 2 and 3, and count reaches 3. Now only 5 is left on the stack.',
+  'Node 3 is not the sixth, so turn to its right child, 4. Go left from 4: push 4. It has no left child, so stop. The stack is 5, 4.',
+  'Pop 4. Count is 4. The right child of 4 is empty.',
+  'Pop 5. Count is 5. Turn to the right child of 5, which is 6, and push it. Now the stack holds only 6.',
+  'Pop 6. Count is 6, which equals k, so we return 6. The largest number is exactly the last one visited, and the stack is empty.',
+  'Now 3, 1, 4, null, 2 with k equal to 1: go left from 3, push 3, push 1. Node 1 has no left child. Pop 1, count is 1, which equals k, so we return 1. Only one node visited.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>three rules, three blocks</em>', vis:
+  gloss(0,[['stack.append / pop','Push / pop the top'],['while True','Loop forever; leave with return']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def kthSmallest(self, root, k):'],
+    [2,'o','        stack = []'],
+    [2,'o','        node = root'],
+    [2,'o','        count = 0'],
+    [2,'o','        while True:'],
+    [3,'hl','            while node:                  # ① go left'],
+    [3,'hl','                stack.append(node)'],
+    [3,'hl','                node = node.left'],
+    [4,'hl','            node = stack.pop()           # ② visit the top'],
+    [4,'hl','            count += 1'],
+    [4,'hl','            if count == k:'],
+    [4,'hl','                return node.val'],
+    [5,'hl','            node = node.right            # ③ turn right']])
+  + q(1,'Turning the three rules into code: which block matches which step of the animation?'),
+  say:[
+  'stack dot append pushes, and stack dot pop pops the top. while True loops forever, and we leave with the return inside.',
+  'The question for this scene: turning the three rules into code, which block matches which step of the animation?',
+  'Set up an empty stack, start node at the root, and set count to 0. The problem guarantees k is at most n, so we always find the answer partway through, which makes the outer while True safe.',
+  'Rule one: while node is not empty, push it and move to its left child. That is the opening of the animation, pushing 5, 3, 2, 1.',
+  'Rule two: pop the top and add 1 to count. If count equals k, return its value. That is the moment in the animation when the node turns green with number k.',
+  'Rule three: set node to its right child. If that is empty, the inner loop runs zero times and we pop the next one; if not, we go left from there.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>two pitfalls</em>', vis:
+  gloss(0,[['h, height','How many levels from the root to the deepest node'],['O(h + k)','Steps grow with height plus k, not with n']])
+  + q(1,'What are the time and space costs, and where do people slip?')
+  + cards([[2,'Time O(h + k)','Every pushed node is either popped (k of them) or still on the stack (≤ h of them)','sky'],
+           [3,'Space O(h)','The stack holds one leftward path; a chain-shaped tree has h = n','sky'],
+           [4,'Pitfall: using index [k]','kth smallest counts from 1; the list index is k − 1','coral'],
+           [4,'Pitfall: forgetting to turn right','Without node = node.right, the right subtrees are never reached','coral']]),
+  say:[
+  'h is the height of the tree, the number of levels from the root to the deepest node. Big O of h plus k means the steps grow with height plus k, not with the total number of nodes n.',
+  'The question for this scene: what are the time and space costs, and where do people slip?',
+  'Time is big O of h plus k. Count the nodes that ever get pushed: either they have been popped, at most k of them, or they are still on the stack, at most h of them. Each node is pushed once and popped once, so the total is big O of h plus k.',
+  'Space is big O of h, since the stack only holds one leftward path. In a balanced tree h is about log n; in a tree shaped like a chain, h equals n, so the worst case is big O of n.',
+  'Two pitfalls. First, in the list version, writing index k. The kth smallest counts from 1, so the list index is k minus 1. Second, forgetting node equals node dot right after the pop, so the right subtrees are never reached.'
+]});
+
+/* ===== 10 Follow-up: frequent updates ===== */
+add({ch:10, title:'Follow-up: <em>frequent changes, frequent queries</em>', vis:
+  gloss(0,[['size','How many nodes are in the subtree rooted here'],['L','The size of the left subtree: how many are smaller']])
+  + duo(bt({...TM,
+      lab:[[2,'r','size 6','r'],[2,'a','size 4','r'],[2,'b','size 1','b'],[2,'c','size 2','r'],[2,'d','size 1','r'],[2,'e','size 1','r']],
+      ring:[[3,'r'],[4,'a']], mark:[[4,'a','good']],
+      st:[[3,'at 5: L = 4, k = 3 ≤ 4 → go left'],[4,'at 3: L = 2, k = 3 = L + 1 → it is <em>3</em>'],[5,'k = 6: at 5, 6 &gt; 5 → go right, k becomes 1']]}),
+    q(1,'If the tree gets inserts and deletes often, and kth smallest is asked often, counting from scratch is too slow. What then?')
+    + cards([[6,'Query O(h), independent of k','On insert or delete, add or subtract 1 along the path, also O(h)','mint']])),
+  say:[
+  'size is how many nodes are in the subtree rooted at this node. L is the size of the left subtree, which is how many numbers are smaller than this node.',
+  'The question for this scene: if the tree gets inserts and deletes often, and the kth smallest is asked often, counting up to k every time is too slow. What then?',
+  'Store one more number in every node: the size of its subtree. For example, the root 5 has 6 nodes under it, so its size is 6; node 3 has 3, 2, 4 and 1, so its size is 4.',
+  'Query k equal to 3. Start at the root, 5: there are 4 smaller numbers on its left. k is 3, which is at most 4, so the answer must be in the left subtree. Go left.',
+  'At 3, there are 2 smaller numbers on its left. k is exactly L plus 1, which means exactly 2 numbers come before 3, so 3 is the third smallest.',
+  'If k is bigger than L plus 1, go right and subtract L plus 1 from k. For k equal to 6: at 5, skip the 4 on the left plus 5 itself, go right, and k becomes 1. At 6 there are 0 on the left, so 6 is the answer.',
+  'Each query walks a single path down, so it is big O of h, no matter what k is. On insert or delete, add or subtract 1 from the size of every node on the path, also big O of h.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why not just sort?"')
+  + flow([[2,'Property','inorder = sorted'],[3,'Iterative','stack: push left, pop and count'],[3,'Early stop','return at k'],[4,'Complexity','O(h + k) / O(h)'],[4,'Follow-up','store size per node']])
+  + chips(4,['binary search tree','inorder traversal','sorted order','explicit stack','early stop','subtree size']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why not just sort?',
+  'Start with the property: sorting is big O of n log n, and it throws away the tree\'s structure. The inorder traversal of a binary search tree is already sorted, so the kth node visited is the kth smallest.',
+  'Then the method: I walk inorder iteratively with a stack. Push left as far as possible, pop the top and count it, then turn to the right child. When the count reaches k, I return right away, without walking the whole tree.',
+  'Finish with complexity and the follow-up: time is big O of h plus k, and space is big O of h. If the tree changes often and is queried often, store the subtree size in every node, so each query is big O of h. The key English phrases are inorder traversal and early stop.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Property','inorder sorted'],[0,'Go left','push all the way'],[0,'Pop','count plus 1'],[0,'Turn right','then go left'],[0,'Stop','count = k']])
+  + cards([[1,'① Inorder of a BST is smallest to largest','The kth node visited is the kth smallest','amber'],
+           [2,'② Stack: push left, pop and count, turn right','Return at k: O(h + k) time, O(h) space','sky'],
+           [3,'③ Frequent changes and queries: store subtree size','k ≤ L go left, k = L + 1 is this node, else go right minus L + 1','mint']]),
+  say:[
+  'One more pass over the main line: inorder of a binary search tree is increasing; push left all the way; pop the top and add 1 to count; turn to the right child and go left again; stop when count equals k.',
+  'First: the inorder traversal of a binary search tree comes out from smallest to largest. So the kth node visited is the kth smallest.',
+  'Second: walk it with a stack. Push left all the way, count each pop, then turn to the right child. Return when you reach k, for big O of h plus k time and big O of h space.',
+  'Third: if the tree changes often and is queried often, store the subtree size in every node. If k is at most L, go left; if k is L plus 1, it is this node; otherwise go right and subtract L plus 1 from k.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/3c8009a72311.mp3", "0-1": "a/b7832145a9f4.mp3", "0-2": "a/284ff099d5ce.mp3", "0-3": "a/db7a9e8ee688.mp3", "1-0": "a/6429eb19af50.mp3", "1-1": "a/118e3b15a51f.mp3", "1-2": "a/172651764478.mp3", "1-3": "a/924fd9d296f7.mp3", "1-4": "a/ca7496448f06.mp3", "1-5": "a/98a045e1ff09.mp3", "2-0": "a/1ec6f11f9ee7.mp3", "2-1": "a/97346d375032.mp3", "2-2": "a/09fb0f8ca6e4.mp3", "2-3": "a/f67fb3089f67.mp3", "2-4": "a/562cb13525bb.mp3", "2-5": "a/6eaa9dcc7289.mp3", "2-6": "a/76086bee0321.mp3", "3-0": "a/2242a8912d71.mp3", "3-1": "a/09edfa1889bf.mp3", "3-2": "a/66043d4c263c.mp3", "3-3": "a/a0cf5b4602ff.mp3", "3-4": "a/15bff10de84d.mp3", "3-5": "a/fb6beffd2c5a.mp3", "4-0": "a/12e24d5fd71c.mp3", "4-1": "a/26cb83d6040a.mp3", "4-2": "a/e83f9455b565.mp3", "4-3": "a/e7b76c0eb4c9.mp3", "4-4": "a/d422e8c5c68f.mp3", "4-5": "a/405c601777c7.mp3", "5-0": "a/3bd17b28263c.mp3", "5-1": "a/859c9923f9a9.mp3", "5-2": "a/59968eac936c.mp3", "5-3": "a/bacf92731114.mp3", "5-4": "a/06981d5eb8bd.mp3", "5-5": "a/4d6aabab6087.mp3", "5-6": "a/de234b3d032d.mp3", "6-0": "a/59ee06a706ba.mp3", "6-1": "a/297890d88afd.mp3", "6-2": "a/ff1d5ece74d3.mp3", "6-3": "a/a998dec7f1bb.mp3", "6-4": "a/eae20fc5bcbd.mp3", "6-5": "a/3c7fb17cf076.mp3", "6-6": "a/7d3e216df0b7.mp3", "7-0": "a/f7ce453daa8f.mp3", "7-1": "a/ad87c6e01bbd.mp3", "7-2": "a/ca88fbc93390.mp3", "7-3": "a/4b459c8ba886.mp3", "7-4": "a/4a720cb5d95e.mp3", "7-5": "a/ac51588e2696.mp3", "7-6": "a/2414133848b8.mp3", "7-7": "a/34492b6f00b8.mp3", "8-0": "a/ca9d693a9468.mp3", "8-1": "a/102e12ebf33e.mp3", "8-2": "a/9010c47a1b57.mp3", "8-3": "a/071dca41ab2a.mp3", "8-4": "a/76fbfcc36d68.mp3", "8-5": "a/599cb4b5e727.mp3", "9-0": "a/56145d395174.mp3", "9-1": "a/0c033b283455.mp3", "9-2": "a/94a5be6910d7.mp3", "9-3": "a/6ac2d1717d1a.mp3", "9-4": "a/941bd080cdd3.mp3", "10-0": "a/66bf1cdd4119.mp3", "10-1": "a/fab348a749aa.mp3", "10-2": "a/d39b03352fc0.mp3", "10-3": "a/393f9904589d.mp3", "10-4": "a/549678b8a3d1.mp3", "10-5": "a/2347ff05504e.mp3", "10-6": "a/577ca289461a.mp3", "11-0": "a/7ff80f442c9c.mp3", "11-1": "a/9a8756a368b8.mp3", "11-2": "a/a5994a0ca4bf.mp3", "11-3": "a/bb9d2b6333f4.mp3", "11-4": "a/afbc5798b060.mp3", "12-0": "a/b2bf36d8b18c.mp3", "12-1": "a/96d268627f31.mp3", "12-2": "a/bc2e8b4f056c.mp3", "12-3": "a/0ef9846bf38b.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>
