@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Buckets by Count</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Buckets by Count', template:'prep', lang:'en', sub:'LeetCode 347 Top K Frequent Elements · animated walkthrough', key:'lc347envid', doc:'LeetCode 347', blurb:'First count how often each number appears with a dict; sorting and heaps both compare sizes, but a count can only be between 1 and n, so use the count as a bucket number and take k numbers from the highest bucket down, which is O(n).'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: who appears most','The problem: the top k frequent','Step one: count','Instinct: sort by count','Better: a heap of size k','The trick: count as index','Animation: fill the buckets','Animation: take from the top','Write the code','Complexity and pitfalls','Check two more examples','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip, count dict, buckets, state row ---------- */
+const KCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.kz .s{transform:none}
+.kz .s:not(.on){opacity:0}
+.kz .only.s{opacity:0!important} .kz .only.s.now{opacity:1!important}
+.kz .kx,.kz .bk{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.kz .kx>div{position:relative;display:grid;place-items:center;border-radius:8px}
+.kz .ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em;display:grid;place-items:center}
+.kz .lb{color:var(--dim);font-size:.78em;justify-self:end;padding-right:.3em}
+.kz .kx>.v{height:2.5em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.kz .kx>.v b{font-family:var(--f-display);font-weight:400;font-size:1.3em}
+.kz .kx>.v b.hot{color:var(--amber)}
+.kz .kx>.v .stk{position:absolute;inset:0;display:grid;place-items:center;box-shadow:none}
+.kz i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)}
+.kz .bk>.b{position:relative;height:5.6em;border:1px solid var(--line);border-top:0;border-radius:0 0 8px 8px;background:rgba(10,17,36,.85);display:flex;flex-direction:column-reverse;align-items:center;gap:3px;padding:4px 0}
+.kz .bk>.b span{font-family:var(--f-mono);font-size:.9em;padding:0 .35em;border-radius:5px;background:rgba(98,224,180,.28);color:var(--paper)}
+.kz .bk>.b.got span{background:rgba(255,184,77,.35)}
+.kz .krow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:10px}
+.kz .krow .s{position:absolute;left:0;right:0;box-shadow:none}
+.kz .krow b{color:var(--amber)} .kz .krow em{font-style:normal;color:var(--mint)}
+</style>`;
+const K_wrap = h => KCSS + `<div class="kz">${h}</div>`;
+// rings: [[step, index]]
+function K_strip(nums, rings=[]){
+  let h = `<div class="kx" style="grid-template-columns:repeat(${nums.length},2.5em)">`;
+  h += nums.map((_,i)=>`<div class="ix">${i}</div>`).join('');
+  h += nums.map((v,i)=>`<div class="v"><b>${v}</b>${rings.filter(r=>r[1]===i).map(([s])=>`<i class="ring only s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+// keys: [[key, firstStep]], states: [[step, {key: value}, hotKey]]
+function K_dict(keys, states, kl='num', vl='count'){
+  let h = `<div class="kx" style="grid-template-columns:3.4em repeat(${keys.length},2.6em);margin-top:12px">`;
+  h += `<div class="lb">${kl}</div>` + keys.map(([k,s])=>`<div class="v s" data-s="${s}"><b>${k}</b></div>`).join('');
+  h += `<div class="lb">${vl}</div>` + keys.map(([k])=>`<div class="v">${states.filter(st=>st[1][k]!=null).map(([s,m,hot])=>`<span class="stk only s" data-s="${s}"><b class="${hot===k?'hot':''}">${m[k]}</b></span>`).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+// n: buckets 0..n; items: [[f, num, step]]; rings: [[step, [f...]]]; got: [[step,[f...]]] buckets already taken
+function K_bk(n, items=[], rings=[]){
+  let h = `<div class="bk" style="grid-template-columns:repeat(${n+1},2.35em)">`;
+  for(let f=0; f<=n; f++){
+    h += `<div class="b">${items.filter(it=>it[0]===f).map(([,v,s])=>`<span class="s" data-s="${s}">${v}</span>`).join('')}${rings.filter(r=>r[1].includes(f)).map(([s])=>`<i class="ring only s" data-s="${s}"></i>`).join('')}</div>`;
+  }
+  for(let f=0; f<=n; f++) h += `<div class="ix">${f}</div>`;
+  return h + `</div>`;
+}
+// states: [[step, html]]
+const K_row = states => `<div class="krow">${states.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+
+const EX = [1,1,1,2,2,3];
+const EXB = [[3,1,0],[2,2,0],[1,3,0]];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Buckets by Count<br><em>LeetCode 347</em>', vis:
+  gloss(0,[['frequency','How many times a number appears in the array'],['min-heap','A structure where the smallest item is always on top, ready to take'],['bucket','A row of numbered slots; things go in by number']])
+  + flow([[1,'Count','Counter'],[1,'Instinct','sort by count'],[2,'Better','heap of size k'],[2,'Trick','count as bucket'],[3,'Collect','top bucket down'],[3,'Code','O(n)']]),
+  say:[
+  'This lesson covers LeetCode 347, Top K Frequent Elements. Three words first: frequency is how many times a number appears. A min-heap keeps the smallest item on top. A bucket is one of a row of numbered slots.',
+  'Whatever method you use, step one is the same: count how many times each number appears. Then the most natural idea is to sort by count.',
+  'Sorting is a bit wasteful, and a min-heap that holds only k numbers is better. But what the interviewer really wants is buckets: a count can only be between 1 and n, so use the count itself as the bucket number.',
+  'On 1, 1, 1, 2, 2, 3 we will watch the counting, the buckets filling, and the collection from high to low, then write the code and cover complexity and the interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>the top k frequent</em>', vis:
+  gloss(0,[['k','How many numbers to return'],['frequent','Appears many times']])
+  + duo(K_wrap(K_strip(EX)),
+    q(1,'nums = [1, 1, 1, 2, 2, 3], k = 2: which 2 numbers appear most often?')
+    + cards([[2,'1 appears 3 times, 2 appears 2 times, 3 appears once','First count each number','sky'],
+             [3,'Answer [1, 2]','The two with the highest counts','mint'],
+             [4,'Any order','The answer is guaranteed unique; [2, 1] is also fine','amber']])),
+  say:[
+  'k is how many numbers to return. Frequent means it appears many times.',
+  'The question for this scene: the array is 1, 1, 1, 2, 2, 3, and k equals 2. Which two numbers appear most often?',
+  'Count them: 1 appears 3 times, 2 appears 2 times, and 3 appears only once.',
+  'The two highest counts belong to 1 and 2, so the answer is 1, 2.',
+  'The order does not matter, so 2, 1 is also correct. The problem also guarantees the answer is unique, so you never have to choose between two numbers with the same count.'
+]});
+
+/* ===== 2 Step one: count ===== */
+add({ch:2, title:'Step one: <em>count</em>', vis:
+  gloss(0,[['dict','A lookup table: key → value. Here, "number → how many times"'],['Counter','A built-in Python counting tool: Counter(nums) builds the table in one line']])
+  + duo(K_wrap(K_strip(EX,[[2,0],[3,1],[4,2],[5,3],[6,4],[7,5]])
+      + K_dict([[1,2],[2,5],[3,7]],[[2,{1:1},1],[3,{1:2},1],[4,{1:3},1],[5,{1:3,2:1},2],[6,{1:3,2:2},2],[7,{1:3,2:2,3:1},3],[8,{1:3,2:2,3:1}]])),
+    q(1,'How do you know how many times each number appears?')
+    + cards([[8,'count = Counter(nums)','{1: 3, 2: 2, 3: 1}: one pass from start to end, O(n)','mint']])),
+  say:[
+  'A dict is a lookup table, with keys on the left and values on the right. Here the key is a number and the value is how many times it appears. Counter is a built-in Python tool that builds this table in one line.',
+  'The question for this scene: how do you know how many times each number appears? The way is to go through the array once, recording as you go.',
+  'Number 0 is 1. The table has no 1 yet, so open a new slot and record 1 time.',
+  'Number 1 is 1 again. It is already in the table, so add 1 to its count, which makes 2.',
+  'Number 2 is still 1. Add 1 again, so 1 appears 3 times.',
+  'Number 3 is 2. The table has no 2, so open a new slot and record 1 time.',
+  'Number 4 is 2. Add 1, which makes 2 times.',
+  'Number 5 is 3. Open a new slot and record 1 time. That is the whole array.',
+  'In Python, this whole pass is one line: count equals Counter of nums, giving 1 maps to 3, 2 maps to 2, 3 maps to 1. One pass, so the time is big O of n.'
+]});
+
+/* ===== 3 Instinct: sort ===== */
+add({ch:3, title:'Instinct: <em>sort by count</em>', vis:
+  gloss(0,[['sort','Put things in order, largest to smallest by some rule'],['O(n log n)','Sorting n things takes about n times log n comparisons']])
+  + q(1,'With the count table, what is the most natural approach? Where is it slow?')
+  + cards([[2,'Sort by count, largest first','1 (3 times), 2 (2 times), 3 (once)','sky'],
+           [3,'Take the first k → [1, 2]','sorted(count, key=count.get, reverse=True)[:k]','mint'],
+           [4,'Slow part: it sorts every number','O(n log n); we only need the top k, the order of the rest does not matter','coral'],
+           [5,'Follow-up: faster than O(n log n)','This is the line the interviewer is waiting for','amber']]),
+  say:[
+  'Sorting means putting things in order, largest to smallest by some rule. Big O of n log n means sorting n things takes about n times log n comparisons.',
+  'The question for this scene: with the count table, what is the most natural approach, and where is it slow?',
+  'The natural idea: sort by count, largest first. 1 appears 3 times and comes first, 2 appears 2 times and comes second, and 3 comes last.',
+  'Then take the first k, which gives 1, 2. In Python it is one line: sorted count, by count dot get, largest first, take the first k. This answer is correct.',
+  'The problem is that sorting orders every number, which costs big O of n log n. But we only need the top k, and the order of everything after that does not matter at all.',
+  'The follow-up in the problem asks for exactly this: a time better than big O of n log n. The interviewer is waiting for you to get here.'
+]});
+
+/* ===== 4 Min-heap ===== */
+add({ch:4, title:'Better: <em>a min-heap that keeps k</em>', vis:
+  gloss(0,[['heap','Push one, or pop the smallest, each costs O(log heap size)'],['(count, num)','The pair pushed into the heap, compared by count']])
+  + duo(K_wrap(K_row([[3,'push (3, 1) → heap: <b>[(3, 1)]</b>'],[4,'push (2, 2) → heap: <b>[(2, 2), (3, 1)]</b>'],[5,'push (1, 3) → 3 &gt; k, pop <b>(1, 3)</b>'],[6,'left: <em>[(2, 2), (3, 1)]</em> → [2, 1]']])),
+    q(1,'We only need the top k. Can we avoid sorting every number?')
+    + cards([[2,'Keep at most k in the heap','The top is the lowest count among these k: a higher count pushes it out','sky'],
+             [6,'O(n log k), but it still compares','Every push compares with the heap; can we skip comparing entirely?','amber']])),
+  say:[
+  'With a heap, pushing one item or popping the smallest each costs big O of log of the heap size. What we push is a pair, the count and the number, compared by count.',
+  'The question for this scene: we only need the top k. Can we avoid sorting every number?',
+  'The idea: keep at most k numbers in the heap. The top of a min-heap is the lowest count among those k, and when a higher count arrives, it pushes the top out.',
+  'First push 1 with count 3. It is the only one in the heap.',
+  'Then push 2 with count 2. Now the heap holds two, exactly k.',
+  'Then push 3 with count 1. The heap holds three, more than k, so pop the top, which is 3, the lowest count.',
+  'What is left, 2 and 1, is the answer. The heap never holds more than k, so this is big O of n log k, better than sorting. But every push still compares sizes with the heap. Can we skip comparing entirely?'
+]});
+
+/* ===== 5 The trick ===== */
+add({ch:5, title:'The trick: <em>count as bucket number</em>', vis:
+  gloss(0,[['index','Which slot in a list, counting from 0'],['bucket[f]','Bucket number f: holds the numbers that appear exactly f times']])
+  + duo(K_wrap(K_bk(6)),
+    q(1,'How can we tell whose count is higher without comparing?')
+    + cards([[2,'Counts have a range: 1 to n','Each number appears at least once, at most n times (the whole array)','sky'],
+             [3,'Make n + 1 buckets','bucket[f] holds numbers that appear "exactly f times"; n = 6, buckets 0 to 6','amber'],
+             [4,'Use the count directly as the index','No comparisons to put them in; bucket numbers are already in order','mint'],
+             [5,'Take from the highest bucket down, stop at k','The whole method is O(n)','mint']])),
+  say:[
+  'An index is which slot in a list, counting from 0. bucket of f is bucket number f, and it holds the numbers that appear exactly f times.',
+  'The question for this scene: how can we tell whose count is higher without comparing?',
+  'The key is the count itself. Each number appears at least once and at most n times, when the whole array is that number. A count is always a whole number between 1 and n.',
+  'With a range that small, make n plus 1 buckets. The array length n is 6, so the buckets are numbered 0 to 6, seven in total.',
+  'If a number appears f times, put it straight into bucket f. No comparison is needed, and the bucket numbers are already in order from small to large, so the sorting comes for free.',
+  'Finally, walk down from the highest bucket, taking numbers as you go, and stop once you have k. The whole method is big O of n.'
+]});
+
+/* ===== 6 Animation: fill the buckets ===== */
+add({ch:6, title:'Animation: <em>fill the buckets by count</em>', vis:
+  gloss(0,[['f','frequency, how many times a number appears'],['green block','A number already in its bucket']])
+  + duo(K_wrap(K_row([[1,'count = <b>{1: 3, 2: 2, 3: 1}</b>'],[2,'count = <b>{1: 3, 2: 2, 3: 1}</b>'],[3,'1 appears <b>3</b> times → bucket[3]'],[4,'2 appears <b>2</b> times → bucket[2]'],[5,'3 appears <b>1</b> time → bucket[1]'],[6,'<em>[[], [3], [2], [1], [], [], []]</em>']]) + K_bk(6,[...EXB.map(([f,v])=>[f,v,f===3?3:f===2?4:5])],[[3,[3]],[4,[2]],[5,[1]]])),
+    q(1,'Count table {1: 3, 2: 2, 3: 1}: what do the 7 buckets look like after filling?')
+    + cards([[2,'Make buckets 0 to 6','n = 6; a count can equal 6, so the index must reach 6','sky'],
+             [6,'Each number goes in once','Bucket 0 is always empty; 4, 5 and 6 are empty this time too','mint']])),
+  say:[
+  'f stands for frequency, how many times a number appears. A green block is a number already in its bucket.',
+  'The question for this scene: the count table is 1 maps to 3, 2 maps to 2, 3 maps to 1. What do the 7 buckets look like after filling?',
+  'First make the buckets. The array length is 6, and a count can be as high as 6, so the index must reach 6. Make buckets 0 to 6, seven empty buckets in total.',
+  'The first entry in the count table: 1 appears 3 times, so it goes into bucket 3.',
+  'The second entry: 2 appears 2 times, so it goes into bucket 2.',
+  'The third entry: 3 appears once, so it goes into bucket 1.',
+  'Done. Each distinct number went in exactly once. Bucket 0 is always empty, because no number appears 0 times, and buckets 4, 5 and 6 are empty this time too.'
+]});
+
+/* ===== 7 Animation: take from the top ===== */
+add({ch:7, title:'Animation: <em>take from the highest bucket down</em>', vis:
+  gloss(0,[['res','The result list: numbers taken so far'],['amber box','The bucket being looked at']])
+  + duo(K_wrap(K_bk(6,EXB.map(([f,v])=>[f,v,0]),[[2,[6,5,4]],[3,[3]],[4,[2]]])
+      + K_row([[2,'6, 5, 4 empty → res = <b>[ ]</b>'],[3,'bucket 3 gives 1 → res = <b>[1]</b>, 1 more to go'],[4,'bucket 2 gives 2 → res = <em>[1, 2]</em>, k = 2 reached'],[5,'return <em>[1, 2]</em>']])),
+    q(1,'Which bucket do we start from? When do we stop?')
+    + cards([[4,'Return as soon as we have k','The 3 in bucket 1 is never looked at','mint'],
+             [5,'Why it works','A number in a higher bucket always appears more often than one in a lower bucket','sky']])),
+  say:[
+  'res is the result list, holding the numbers taken so far. The amber box is the bucket being looked at.',
+  'The question for this scene: which bucket do we start from, and when do we stop?',
+  'Start from the highest, bucket 6, and walk down. Buckets 6, 5 and 4 are empty, so skip them, and res is still empty.',
+  'Bucket 3 holds 1. Take it and put it in res, so res becomes 1, with one more to go.',
+  'Bucket 2 holds 2. Take it, and res becomes 1, 2. That is k equals 2, so return right away. The 3 in bucket 1 is never looked at.',
+  'Why does this work? A number in a higher bucket always appears more often than one in a lower bucket, so the first ones taken are the most frequent. The answer is 1, 2.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>count, fill, take</em>', vis:
+  gloss(0,[['range(n, 0, -1)','Count down from n to 1: n, n − 1, …, 1'],['count.items()','Each pair in the count table: the number num and its count f']])
+  + term('solution.py',[
+    [2,'o','from collections import Counter'],
+    [2,'o','def topKFrequent(nums, k):'],
+    [2,'hl','    count = Counter(nums)                # number → how many times'],
+    [3,'o','    bucket = [[] for _ in range(len(nums) + 1)]'],
+    [3,'o','    for num, f in count.items():'],
+    [3,'hl','        bucket[f].append(num)            # count as index'],
+    [4,'o','    res = []'],
+    [4,'o','    for f in range(len(nums), 0, -1):    # high to low'],
+    [4,'o','        for num in bucket[f]:'],
+    [4,'o','            res.append(num)'],
+    [5,'hl','            if len(res) == k:'],
+    [5,'hl','                return res']])
+  + q(1,'Which step of the animation does each part of the code match?'),
+  say:[
+  'range of n, 0, minus 1 counts down from n to 1. count dot items gives each pair in the count table: the number num and its count f.',
+  'The question for this scene: which step of the animation does each part of the code match?',
+  'Part one is counting: count equals Counter of nums builds the count table in one line.',
+  'Part two is filling the buckets: make length of nums plus 1 empty lists, then put each number into bucket of f, using its count f.',
+  'Part three is taking from high to low: f goes down from n to 1, and the numbers in each bucket go into res one by one.',
+  'The last two lines decide when to stop: once the length of res equals k, return right away. This check must sit inside the innermost loop.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Linear: proportional to the array length'],['distinct numbers','How many are left after removing duplicates, at most n']])
+  + q(1,'What are the time and space? Where is it easiest to slip?')
+  + cards([[2,'Time O(n), space O(n)','Count in one pass; at most n numbers into buckets; walk n + 1 buckets','sky'],
+           [3,'Making only n buckets','A count can equal n: make len(nums) + 1, or the index goes out of range','coral'],
+           [4,'Walking the wrong way','range(len(nums), 0, -1): high to low, frequent ones first','coral'],
+           [5,'Stopping in the outer loop','A bucket can hold several numbers: check len(res) == k after each one taken','coral']]),
+  say:[
+  'Big O of n is linear, proportional to the array length. Distinct numbers means how many are left after removing duplicates, at most n.',
+  'The question for this scene: what are the time and space, and where is it easiest to slip?',
+  'Time is big O of n: counting reads the array once, filling puts each distinct number in once, at most n of them, and the walk covers n plus 1 buckets. Space is also big O of n, since the count table and the buckets never exceed n plus 1.',
+  'Pitfall one: making only n buckets. A count can equal n, so the index must reach n. You must make length of nums plus 1 buckets, or the index goes out of range.',
+  'Pitfall two: walking the wrong way. Go down from length of nums to 1, so the higher counts come first.',
+  'Pitfall three: checking only in the outer loop. A bucket can hold several numbers, so check whether the length of res equals k every time you take one, inside the inner loop.'
+]});
+
+/* ===== 10 Check two more examples ===== */
+add({ch:10, title:'Check: <em>two more examples</em>', vis:
+  gloss(0,[['negative number','-1 is just another number; the bucket number is the count, not the number itself']])
+  + duo(K_wrap(K_bk(7,[[1,4,3],[1,1,3],[2,-1,3],[2,2,3],[1,3,3]],[[4,[7,6,5,4,3]],[5,[2]]])
+      + K_row([[3,'count = <b>{4: 1, 1: 1, -1: 2, 2: 2, 3: 1}</b>'],[4,'7 down to 3 empty → res = <b>[ ]</b>'],[5,'bucket 2 gives -1, 2 → <em>[-1, 2]</em>']])),
+    q(1,'[1], k = 1 and [4, 1, -1, 2, -1, 2, 3], k = 2: are the answers right?')
+    + cards([[2,'[1], k = 1 → [1]','1 appears once → bucket[1]; bucket 1 gives 1, done','mint'],
+             [5,'→ [-1, 2]','-1 and 2 both appear twice, in the same bucket','mint']])),
+  say:[
+  'Negative numbers are nothing special: minus 1 is just another number. The bucket number is the count, not the number itself, so negatives go into buckets the same way.',
+  'The question for this scene: a single 1 with k equals 1, and 4, 1, minus 1, 2, minus 1, 2, 3 with k equals 2. Does the code give the right answers?',
+  'The smallest example first: 1 appears once, so it goes into bucket 1. Walking down from bucket 1, we take 1, which is enough, so return 1.',
+  'Now the second one: the array length is 7, so make buckets 0 to 7. 4, 1 and 3 each appear once and go into bucket 1. Minus 1 and 2 each appear twice and go into bucket 2.',
+  'Walk down from bucket 7: buckets 7, 6, 5, 4 and 3 are all empty, and res is still empty.',
+  'At bucket 2, take minus 1, then 2. That makes exactly two, so return minus 1, 2. Bucket 1 is never looked at.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Can you do better than O(n log n)?"')
+  + flow([[2,'Count','Counter, O(n)'],[2,'Sort','O(n log n)'],[3,'Heap','O(n log k)'],[3,'Buckets','count as index'],[4,'Take','high to low, stop at k'],[4,'Complexity','O(n)']])
+  + chips(4,['hash map','frequency count','min-heap','bucket sort','O(n log k)','692 Top K Frequent Words']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, can you do better than big O of n log n?',
+  'Start with the setup: step one uses Counter to count each number, big O of n. Sorting by count and taking the first k is big O of n log n.',
+  'Then the improvement: a min-heap that keeps only k numbers gets big O of n log k. Going further, a count can only be between 1 and n, so make n plus 1 buckets and use the count directly as the index.',
+  'Then the finish: take from the highest bucket down and return once you have k, big O of n overall. The key terms are bucket sort and frequency count. A similar problem is 692, Top K Frequent Words.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Count','Counter'],[0,'Fill','bucket[f]'],[0,'Take','high to low'],[0,'Stop','at k']])
+  + cards([[1,'① Step one is always counting','count = Counter(nums), one pass, O(n)','amber'],
+           [2,'② A count is between 1 and n → make n + 1 buckets','bucket[f] holds numbers that appear exactly f times, no comparisons','sky'],
+           [3,'③ Take from the highest bucket down, return at k','The check goes in the inner loop; O(n) overall','mint']]),
+  say:[
+  'Let\'s review the main thread: count first, put each number into the bucket matching its count, take from the highest bucket down, and stop once you have k.',
+  'Number one: step one is always counting. count equals Counter of nums, one pass over the array, big O of n.',
+  'Number two: a count can only be between 1 and n, so make n plus 1 buckets, where bucket of f holds the numbers that appear exactly f times, with no comparisons at all.',
+  'Number three: take from the highest bucket down and return as soon as you have k. The check goes in the inner loop, and the whole thing is big O of n.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/72750760ec64.mp3", "0-1": "a/98d39d39f77c.mp3", "0-2": "a/70ba87b3455d.mp3", "0-3": "a/625a8b935da5.mp3", "1-0": "a/39d5bfff49ac.mp3", "1-1": "a/49cc7410daf2.mp3", "1-2": "a/de9f25a259f2.mp3", "1-3": "a/d38c65592977.mp3", "1-4": "a/bb71c40ec521.mp3", "2-0": "a/806ec5db3ca3.mp3", "2-1": "a/77fb571b31c0.mp3", "2-2": "a/48b717bbee7c.mp3", "2-3": "a/3f9c17dee788.mp3", "2-4": "a/fecad6ef6bfe.mp3", "2-5": "a/fe8c34dcc013.mp3", "2-6": "a/1c97611060cf.mp3", "2-7": "a/1f7a1ba6dbee.mp3", "2-8": "a/af2fe25a3a29.mp3", "3-0": "a/ed69546a6010.mp3", "3-1": "a/5220618a1f52.mp3", "3-2": "a/6837d814099f.mp3", "3-3": "a/81474d8fe511.mp3", "3-4": "a/7d5314d7c2e3.mp3", "3-5": "a/5f2393214ee1.mp3", "4-0": "a/5398e161bdfb.mp3", "4-1": "a/831686f9247e.mp3", "4-2": "a/6bab97fdb1d0.mp3", "4-3": "a/0e298f580271.mp3", "4-4": "a/2be7c2c9f631.mp3", "4-5": "a/5b3dfafa8296.mp3", "4-6": "a/e66f3f30c863.mp3", "5-0": "a/4cc8926fdc44.mp3", "5-1": "a/e944a57fb802.mp3", "5-2": "a/a25c61b896a0.mp3", "5-3": "a/83ab4843f055.mp3", "5-4": "a/d28d66000f6b.mp3", "5-5": "a/cb409a91aac7.mp3", "6-0": "a/bdb923eb4968.mp3", "6-1": "a/6c843c8bf1b0.mp3", "6-2": "a/01e22cb1aae2.mp3", "6-3": "a/278584b97ef8.mp3", "6-4": "a/be7c5f3583c8.mp3", "6-5": "a/f4b104139c82.mp3", "6-6": "a/501d377375a9.mp3", "7-0": "a/78be78c6f0d4.mp3", "7-1": "a/0c1f4f3958fc.mp3", "7-2": "a/f2c9a255e1b8.mp3", "7-3": "a/117f47a8c557.mp3", "7-4": "a/c8611bcd745e.mp3", "7-5": "a/8f7dcd4ea868.mp3", "8-0": "a/3c91099f7ba4.mp3", "8-1": "a/49a350dcfd7f.mp3", "8-2": "a/77c8223841cb.mp3", "8-3": "a/53ba5222c7bb.mp3", "8-4": "a/589e2a90aa07.mp3", "8-5": "a/15835273c831.mp3", "9-0": "a/ded82068c622.mp3", "9-1": "a/1996aa3e5f18.mp3", "9-2": "a/1dbba6b45afa.mp3", "9-3": "a/2282a8b217d6.mp3", "9-4": "a/97295b6bcc45.mp3", "9-5": "a/6a97fc51bcad.mp3", "10-0": "a/61a62c6d13dd.mp3", "10-1": "a/b7b0da4a728b.mp3", "10-2": "a/6c4caf036b08.mp3", "10-3": "a/206ed07bca15.mp3", "10-4": "a/ca65b2cbe675.mp3", "10-5": "a/7beb404cab0a.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/bbb5193b4f62.mp3", "11-2": "a/6e0a1e10d351.mp3", "11-3": "a/89caaea829ed.mp3", "11-4": "a/73f25fc48022.mp3", "12-0": "a/84b620fb567e.mp3", "12-1": "a/c6c8124f610b.mp3", "12-2": "a/8739f28641d7.mp3", "12-3": "a/89dd7709393c.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

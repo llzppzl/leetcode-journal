@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Parentheses as a Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Parentheses as a Tree', template:'prep', lang:'en', sub:'LeetCode 22 Generate Parentheses · animated walkthrough', key:'lc22envid', doc:'LeetCode 22', blurb:'First, what valid parentheses means from zero: every closing bracket closes an earlier open one; building every string and filtering is wasteful, so build left to right, follow only the moves two rules allow, and every finished string is valid.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: n pairs','The problem: what is valid','Count from left to right','Instinct: build all, then filter','Where the waste is','Two rules','Walk through: the first path','The whole tree','Write the code','Complexity and pitfalls','Check: n = 1 and n = 4','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- decision tree: node = string built so far, shows "open,close"; red dashed ✕ = a move the rules forbid ---------- */
+const L22CSS = `<style>
+.l22t{width:100%;max-width:420px;margin:0 auto;display:block;overflow:visible}
+.l22t .s{transform:none}
+.l22t .s:not(.on){opacity:0}
+.l22t .only.s{opacity:0!important} .l22t .only.s.now{opacity:1!important}
+.l22t line.e{stroke:var(--sky);stroke-width:2}
+.l22t line.x{stroke:var(--coral);stroke-width:2;stroke-dasharray:3 3}
+.l22t circle.n{fill:var(--term);stroke:var(--sky);stroke-width:2}
+.l22t circle.leaf{fill:rgba(98,224,180,.3);stroke:var(--mint)}
+.l22t circle.ring{fill:none;stroke:var(--amber);stroke-width:3}
+.l22t text{fill:var(--paper);font-family:var(--f-mono);font-size:11px;text-anchor:middle;dominant-baseline:central}
+.l22t text.ch{fill:var(--amber);font-size:14px;font-weight:700}
+.l22t text.xx{fill:var(--coral);font-size:12px}
+.l22t text.ans{fill:var(--mint);font-size:11px}
+.l22row{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:.3em}
+.l22row .s{position:absolute;left:0;right:0}
+.l22row .only.s{opacity:0!important} .l22row .only.s.now{opacity:1!important}
+.l22row b{color:var(--amber)} .l22row em{font-style:normal;color:var(--mint)} .l22row i{font-style:normal;color:var(--coral)}
+</style>`;
+const L22R = 14;
+const L22POS3 = {'':[178,20],'(':[178,66],'((':[85,112],'()':[272,112],'(((':[34,158],'(()':[136,158],'()(':[272,158],
+  '((()':[34,204],'(()(':[102,204],'(())':[170,204],'()((':[238,204],'()()':[306,204],
+  '((())':[34,250],'(()()':[102,250],'(())(':[170,250],'()(()':[238,250],'()()(':[306,250],
+  '((()))':[34,296],'(()())':[102,296],'(())()':[170,296],'()(())':[238,296],'()()()':[306,296]};
+const L22POS1 = {'':[170,22],'(':[170,76],'()':[170,130]};
+const l22cnt = (s, ch) => s.split(ch).length - 1;
+// o: {n, pos, show:{id:step}, ring:[[step,id]], row:[[step,html]], h}
+function lc22_tree(o){
+  const R = L22R, ids = Object.keys(o.show).sort((a,b)=>a.length-b.length);
+  let s = L22CSS + `<svg class="l22t" viewBox="0 0 340 ${o.h}" role="img" aria-label="parentheses decision tree">`;
+  ids.forEach(id=>{ if(!id) return;
+    const [x1,y1]=o.pos[id.slice(0,-1)], [x2,y2]=o.pos[id], ch=id.slice(-1);
+    const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+    let nx=-uy, ny=ux; if((ch==='('&&nx>0)||(ch===')'&&nx<0)){nx=-nx;ny=-ny;}
+    s += `<g class="s" data-s="${o.show[id]}"><line class="e" x1="${(x1+ux*R).toFixed(1)}" y1="${(y1+uy*R).toFixed(1)}" x2="${(x2-ux*R).toFixed(1)}" y2="${(y2-uy*R).toFixed(1)}"/>`
+      + `<text class="ch" x="${((x1+x2)/2+nx*10).toFixed(1)}" y="${((y1+y2)/2+ny*10).toFixed(1)}">${ch}</text></g>`;
+  });
+  ids.forEach(id=>{
+    const [x,y]=o.pos[id], op=l22cnt(id,'('), cl=l22cnt(id,')'), leaf=id.length===2*o.n;
+    let g = '';
+    if(!leaf){
+      if(op===o.n) g += `<line class="x" x1="${x-R*.6}" y1="${y+R*.8}" x2="${x-(R+12)*.6}" y2="${y+(R+12)*.8}"/><text class="xx" x="${x-(R+19)*.6}" y="${y+(R+19)*.8}">✕</text>`;
+      if(cl===op) g += `<line class="x" x1="${x+R*.6}" y1="${y+R*.8}" x2="${x+(R+12)*.6}" y2="${y+(R+12)*.8}"/><text class="xx" x="${x+(R+19)*.6}" y="${y+(R+19)*.8}">✕</text>`;
+    }
+    g += `<circle class="n ${leaf?'leaf':''}" cx="${x}" cy="${y}" r="${R}"/><text x="${x}" y="${y}">${op},${cl}</text>`;
+    if(leaf) g += `<text class="ans" x="${x}" y="${y+R+11}">${id}</text>`;
+    s += `<g class="s" data-s="${o.show[id]}">${g}</g>`;
+  });
+  (o.ring||[]).forEach(([st,id])=>{ const [x,y]=o.pos[id]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+5}"/>`; });
+  s += `</svg>`;
+  if(o.row) s += `<div class="l22row">${o.row.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return s;
+}
+// first path (scene 6) and the rest (scene 7)
+const L22P1 = {'':2,'(':3,'((':4,'(((':5,'((()':6,'((())':7,'((()))':8};
+const L22REST = {'(()':2,'(()(':3,'(()()':3,'(()())':3,'(())':4,'(())(':4,'(())()':4,'()':5,'()(':5,'()((':5,'()(()':5,'()(())':5,'()()':6,'()()(':6,'()()()':6};
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Parentheses as a Tree<br><em>LeetCode 22</em>', vis:
+  gloss(0,[['valid parentheses','Every closing bracket ) closes an earlier open bracket ( that is still open'],['open / close','How many ( and how many ) you have placed so far'],['backtracking','Follow one path to the end, then step back to the last fork and try another path']])
+  + flow([[1,'Read','list every valid string of n pairs'],[1,'Instinct','build all, then filter'],[2,'Waste','64 built, 5 kept'],[2,'Two rules','open < n, close < open'],[3,'Walk through','a decision tree'],[3,'Code','backtracking']]),
+  say:[
+  'This lesson covers LeetCode 22, Generate Parentheses. First, three words. Valid parentheses means every closing bracket closes an earlier open bracket that is still open. Open and close count how many open and closing brackets you have placed so far. Backtracking means you follow one path to the end, then step back to the last fork and try another.',
+  'The problem gives you n and asks for every valid string you can make with n pairs of brackets. The most direct idea is to build every bracket string first, then check them one by one.',
+  'But for n equals 3 that means building 64 strings to keep only 5. Most of the work is thrown away. The fix is two short rules that only follow paths that still have a chance.',
+  'We will draw those paths as a tree, walk the whole tree for n equals 3, then write the code and cover complexity and how to explain it in an interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>what is valid</em>', vis:
+  gloss(0,[['n pairs','n open brackets ( and n closing brackets ), 2n characters in total']])
+  + q(1,'(()), )(, ((): which of these is valid? How many valid strings are there for n = 3?')
+  + cards([[2,'(()) is valid','The 3rd char ) closes the 2nd (, the 4th ) closes the 1st (','mint'],
+           [3,')( is invalid','The very first char is ), with no open ( before it to close','coral'],
+           [3,'(() is invalid','One ( is still open at the end','coral'],
+           [4,'n = 3 → 5 strings','((()))　(()())　(())()　()(())　()()()','sky']]),
+  say:[
+  'n pairs means n open brackets plus n closing brackets, 2n characters in total.',
+  'The question for this scene: which of these three strings is valid? And how many valid strings are there for n equals 3?',
+  'The first one, open open close close, is valid. The third character is a closing bracket that closes the second open bracket, and the fourth closes the first. Every closing bracket has an earlier open one to close.',
+  'The second one, close open, is invalid. Its very first character is a closing bracket, and there is nothing before it to close. The third one, open open close, is also invalid: one open bracket is still left at the end.',
+  'For n equals 3, the answer is these five strings. Soon we will build them one by one ourselves.'
+]});
+
+/* ===== 2 Count from left to right ===== */
+add({ch:2, title:'Left to right: <em>count what is still open</em>', vis:
+  gloss(0,[['still open','How many ( you placed that no ) has closed yet, which is open minus close']])
+  + q(1,'Without eyeballing it, how do you check step by step that a string is valid?')
+  + tbl(['char','(','(',')',')','(',')'],[[2,'still open','1','2','1','0','1','0']])
+  + tbl(['char','(',')',')','('],[[3,'still open','1','0','<b style="color:var(--coral)">−1 ✕</b>','']])
+  + cards([[4,'Valid = two conditions','Still open never drops below 0, and it ends at exactly 0','mint']]),
+  say:[
+  'Still open means how many open brackets you placed that no closing bracket has closed yet. That is the open count minus the close count.',
+  'The question for this scene: without eyeballing it, how do you check step by step that a bracket string is valid?',
+  'Scan from left to right. Add 1 for an open bracket and subtract 1 for a closing one. Open open close close open close gives 1, 2, 1, 0, 1, 0. It never goes below zero and ends at zero, so it is valid.',
+  'Open close close open gives 1, 0, and then minus 1 at the third character. Minus 1 means this closing bracket has no open bracket left to close, so the string is invalid right there, and you can stop looking.',
+  'So valid means two conditions: the still open count never drops below zero, and it ends at exactly zero.'
+]});
+
+/* ===== 3 Instinct ===== */
+add({ch:3, title:'Instinct: <em>build all, then filter</em>', vis:
+  gloss(0,[['2 to the power 2n','Each position has 2 choices, ( or ), and there are 2n positions']])
+  + q(1,'The most direct way: build every string, then check each one with the last scene\'s method. How many do you build for n = 3?')
+  + big(2,'2<sup>6</sup> = 64','6 positions, 2 choices each')
+  + cards([[3,'Only 5 survive the check','64 − 5 = 59 built for nothing','coral'],
+           [4,'Larger n, more waste','n = 4: build 256, keep 14','amber']]),
+  say:[
+  'Two to the power 2n comes from each position having two choices, open or close, multiplied across 2n positions.',
+  'The question for this scene: the most direct way is to build every string, then check each one with the method from the last scene. For n equals 3, how many strings do you build?',
+  'There are 6 positions with 2 choices each, so 2 to the power 6, which is 64 strings.',
+  'After checking all 64, only 5 are valid. 59 strings were built just to be thrown away.',
+  'The larger n gets, the worse it is: for n equals 4, you build 256 strings and keep only 14.'
+]});
+
+/* ===== 4 Where the waste is ===== */
+add({ch:4, title:'The waste: <em>still building after it broke</em>', vis:
+  gloss(0,[['prefix','The beginning part of a string; for example (() is a prefix of (()())']])
+  + q(1,'For those 59 wasted strings, at which character were they already doomed?')
+  + cards([[2,'Strings starting with ): 32','Wrong at char 1, yet the other 5 positions are still filled 32 ways','coral'],
+           [3,'Strings starting with ((((: 4','Wrong at char 4: more than 3 ( can never balance','coral'],
+           [4,'Fix: check while you build','Before placing a char, ask "can this still be saved?" If not, do not place it','mint']]),
+  say:[
+  'A prefix is the beginning part of a string. For example, open open close is a prefix of open open close open close close.',
+  'The question for this scene: for those 59 wasted strings, at which character were they already doomed?',
+  'Take every string that starts with a closing bracket. There are 32 of them. They are wrong at the first character, yet brute force still fills the other five positions in all 32 ways.',
+  'Or take the strings that start with four open brackets. There are 4 of them. With n equals 3 you can have at most 3 open brackets, so the fourth one can never be balanced.',
+  'So the fix is to check while you build. Before you place each character, ask: after placing it, can this prefix still be saved? If not, do not place it, and everything after it is skipped.'
+]});
+
+/* ===== 5 Two rules ===== */
+add({ch:5, title:'Only promising paths: <em>two rules</em>', vis:
+  gloss(0,[['open','How many ( you have placed'],['close','How many ) you have placed']])
+  + q(1,'"Can this still be saved?" How exactly do you decide?')
+  + cards([[2,'Rule 1: place ( only if open < n','There can be at most n open brackets','sky'],
+           [3,'Rule 2: place ) only if close < open','There must be an open ( to close, so still open is above 0','sky'],
+           [4,'Reach 2n chars → always valid','n of each, never closed too many: no filtering needed','mint']]),
+  say:[
+  'Open is how many open brackets you have placed, and close is how many closing brackets you have placed.',
+  'The question for this scene: can this still be saved? How exactly do you decide?',
+  'Rule 1: you may place an open bracket only if open is less than n. There can be only n open brackets in total; one more and it can never balance.',
+  'Rule 2: you may place a closing bracket only if close is less than open. Close less than open means the still open count is above zero, so this bracket has an open one to close, and still open never goes negative.',
+  'If you keep both rules, then when you reach 2n characters, there are at most n open brackets, and closing brackets never exceed open ones, so there are exactly n of each and still open ends at zero. You also never closed too many along the way. That is valid, with no filtering.'
+]});
+
+/* ===== 6 Walk through: the first path ===== */
+add({ch:6, title:'Walk through: <em>the first path</em>', vis:
+  gloss(0,[['node','A circle in the tree: the string built so far, labeled open,close'],['red dashed ✕','A move the rules forbid: down-left is (, down-right is )']])
+  + q(1,'n = 3, start from the empty string and always try ( first. What is the first path that reaches the end?')
+  + lc22_tree({n:3, pos:L22POS3, h:330, show:L22P1,
+      ring:[[2,''],[3,'('],[4,'(('],[5,'((('],[6,'((()'],[7,'((())'],[8,'((()))']],
+      row:[[2,'"" <b>0,0</b>　( ok, <i>) not allowed</i>'],[3,'"(" <b>1,0</b>　both ok, try ( first'],[4,'"((" <b>2,0</b>　both ok, try ( first'],
+           [5,'"(((" <b>3,0</b>　<i>( not allowed</i>, only )'],[6,'"((()" <b>3,1</b>　only )'],[7,'"((())" <b>3,2</b>　only )'],[8,'<em>((()))</em> 6 chars, keep it']]}),
+  say:[
+  'A node is a circle in the tree. It stands for the string built so far, and the circle shows open and close. A red dashed line with a cross is a move the rules forbid: down-left means an open bracket, down-right means a closing bracket.',
+  'The question for this scene: for n equals 3, starting from the empty string and always trying an open bracket first, what is the first path that reaches the end?',
+  'The start is the empty string, 0, 0. Open is less than 3, so an open bracket is allowed. Close is not less than open, so a closing bracket is not allowed, and the down-right move gets a cross.',
+  'Place one open bracket: 1, 0. Both rules hold, so both moves are allowed. We try the open bracket first.',
+  'Place another: 2, 0. Both are still allowed, so again we try the open bracket first.',
+  '3, 0. Open now equals 3, so rule 1 blocks the open bracket and the down-left move gets a cross. Only a closing bracket is possible.',
+  '3, 1. The open bracket is still blocked. Close is less than open, so place a closing bracket.',
+  '3, 2. Again, only a closing bracket.',
+  '3, 3. We have 6 characters: open open open close close close, and it goes into the answer. Not a single step on this path needed checking afterwards.'
+]});
+
+/* ===== 7 The whole tree ===== */
+add({ch:7, title:'Backtracking: <em>the whole tree</em>', vis:
+  gloss(0,[['backtracking','After reaching the end, step back to the nearest node that still has an untried move, and take it']])
+  + q(1,'The first path is done. Where are the other 4 answers?')
+  + lc22_tree({n:3, pos:L22POS3, h:330, show:Object.assign(Object.fromEntries(Object.keys(L22P1).map(k=>[k,0])), L22REST),
+      ring:[[2,'(()'],[3,'(()())'],[4,'(())()'],[5,'()(())'],[6,'()()()']],
+      row:[[1,'answers: <em>((()))</em>'],[2,'back to "((", try ): <b>2,1</b>'],[3,'answers: <em>((()))　(()())</em>'],[4,'answers: + <em>(())()</em>　3 so far'],
+           [5,'answers: + <em>()(())</em>　4 so far'],[6,'answers: + <em>()()()</em>　5 in total'],[7,'22 nodes, 13 ✕, <em>5</em> answers']]})
+  + cards([[7,'Nothing thrown away','Brute force builds 64; now only 22 nodes, and every leaf is an answer','mint']]),
+  say:[
+  'Backtracking means that after you reach the end, you step back to the nearest node that still has an untried move, and take that move.',
+  'The question for this scene: the first path is done. Where are the other four answers?',
+  'Step back from the leaf. 3, 2, then 3, 1, then 3, 0 each had only one move, so there is nothing else to try. Back at 2, 0, the closing bracket has not been tried yet. Place it, and we get 2, 1.',
+  'From 2, 1, try the open bracket first: 3, 1. Then only close, close. That gives open open close open close close, the second answer.',
+  'Back at 2, 1, place a closing bracket instead: 2, 2. Open equals close, so the closing bracket is blocked. Only open, then close, which gives open open close close open close, the third answer.',
+  'Step all the way back to 1, 0, and place a closing bracket: 1, 1. Here the closing bracket is blocked, so only an open bracket, giving 2, 1. Try the open bracket branch first, and we get open close open open close close, the fourth answer.',
+  'Back at 2, 1, place a closing bracket: 2, 2. That finally gives open close open close open close, the fifth answer.',
+  'The whole tree has only 22 nodes. The rules block 13 moves, and all 5 leaves are answers. Nothing is thrown away.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>two rules, two ifs</em>', vis:
+  gloss(0,[['path','The string built so far'],['recursion','A function calls itself to go one level down the tree; returning is backtracking']])
+  + term('solution.py',[
+    [2,'o','def generateParenthesis(n):'],
+    [2,'o','    res = []'],
+    [2,'o','    def backtrack(path, open_, close):'],
+    [3,'o','        if len(path) == 2 * n:          # reached 2n chars'],
+    [3,'hl','            res.append(path)            # always valid, keep it'],
+    [3,'o','            return'],
+    [4,'hl','        if open_ < n:                   # rule 1'],
+    [4,'o','            backtrack(path + "(", open_ + 1, close)'],
+    [4,'hl','        if close < open_:               # rule 2'],
+    [4,'o','            backtrack(path + ")", open_, close + 1)'],
+    [5,'o','    backtrack("", 0, 0)'],
+    [5,'o','    return res']])
+  + q(1,'Which line of code is each step in the tree?'),
+  say:[
+  'Path is the string built so far. Recursion means a function calls itself to go one level down the tree. When the function returns, you are back at the previous node, and that is backtracking.',
+  'The question for this scene: which line of code is each step in the tree?',
+  'Outside, we set up res to hold the answers. Inside, backtrack stands on one node of the tree: it carries the current string, path, and the two counts, open and close.',
+  'First the exit: when the length of path equals 2n, we have reached a leaf. By the proof from the rules scene it is always valid, so we keep it without checking.',
+  'Then come the two ifs, which are the two rules. If open is less than n, go down the open bracket branch. If close is less than open, go down the closing bracket branch. Writing the open bracket branch first makes the output order match the tree.',
+  'Finally, start from the empty string with 0 and 0, and return res. Path plus one character makes a new string and leaves the old path unchanged, so there is nothing to remove by hand when you backtrack.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>two pitfalls</em>', vis:
+  gloss(0,[['dead end','A node you can enter that never leads to an answer'],['recursion depth','How many function calls are open at the same time']])
+  + q(1,'How big is this tree? Where is it easiest to go wrong?')
+  + cards([[2,'No dead ends','Any prefix that keeps both rules can be finished: add the remaining (, then the )','mint'],
+           [3,'Time follows the number of answers','Every node is on the way to some answer; space: recursion depth 2n','sky'],
+           [4,'Pitfall 1: rule 2 written as close < n','It places strings starting with ), so you must filter again','coral'],
+           [4,'Pitfall 2: list path without pop','With a string, path + "(" avoids it','coral']]),
+  say:[
+  'A dead end is a node you can enter that never leads to an answer. Recursion depth is how many function calls are open at the same time.',
+  'The question for this scene: how big is this tree? Where is it easiest to go wrong?',
+  'First, a nice property: this tree has no dead ends. As long as a prefix keeps both rules, you can always finish it by adding the remaining open brackets, then the closing ones, and it balances.',
+  'So every node is on the way to some answer, and the work follows the number of answers instead of being wasted like brute force. For space, not counting the output, the recursion goes at most 2n levels deep.',
+  'Pitfall 1: writing rule 2 as close less than n lets strings start with a closing bracket, so you would have to filter again. Pitfall 2: if path is a list, you must pop the character you just placed after the recursive call returns. Using string concatenation avoids that problem.'
+]});
+
+/* ===== 10 Check ===== */
+add({ch:10, title:'Check: <em>n = 1 and n = 4</em>', vis:
+  gloss(0,[['Catalan numbers','The sequence 1, 2, 5, 14, and so on; the count of valid strings of n pairs is exactly this']])
+  + q(1,'What does the tree look like for n = 1? How many answers for n = 4?')
+  + lc22_tree({n:1, pos:L22POS1, h:160, show:{'':2,'(':2,'()':2}})
+  + cards([[3,'n = 1 → ["()"]','Empty string: only (. At 1,0: only ). One path, one answer','mint'],
+           [4,'n = 4 → 14 strings','n = 2 gives 2, n = 3 gives 5; these are Catalan numbers, just name them in an interview','sky']]),
+  say:[
+  'Catalan numbers are the sequence 1, 2, 5, 14, and so on. The number of valid strings you can make from n pairs is exactly this sequence.',
+  'The question for this scene: what does the tree look like for n equals 1? And how many answers are there for n equals 4?',
+  'Look at the tree for n equals 1. The empty string can only take an open bracket, so the right side gets a cross. At 1, 0, open equals 1, so the open bracket is blocked, and only a closing bracket is allowed.',
+  'One path, one answer: open close. The result is a list holding that single string.',
+  'For n equals 4, the code returns 14 strings, the same 14 that brute force filtering keeps. n equals 2 gives 2 and n equals 3 gives 5. These are Catalan numbers, and in an interview it is enough to just name them.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['pruning','Cutting off hopeless branches of the tree early']])
+  + q(1,'The interviewer asks: "How do you guarantee every string you generate is valid?"')
+  + flow([[2,'Brute force','2 to the 2n, then filter'],[3,'Pruning','open < n for (; close < open for )'],[3,'Backtracking','( first, then ); keep at 2n'],[4,'Complexity','no dead ends, depth 2n']])
+  + chips(4,['backtracking','pruning','open < n','close < open','Catalan number','20 Valid Parentheses']),
+  say:[
+  'Pruning means cutting off hopeless branches of the tree early.',
+  'The question for this scene: the interviewer asks, how do you guarantee every string you generate is valid?',
+  'Start with the motivation: brute force builds 2 to the power 2n strings and then filters them, and most of them were already wrong within the first few characters.',
+  'Then the method and the reason: I build left to right, placing an open bracket only if open is less than n, and a closing bracket only if close is less than open. The second rule makes sure every closing bracket has an open one to close, and the first keeps open brackets at most n. At 2n characters there are n of each, so the string is always valid, with no filtering.',
+  'Finally, complexity: the tree has no dead ends, so the work follows the number of answers, and the recursion depth is 2n. The English keywords are backtracking and pruning.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Valid','every ) closes an earlier ('],[0,'Rule 1','open < n for ('],[0,'Rule 2','close < open for )'],[0,'Keep','length 2n']])
+  + cards([[1,'① Valid = still open never below 0, ends at 0','Every ) closes an earlier ( that is still open','amber'],
+           [2,'② ( only if open < n, ) only if close < open','Those two ifs are the whole problem','sky'],
+           [3,'③ Follow the rules to the end, always valid','No filtering, no dead ends; n = 3 → 5, n = 4 → 14','mint']]),
+  say:[
+  'The main line once more: valid means every closing bracket closes an earlier open one. Place an open bracket while open is less than n. Place a closing bracket while close is less than open. Keep the string at 2n characters.',
+  'Number one: valid means that scanning left to right, the still open count never drops below zero and ends at exactly zero.',
+  'Number two: place an open bracket only if open is less than n, and a closing bracket only if close is less than open. Those two ifs in the code are the whole problem.',
+  'Number three: follow these two rules to the end, and every string you build is valid. No filtering and no dead ends. n equals 3 gives 5, and n equals 4 gives 14.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/d86bb88f8b1c.mp3", "0-1": "a/7bb33cc962bb.mp3", "0-2": "a/de40a0da77df.mp3", "0-3": "a/6e6152466439.mp3", "1-0": "a/e22881cb8ee2.mp3", "1-1": "a/28578b6317b7.mp3", "1-2": "a/f27ab9f3ec2f.mp3", "1-3": "a/d31de66f5391.mp3", "1-4": "a/a35765d8d2b2.mp3", "2-0": "a/11c15022a9c5.mp3", "2-1": "a/5d03a99a9038.mp3", "2-2": "a/64db0522853c.mp3", "2-3": "a/2b94cb0d3ccc.mp3", "2-4": "a/0b6699c77e88.mp3", "3-0": "a/6a668334031e.mp3", "3-1": "a/367a4f75e13c.mp3", "3-2": "a/516d8ae61d0a.mp3", "3-3": "a/414b0d7fa8da.mp3", "3-4": "a/af9f5fe220b8.mp3", "4-0": "a/e56b478627e2.mp3", "4-1": "a/98bb9ebea81c.mp3", "4-2": "a/abcfc8a34369.mp3", "4-3": "a/789f34a0b9a6.mp3", "4-4": "a/d9d98043b816.mp3", "5-0": "a/d1c3c4597fa5.mp3", "5-1": "a/37a08155559a.mp3", "5-2": "a/68a54eb60845.mp3", "5-3": "a/2b886bac88a5.mp3", "5-4": "a/b33e367daae9.mp3", "6-0": "a/98c2e1cd9b4f.mp3", "6-1": "a/dae7178c003f.mp3", "6-2": "a/c14b7b2abea1.mp3", "6-3": "a/9562162bb616.mp3", "6-4": "a/6abe146053cb.mp3", "6-5": "a/9e7db648b221.mp3", "6-6": "a/317f878d8c56.mp3", "6-7": "a/0af3293bac1e.mp3", "6-8": "a/dc5210a32b1a.mp3", "7-0": "a/72f930777d1f.mp3", "7-1": "a/10571d4a0cc0.mp3", "7-2": "a/dac5a0af2350.mp3", "7-3": "a/b01b6b633632.mp3", "7-4": "a/f409e28fc6c2.mp3", "7-5": "a/ee29eeb1454f.mp3", "7-6": "a/2cdb2b0a1529.mp3", "7-7": "a/f90e18785c70.mp3", "8-0": "a/a7f566569c24.mp3", "8-1": "a/8c6afa4db2c4.mp3", "8-2": "a/b0e6c16d67b7.mp3", "8-3": "a/75c61ab10ff7.mp3", "8-4": "a/1d6e1e7bc647.mp3", "8-5": "a/2fc002ac3428.mp3", "9-0": "a/8e4431da66b7.mp3", "9-1": "a/d1bb328a3c3f.mp3", "9-2": "a/ad4d8c5eaf29.mp3", "9-3": "a/56e090fcf819.mp3", "9-4": "a/0051bba1394a.mp3", "10-0": "a/6f203bee8a0b.mp3", "10-1": "a/7da2bb10f42e.mp3", "10-2": "a/9a94d7b68b93.mp3", "10-3": "a/f2d3b8559cef.mp3", "10-4": "a/9f08bff089bc.mp3", "11-0": "a/337d018810a9.mp3", "11-1": "a/d2b1031372c4.mp3", "11-2": "a/d41d03a1add5.mp3", "11-3": "a/3081f5778465.mp3", "11-4": "a/31578f575578.mp3", "12-0": "a/47d33add5aa2.mp3", "12-1": "a/30d75cf9b1c0.mp3", "12-2": "a/44ad577d87bc.mp3", "12-3": "a/d92dc6228eb0.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

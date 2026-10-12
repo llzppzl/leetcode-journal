@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Sliding Window</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Sliding Window', template:'prep', lang:'en', sub:'LeetCode 3 Longest Substring Without Repeating Characters · animated walkthrough', key:'lc3envid', doc:'LeetCode 3', blurb:'Start from checking every substring: each new start wipes everything and rereads, which is wasteful; switch to a window that only slides right, where the right end takes in one character at a time and a repeat moves the left end past the old copy, then jump there in one step with last_seen and see on "abba" why the max is needed.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of characters','The problem: one contiguous piece','Substring, not subsequence','Natural idea: check every substring','The window: on a repeat, move left','Walk through: the set version','Write the code: set version','Jump version: remember the last spot','Why max: abba','Write the code: jump version','Edge cases and complexity','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a row of characters: green = window [left, right], red = repeated / old position, amber box = right ---------- */
+const WCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lw{display:grid;gap:4px;justify-content:center;margin:0 auto}
+.lw>div{position:relative;display:grid;place-items:center;border-radius:8px}
+.lw>.ix{height:1.2em;color:var(--dim);font-family:var(--f-mono);font-size:.75em}
+.lw>.v{height:2.5em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.lw>.v b{position:relative;z-index:1;font-family:var(--f-mono);font-weight:700;font-size:1.25em}
+.lw>.p{height:1.5em;font-family:var(--f-mono);font-size:.8em;font-weight:700}
+.lw i.s{position:absolute;inset:0;border-radius:7px;transform:none;box-shadow:none}
+.lw span.s{position:absolute;inset:0;display:grid;place-items:center;transform:none;box-shadow:none}
+.lw .only.s{opacity:0!important} .lw .only.s.now{opacity:1!important}
+.lw i.win{background:rgba(98,224,180,.33)}
+.lw i.dup{background:rgba(255,122,107,.5)}
+.lw i.ring{inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)!important}
+.lw .p em{font-style:normal;margin:0 1px} .lw .p em.L{color:var(--sky)} .lw .p em.R{color:var(--amber)}
+.wrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:3em;position:relative;margin-top:6px}
+.wrow .s{position:absolute;left:0;right:0;transform:none;box-shadow:none}
+.wrow .only.s{opacity:0!important} .wrow .only.s.now{opacity:1!important}
+.wrow b{color:var(--amber)} .wrow em{font-style:normal;color:var(--mint)}
+</style>`;
+// states: [{s, L, R, dup:[k], ptr:bool, txt}] — each state shows only at its own step
+function lc3_win(str, states){
+  const n = str.length, ch = [...str];
+  const has = (st,k) => st.L!=null && k>=st.L && k<=st.R;
+  let h = WCSS + `<div class="lw" style="grid-template-columns:repeat(${n},2.3em)">`;
+  h += ch.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += ch.map((v,k)=>`<div class="v"><b>${v}</b>${
+    states.map(st=>(has(st,k)?`<i class="win only s" data-s="${st.s}"></i>`:'')
+      +((st.dup||[]).includes(k)?`<i class="dup only s" data-s="${st.s}"></i>`:'')
+      +(st.ptr&&st.R===k?`<i class="ring only s" data-s="${st.s}"></i>`:'')).join('')}</div>`).join('');
+  h += ch.map((_,k)=>`<div class="p">${
+    states.filter(st=>st.ptr&&(st.L===k||st.R===k)).map(st=>`<span class="only s" data-s="${st.s}">${st.L===k?'<em class="L">L</em>':''}${st.R===k?'<em class="R">R</em>':''}</span>`).join('')}</div>`).join('');
+  h += `</div>`;
+  if(states.some(st=>st.txt)) h += `<div class="wrow">${states.filter(st=>st.txt).map(st=>`<span class="only s" data-s="${st.s}">${st.txt}</span>`).join('')}</div>`;
+  return h;
+}
+const AB = 'abcabcbb';
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Sliding Window<br><em>LeetCode 3</em>', vis:
+  gloss(0,[['substring','a contiguous piece of the string; no skipping'],['index','the position number of a character, starting at 0'],['sliding window','two indices, left and right, frame a piece; both only move right'],['dict','a table that looks up a value by key in O(1)']])
+  + flow([[1,'Problem','longest substring, no repeats'],[1,'Instinct','check every substring'],[2,'Window','repeat: move left'],[2,'Set version','remove one by one'],[3,'Jump version','last_seen, one step'],[3,'max','"abba": never go back']]),
+  say:[
+  'This lesson is LeetCode 3, Longest Substring Without Repeating Characters. Four words first. A substring is a contiguous piece. An index is a position number, starting at zero. A sliding window uses left and right to frame a piece, and both only move right. A dict looks up a value by key.',
+  'We start from the most direct idea: check every substring for repeats, and see where it wastes work.',
+  'Then comes the sliding window: the right end takes in one character at a time, and on a repeat, the left end moves past the old copy. We first write a version that removes characters from a set one by one.',
+  'Finally we upgrade to the jump version: a dict remembers where each character was last seen, and left jumps there in one step. The example abba shows why the max is required.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>one contiguous piece</em>', vis:
+  gloss(0,[['s','the input string'],['no repeats','every character appears at most once in the piece']])
+  + duo(lc3_win(AB,[{s:2,L:0,R:2,txt:'<em>"abc"</em> length 3'},{s:3,L:0,R:3,dup:[0,3],txt:'"abca": <b>a appears twice</b>'},{s:4,L:1,R:3,txt:'<em>"bca"</em> also 3'}]),
+    q(1,'s = "abcabcbb". How long is the longest substring with no repeated characters?')
+    + cards([[2,'"abc": length 3','indices 0 to 2, three different characters','mint'],
+             [3,'Adding one more a breaks it','"abca" has a twice','coral'],
+             [4,'The answer is 3','"bca" and "cab" are also 3; nothing has length 4','sky']])),
+  say:[
+  's is the input string. No repeats means every character appears at most once in the piece.',
+  'The question for this scene: s is abcabcbb. How long is the longest substring with no repeated characters?',
+  'From the start: a, b, c, indices zero to two, three different characters, length three.',
+  'Add one more character on the right, an a. In abca, a appears twice, the two red cells, so it no longer qualifies.',
+  'At other positions, bca and cab are also three, but there is nothing of length four. So the answer is three.'
+]});
+
+/* ===== 2 Substring vs subsequence ===== */
+add({ch:2, title:'Substring, <em>not subsequence</em>', vis:
+  gloss(0,[['subsequence','characters picked in their original order; skipping is allowed'],['contiguous','indices right next to each other, no gaps']])
+  + duo(lc3_win('pwwkew',[{s:2,L:2,R:4,txt:'<em>"wke"</em> indices 2 to 4, contiguous'},{s:3,dup:[0,1,3,4],txt:'"pwke": <b>skips index 2</b>'},{s:4,L:3,R:5,txt:'<em>"kew"</em> also 3'}]),
+    q(1,'s = "pwwkew". Is the answer 3 or 4?')
+    + cards([[2,'"wke": contiguous, length 3','three different characters','mint'],
+             [3,'"pwke" does not count','it skips a w in the middle: a subsequence, not a substring','coral'],
+             [4,'The answer is 3','"kew" is also 3','sky']])),
+  say:[
+  'A subsequence picks characters in their original order and may skip. Contiguous means the indices sit right next to each other, with no gaps. The problem asks for a substring, so it must be contiguous.',
+  'The question for this scene: s is pwwkew. Is the answer three or four?',
+  'Look at indices two to four: w, k, e. One contiguous piece, three different characters, length three.',
+  'Someone might pick p, w, k, e, four different characters. But that skips the w at index two. It is not contiguous, so it is a subsequence, not a substring, and it does not count.',
+  'So the answer is three. This problem always frames one contiguous piece, which is exactly a window.'
+]});
+
+/* ===== 3 Natural idea ===== */
+add({ch:3, title:'Natural idea: <em>check every substring</em>', vis:
+  gloss(0,[['brute force','list every possibility and try each one'],['set','a container that only records "is it there", checked in O(1)']])
+  + duo(lc3_win(AB,[{s:2,L:0,R:3,dup:[0],ptr:true,txt:'start at 0: a b c, <b>then a repeats</b>'},{s:3,L:1,R:4,dup:[1],ptr:true,txt:'start at 1: <b>b c read again</b>'},{s:4,L:2,R:5,dup:[2],ptr:true,txt:'start at 2: <b>c a read again</b>'}]),
+    q(1,'The direct way: from each start, extend right until a repeat. Where is it slow?')
+    + cards([[2,'Start 0: extend until a repeats, stop','a set records the characters so far; longest 3','sky'],
+             [3,'New start = wipe and reread','b and c were just checked, and are read again','coral'],
+             [4,'Slow: O(n²)','checking each substring separately is worse: O(n³)','coral']])),
+  say:[
+  'Brute force means listing every possibility and trying each one. A set only records whether something is there, and checking it is big O of 1.',
+  'The question for this scene: the direct way is to extend right from each start and stop at a repeat. Where is it slow?',
+  'Start at index zero. Put a, b, c into the set. The fourth character is a, already in the set, so stop. That piece has length three.',
+  'Move the start to index one. Clear the set, put in b, c, a again, and stop at b. But b and c were just checked, and now they are read all over again.',
+  'Start two is the same: c and a are read again. Scanning right from every start is big O of n squared; checking each substring separately is big O of n cubed. The waste is in wiping and starting over.'
+]});
+
+/* ===== 4 The window ===== */
+add({ch:4, title:'The window: <em>on a repeat, only move left</em>', vis:
+  gloss(0,[['window','the piece from index left to index right, s[left..right]'],['length','right − left + 1, both ends count']])
+  + duo(lc3_win(AB,[{s:2,L:0,R:2,ptr:true,txt:'window <em>"abc"</em> length 2 − 0 + 1 = 3'},{s:3,L:0,R:3,dup:[0,3],ptr:true,txt:'right brings in an a: <b>repeats the a inside</b>'},{s:4,L:1,R:3,ptr:true,txt:'left moves past the old a: <em>"bca"</em>'},{s:5,L:1,R:3,ptr:true,txt:'b and c are not reread'}]),
+    q(1,'On a repeat, can we skip the wipe and just move the left end a little?')
+    + cards([[2,'Window = one contiguous piece','framed by two indices, left and right','sky'],
+             [3,'right moves one cell each time','the only possible repeat is the new character','amber'],
+             [4,'left moves to one past the old copy','the window has no repeats again','mint'],
+             [5,'Both indices only move right → O(n)','the middle is never wiped or reread','mint']])),
+  say:[
+  'The window is the piece from index left to index right. Its length is right minus left plus 1; both ends count.',
+  'The question for this scene: on a repeat, can we skip the wipe and just move the left end a little?',
+  'Now left is zero and right is two. The window is abc, length two minus zero plus one, which is three. No repeats inside.',
+  'right moves one cell and brings in an a. The window had no repeats before, so any repeat must be this new a matching the old a inside.',
+  'So move left to one past the old a, index one. The window becomes bca, with no repeats again.',
+  'The b and c in the middle are never reread. Both indices only move right, each walking the string once, so it is big O of n. That is the sliding window.'
+]});
+
+/* ===== 5 Walk through: set version ===== */
+add({ch:5, title:'Walk through: <em>"abcabcbb"</em>', vis:
+  gloss(0,[['green','the current window, no repeats inside'],['amber box R','the character that just came in, s[right]'],['best','the longest window length seen so far']])
+  + duo(lc3_win(AB,[
+      {s:2,L:0,R:2,ptr:true,txt:'a, b, c come in, best = <b>3</b>'},
+      {s:3,L:1,R:3,ptr:true,txt:'a repeats: remove a, left = 1 <em>"bca"</em>'},
+      {s:4,L:2,R:4,ptr:true,txt:'b repeats: remove b, left = 2 <em>"cab"</em>'},
+      {s:5,L:3,R:5,ptr:true,txt:'c repeats: remove c, left = 3 <em>"abc"</em>'},
+      {s:6,L:5,R:6,ptr:true,txt:'b repeats: remove a, b, left = 5 <em>"cb"</em>'},
+      {s:7,L:7,R:7,ptr:true,txt:'b repeats: remove c, b, left = 7 <em>"b"</em>'},
+      {s:8,L:0,R:2,txt:'longest = <b>3</b>: <em>"abc"</em>'}]),
+    q(1,'On "abcabcbb", how does the window move step by step? What is the longest?')
+    + cards([[6,'Sometimes several are removed','the old b is at index 4: remove the a at index 3 first, then b','coral'],
+             [8,'Answer 3','no later window goes past 3','mint']])),
+  say:[
+  'Green is the current window, with no repeats inside. The amber box R is the character that just came in. best is the longest window length seen so far.',
+  'The question for this scene: on abcabcbb, how does the window move step by step? What is the longest?',
+  'The first three, a, b, c, come in with no repeats. The window is zero to two, length three, so best is three.',
+  'right is three, an a, a repeat. Remove a from the left; left becomes one, and the window is bca.',
+  'right is four, a b, a repeat. Remove b; left becomes two, the window is cab, still length three.',
+  'right is five, a c, a repeat. Remove c; left becomes three, the window is abc.',
+  'right is six, a b again. The old b is at index four, but left is at three. Remove the a at index three first, then the b. left becomes five, and the window is cb. This step removed two.',
+  'right is seven, b again. Remove c, then b. left becomes seven, and only one b is left in the window.',
+  'Done. best stayed three the whole time, so the answer is three, from abc.'
+]});
+
+/* ===== 6 Code: set version ===== */
+add({ch:6, title:'Code: <em>a set and a shrinking while</em>', vis:
+  gloss(0,[['seen','which characters are in the window right now'],['while loop','keeps going as long as the condition holds']])
+  + term('solution.py',[
+    [2,'o','def lengthOfLongestSubstring(s: str) -> int:'],
+    [2,'o','    seen = set()            # chars in the window'],
+    [2,'o','    left = 0'],
+    [2,'o','    best = 0'],
+    [3,'o','    for right, c in enumerate(s):'],
+    [4,'hl','        while c in seen:    # new char repeats'],
+    [4,'o','            seen.remove(s[left])'],
+    [4,'o','            left += 1       # shrink from the left'],
+    [5,'o','        seen.add(c)'],
+    [5,'hl','        best = max(best, right - left + 1)'],
+    [5,'o','    return best']])
+  + q(1,'Copy that process into code. Which part matches which step?')
+  + cards([[6,'Each character enters once and leaves once at most','the while looks like a nested loop, but the total is O(n)','mint']]),
+  say:[
+  'seen holds the characters in the window right now. A while loop keeps going as long as its condition holds.',
+  'The question for this scene: copy that process into code. Which part matches which step?',
+  'First, set up three things: an empty set seen, left at zero, and best at zero.',
+  'Then right walks the string from left to right, and c is the character that just came in, s of right.',
+  'As long as c is still in seen, remove one from the left: remove s of left, and add 1 to left. Keep going until the old c is gone.',
+  'Now the window has no repeats. Add c to seen and update best with right minus left plus 1. At the end, return best.',
+  'The while sits inside the for, so it looks like two nested loops. But each character enters at most once and leaves at most once, so the total is still big O of n.'
+]});
+
+/* ===== 7 Jump version ===== */
+add({ch:7, title:'Jump version: <em>remember the last spot</em>', vis:
+  gloss(0,[['last_seen[c]','the index where character c last appeared'],['jump','left does not step cell by cell; it is assigned the target directly']])
+  + duo(lc3_win(AB,[
+      {s:2,L:3,R:6,dup:[4],ptr:true,txt:'right = 6 is b <b>last_seen[b] = 4</b>'},
+      {s:3,L:5,R:6,ptr:true,txt:'left = 4 + 1 = <b>5</b> <em>"cb"</em>'},
+      {s:4,L:5,R:6,dup:[3],ptr:true,txt:'last_seen[a] = 3 is still there, <b>but outside</b>'}]),
+    q(1,'The set version removes one at a time. Can we jump straight there?')
+    + cards([[2,'Remember where each character was last','right now last_seen = {a: 3, b: 4, c: 5}','sky'],
+             [3,'left = last_seen[c] + 1','skip past the old b in one step','mint'],
+             [4,'Old entries stay in the dict','they end up left of the window: the trap in the next scene','amber']])),
+  say:[
+  'last_seen of c is the index where character c last appeared. To jump means left no longer steps cell by cell; it is assigned the target directly.',
+  'The question for this scene: the set version removes one at a time. Can we jump straight there?',
+  'Same string, abcabcbb, at the step where right is six. The window is three to five, and a b comes in. The dict says b was last at index four, the red cell.',
+  'So left becomes four plus 1, which is five. The window becomes cb, the same result as two removals in the set version, but in one step.',
+  'Note that the dict never deletes old entries. The entry for a is still three, but index three is already outside the window. That causes trouble in the next scene.'
+]});
+
+/* ===== 8 Why max ===== */
+add({ch:8, title:'Why <em>max</em>: abba', vis:
+  gloss(0,[['max(x, y)','the larger of two numbers'],['going back','left moves left, and the window takes back characters it already dropped']])
+  + duo(lc3_win('abba',[
+      {s:2,L:0,R:1,ptr:true,txt:'a, b come in, best = <b>2</b>'},
+      {s:3,L:2,R:2,dup:[1],ptr:true,txt:'b repeats: last_seen[b] = 1, left = <b>2</b>'},
+      {s:4,L:1,R:3,dup:[1,2],ptr:true,txt:'no max: left = 0 + 1 = 1, <b>"bba" repeats</b>'},
+      {s:5,L:2,R:3,ptr:true,txt:'max(2, 0 + 1) = 2 <em>"ba"</em> best = 2'},
+      {s:6,L:2,R:3,ptr:true,txt:'answer <b>2</b>'}]),
+    q(1,'In "abba", why write left = max(left, last_seen[c] + 1)?')
+    + cards([[4,'No max → returns 3, wrong','the old a at index 0 is long outside the window','coral'],
+             [5,'max: left only moves right, never back','old entries outside the window are ignored','mint'],
+             [6,'The set version has no such trap','it really removed the characters outside the window','sky']])),
+  say:[
+  'max of x and y is the larger of the two. Going back means left moves left, and the window takes back characters it already dropped.',
+  'The question for this scene: in abba, why write left equals the max of left and last_seen of c plus 1?',
+  'The first two, a and b, come in with no repeats. The window is zero to one, so best is two.',
+  'right is two, another b. b was last at index one, so left jumps to two, and the window is just b.',
+  'right is three, an a. The dict entry for a is still zero. Without max, left becomes zero plus 1, moving back to one. The window becomes bba, with two b\'s, length three, and the answer comes out wrong as three.',
+  'With max, it is the max of two and one, so left stays at two. The window is ba, length two. An old entry outside the window is simply ignored.',
+  'The answer is two. The set version really removed the characters outside the window, so it has no such trap; the jump version keeps old entries, so it must use max.'
+]});
+
+/* ===== 9 Code: jump version ===== */
+add({ch:9, title:'Code: <em>the last_seen jump version</em>', vis:
+  gloss(0,[['{}','an empty dict'],['enumerate(s)','walks the string and gives both the index right and the character c']])
+  + term('solution.py',[
+    [2,'o','def lengthOfLongestSubstring(s: str) -> int:'],
+    [2,'o','    last_seen = {}          # char → last index'],
+    [2,'o','    left = 0'],
+    [2,'o','    best = 0'],
+    [3,'o','    for right, c in enumerate(s):'],
+    [3,'o','        if c in last_seen:'],
+    [3,'hl','            left = max(left, last_seen[c] + 1)'],
+    [4,'hl','        last_seen[c] = right    # jump first, then update'],
+    [5,'o','        best = max(best, right - left + 1)'],
+    [5,'o','    return best']])
+  + q(1,'How does the jump version differ from the set version, line by line?'),
+  say:[
+  'Curly braces make an empty dict. enumerate of s walks the string and gives both the index right and the character c.',
+  'The question for this scene: how does the jump version differ from the set version, line by line?',
+  'The set becomes a dict, last_seen, which records the index where each character was last seen.',
+  'The while becomes a single if: if c has appeared, set left to the max of left and last_seen of c plus 1. One jump, never back.',
+  'Only then update last_seen of c to right. The order matters: update first, and last_seen of c is right itself, so left jumps to right plus 1 and the window becomes empty.',
+  'The end is the same: update best with right minus left plus 1, and return best.'
+]});
+
+/* ===== 10 Edge cases and complexity ===== */
+add({ch:10, title:'Edge cases <em>and complexity</em>', vis:
+  gloss(0,[['edge case','an extreme input, like an empty string or all the same character'],['O(n)','right walks from start to end once']])
+  + q(1,'Do all four extreme examples work? What are the time and space?')
+  + tbl(['Input','Answer','Why'],[
+    [2,'"bbbbb"','1','every b repeats; the window keeps only one b'],
+    [3,'"pwwkew"','3','"wke"; "pwke" is not contiguous'],
+    [4,'""','0','the loop never runs; best stays 0'],
+    [5,'"abba"','2','max keeps left from going back']])
+  + cards([[6,'Time O(n), space O(number of distinct characters)','the dict holds at most one entry per character','mint']]),
+  say:[
+  'An edge case is an extreme input, like an empty string or all the same character. Big O of n means right walks from start to end once.',
+  'The question for this scene: do all four extreme examples work? What are the time and space?',
+  'bbbbb: each new b finds the last b right before it, so left jumps to right itself. The window always holds one b, and the answer is one.',
+  'pwwkew: the answer is three, from wke. pwke is not contiguous, so it does not count.',
+  'The empty string: the for loop never runs, best stays zero, and we return zero. No special case needed.',
+  'abba: max keeps left from going back, and the answer is two. Without max it returns three.',
+  'Time is big O of n, with a big O of 1 dict lookup per step. Space is the number of distinct characters, one entry each at most.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['invariant','a property that holds at every step: no repeats in the window']])
+  + q(1,'The interviewer asks: "left only moves right. Could you miss the answer?"')
+  + flow([[2,'Window','left..right, no repeats'],[2,'Grow','right + 1 each time'],[3,'Shrink','jump to last_seen + 1'],[3,'max','never go back'],[4,'Answer','right − left + 1']])
+  + chips(4,['sliding window','two pointers','hash map','last seen index','substring vs subsequence','O(n)']),
+  say:[
+  'An invariant is a property that holds at every step. Here the invariant is: the window has no repeats.',
+  'The question for this scene: the interviewer asks, left only moves right, so could you miss the answer?',
+  'First the method: I keep a window from left to right with no repeats inside. right moves one cell each time; if the new character appeared before, left jumps to one past its last position, and max keeps it from going back.',
+  'Then why nothing is missed: every start to the left of left already contains a repeat up to right; as right moves on, that repeat is still there, so left never needs to move back.',
+  'Complexity is big O of n. The keywords are sliding window and two pointers. You can also mention that a substring must be contiguous, while a subsequence may skip.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Window','left..right, contiguous'],[0,'Grow','right + 1'],[0,'Jump','last_seen[c] + 1'],[0,'max','never go back'],[0,'Answer','right − left + 1']])
+  + cards([[1,'① A substring is contiguous: window = s[left..right]','"pwwkew" is 3; "pwke" does not count','amber'],
+           [2,'② On a repeat, move left past the old copy','set version removes one by one; jump version sets left = last_seen[c] + 1','sky'],
+           [3,'③ Always use max: left never goes back','without max, "abba" comes out wrong as 3','mint']]),
+  say:[
+  'The main line once more: the window is the contiguous piece from left to right; right moves one cell each time; on a repeat, left jumps to one past the last position, with max so it never goes back; the length is right minus left plus 1.',
+  'One: a substring is contiguous, so the window is s from left to right. For pwwkew the answer is three; pwke skips, so it does not count.',
+  'Two: on a repeat, move left past the old copy. The set version removes one by one; the jump version sets left to last_seen of c plus 1 directly.',
+  'Three: always write the max, so left only moves right and never back. Without max, abba comes out wrong as three.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/5577ce716faf.mp3", "0-1": "a/7964560ced07.mp3", "0-2": "a/d58112c8447f.mp3", "0-3": "a/ac8ff1defc80.mp3", "1-0": "a/49f57b8590ed.mp3", "1-1": "a/2961cc5d9cad.mp3", "1-2": "a/59ce4d221e0c.mp3", "1-3": "a/917ca9ed4ae1.mp3", "1-4": "a/45ba47657f52.mp3", "2-0": "a/c743165c7398.mp3", "2-1": "a/0bf84f78b6e6.mp3", "2-2": "a/e4a52644bee9.mp3", "2-3": "a/cb8d2d3e09b3.mp3", "2-4": "a/a69156b512b3.mp3", "3-0": "a/949fc89a5a6e.mp3", "3-1": "a/190128f344bc.mp3", "3-2": "a/60378c3fbad4.mp3", "3-3": "a/10e1ae6fad3f.mp3", "3-4": "a/f354810af133.mp3", "4-0": "a/3033ebb88633.mp3", "4-1": "a/73f8051fc718.mp3", "4-2": "a/37a15395085c.mp3", "4-3": "a/5ab1df8edd5f.mp3", "4-4": "a/f986ba2d8e99.mp3", "4-5": "a/d9295c6590a8.mp3", "5-0": "a/6b671eeaa7c5.mp3", "5-1": "a/0c42c27e006f.mp3", "5-2": "a/19735f547eb8.mp3", "5-3": "a/396fe27175ac.mp3", "5-4": "a/02811c52ab95.mp3", "5-5": "a/dcd622061ce6.mp3", "5-6": "a/a3b4633fb9a3.mp3", "5-7": "a/321268d5b760.mp3", "5-8": "a/c46ee02f7be8.mp3", "6-0": "a/3259fd24018f.mp3", "6-1": "a/45b8b5d10ab6.mp3", "6-2": "a/ee52e6943d6f.mp3", "6-3": "a/0b605f12c6ad.mp3", "6-4": "a/23c77a4a5b1d.mp3", "6-5": "a/4352d57129f8.mp3", "6-6": "a/72b5d8a46255.mp3", "7-0": "a/bb0d1d477980.mp3", "7-1": "a/ca1e46a9a746.mp3", "7-2": "a/5887ed4fd62f.mp3", "7-3": "a/4d7685ee317b.mp3", "7-4": "a/5e94b7283fee.mp3", "8-0": "a/861bda2fb1cc.mp3", "8-1": "a/618081935234.mp3", "8-2": "a/0f2c993c3fa5.mp3", "8-3": "a/2fc4d76db823.mp3", "8-4": "a/376fb71efe2c.mp3", "8-5": "a/cd7ee9a76046.mp3", "8-6": "a/e0b3a2264b50.mp3", "9-0": "a/fc91643f7811.mp3", "9-1": "a/b2decb5d0a7a.mp3", "9-2": "a/01918a0e5969.mp3", "9-3": "a/f0a59059d3aa.mp3", "9-4": "a/c2c8e9dae84d.mp3", "9-5": "a/53e33da718ea.mp3", "10-0": "a/2777a656a6a6.mp3", "10-1": "a/2228bbda4da8.mp3", "10-2": "a/aa8c40a94012.mp3", "10-3": "a/7e4df5afbd0d.mp3", "10-4": "a/534c681f1e71.mp3", "10-5": "a/4f56e559ad79.mp3", "10-6": "a/04b5e48ce96a.mp3", "11-0": "a/e70f4ad27334.mp3", "11-1": "a/34bf2d47df99.mp3", "11-2": "a/f2bcd32e75e6.mp3", "11-3": "a/321fb88b32aa.mp3", "11-4": "a/fa612c0c665f.mp3", "12-0": "a/62ed0d5cd44c.mp3", "12-1": "a/22cc70feef45.mp3", "12-2": "a/e419784d4629.mp3", "12-3": "a/8e579b5532a0.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

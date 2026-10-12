@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>拉最长的绳</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'拉最长的绳', template:'prep', sub:'LeetCode 543 Diameter of Binary Tree · 算法动画', key:'lc543vid', doc:'LeetCode 543 题', blurb:'在树上找两个节点，中间拉一根最长的绳，数绳上有几条边：递归函数往上返回高度，顺手把"左高加右高"记进答案，和 124 题一样是"返回一个，记录另一个"。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：树上拉一根最长的绳','二叉树：节点、边、根、叶','高度：往下最多几个节点','读题：直径数的是边','直觉一：只看根，错在哪','直觉二：每个点重算，太慢','关键：返回高度，记录左加右','走一遍：答案 3','走一遍：不经过根的直径','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- binary tree: green = finished, amber ring = being computed, label = height handed to the parent ---------- */
+const DT_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.dtg{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.dtg .s:not(.on){opacity:0}
+.dtg .only.s{opacity:0!important} .dtg .only.s.now{opacity:1!important}
+.dtg line{stroke:var(--sky);stroke-width:3}
+.dtg line.ok{stroke:var(--mint);stroke-width:7}
+.dtg line.try{stroke:var(--amber);stroke-width:7}
+.dtg line.bad{stroke:var(--coral);stroke-width:7}
+.dtg circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.dtg circle.done{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.dtg circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.dtg text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.dtg text.g{font-family:var(--f-mono);font-size:14px;fill:var(--amber)}
+.dtg text.lab{font-family:var(--f-body);font-size:13px;fill:var(--dim)}
+.dqrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:3.2em;position:relative;line-height:1.5}
+.dqrow .s{position:absolute;left:0;right:0}
+.dqrow .only.s{opacity:0!important} .dqrow .only.s.now{opacity:1!important}
+.dqrow b{color:var(--amber)} .dqrow em{font-style:normal;color:var(--mint)}
+</style>`;
+const DR = 20;
+// o: {pos:{k:[x,y,val]}, edges:[[a,b]], up:[k], st:[[step,{k:label},rowText,cur]], done:{k:step}, hot:[[step,[edgeIdx],cls]], tags:[[step,k,text,dx,dy]], h}
+function dtg(o){
+  const h = o.h||250, P = o.pos, up = o.up||[];
+  const ln = ([a,b],cls='') => `<line class="${cls}" x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}"/>`;
+  let s = DT_CSS + `<svg class="dtg" viewBox="0 0 340 ${h}" role="img" aria-label="二叉树">`;
+  o.edges.forEach(e => s += ln(e));
+  (o.hot||[]).forEach(([st,idx,cls]) => s += `<g class="only s" data-s="${st}">${idx.map(i=>ln(o.edges[i],cls)).join('')}</g>`);
+  Object.entries(P).forEach(([k,[x,y,v]]) => {
+    s += `<circle cx="${x}" cy="${y}" r="${DR}"/>`;
+    if(o.done&&o.done[k]!=null) s += `<g class="s" data-s="${o.done[k]}"><circle class="done" cx="${x}" cy="${y}" r="${DR}"/></g>`;
+    s += `<text x="${x}" y="${y}">${v}</text>`;
+  });
+  (o.tags||[]).forEach(([st,k,t,dx,dy]) => s += `<text class="lab s" data-s="${st}" x="${P[k][0]+dx}" y="${P[k][1]+dy}">${t}</text>`);
+  (o.st||[]).forEach(([st,lab,,cur]) => {
+    Object.entries(lab).forEach(([k,t]) => { const [x,y]=P[k]; s += `<text class="g only s" data-s="${st}" x="${x}" y="${up.includes(k)?y-DR-13:y+DR+15}">${t}</text>`; });
+    if(cur!=null){ const [x,y]=P[cur]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${DR+7}"/>`; }
+  });
+  s += `</svg>`;
+  if(o.st) s += `<div class="dqrow">${o.st.map(([st,,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return s;
+}
+// main tree [1,2,3,4,5]; edges: 0 = 1-2, 1 = 1-3, 2 = 2-4, 3 = 2-5
+const TM = {pos:{a:[170,40,1], b:[95,120,2], c:[250,120,3], d:[50,200,4], e:[140,200,5]}, edges:[['a','b'],['a','c'],['b','d'],['b','e']], up:['a','b','c'], h:235};
+// lopsided tree [1,2,null,3,4,5,null,null,6]; edges: 0 = 1-2, 1 = 2-3, 2 = 2-4, 3 = 3-5, 4 = 4-6
+const TL = {pos:{a:[230,35,1], b:[150,100,2], c:[90,165,3], d:[210,165,4], e:[50,230,5], f:[250,230,6]}, edges:[['a','b'],['b','c'],['b','d'],['c','e'],['d','f']], up:['a','b','c','d'], h:265};
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'拉最长的绳<br><em>LeetCode 543</em>', vis:
+  gloss(0,[['二叉树 binary tree','每个节点最多有两个孩子的树'],['高度 height','从一个节点往下，最长那条路上有几个节点'],['直径 diameter','树上任意两个节点之间，最长的路有几条边']])
+  + cards([[1,'返回一个，记录另一个','往上交：高度；记进答案：左高 + 右高','amber']])
+  + flow([[2,'二叉树','节点、边'],[2,'高度','1 + max(左, 右)'],[2,'直径','数边，不一定过根'],[3,'直觉','只看根 / 每点重算'],[3,'关键','一遍后序'],[3,'代码','O(n)']]),
+  say:[
+  '这节课讲力扣 543 题，二叉树的直径。先认三个词：二叉树，是每个节点最多有两个孩子的树。高度，是从一个节点往下，最长那条路上有几个节点。直径，是树上任意两个节点之间，最长的那条路有几条边。',
+  '先把核心放在最前面：递归函数往上返回的是高度，可记进答案的，是左边高度加右边高度。和 124 题一样，返回一个东西，记录另一个东西。',
+  '我们先从零认识二叉树和高度，再弄清直径数的是边，而且不一定经过根。',
+  '然后试两个直觉做法：只看根会答错，每个点重算太慢。最后用一遍后序遍历走出答案，再写代码。'
+]});
+
+/* ===== 1 二叉树 ===== */
+add({ch:1, title:'二叉树：<em>节点、边、根、叶</em>', vis:
+  gloss(0,[['节点 node','树上的一个圆圈，里面存一个数'],['边 edge','连接父节点和孩子的那根线'],['根 root / 叶子 leaf','最上面那个 / 没有孩子的节点']])
+  + duo(dtg({...TM, tags:[[2,'a','根',-44,0],[3,'c','叶',0,34],[3,'d','叶',0,34],[3,'e','叶',0,34]], hot:[[4,[0,1,2,3],'try']]}),
+    q(1,'[1, 2, 3, 4, 5] 这串数，画出来是一棵什么树？有几条边？')
+    + cards([[2,'一层一层、从左往右读','1 是根；2、3 是它的孩子；4、5 挂在 2 下面','sky'],
+             [3,'叶子：3、4、5','下面没有孩子','mint'],
+             [4,'5 个节点，4 条边','除了根，每个节点有一条边连到父节点','amber']])),
+  say:[
+  '节点，就是树上的一个圆圈，里面存一个数。边，是连接父节点和孩子的那根线。最上面的节点叫根，没有孩子的节点叫叶子。',
+  '这一幕要回答的是：一、二、三、四、五这串数，画出来是一棵什么树？一共有几条边？',
+  '力扣按一层一层、从左往右的顺序写树。一是根，二和三是它的左孩子和右孩子，再往下，四和五是二的左右孩子。',
+  '三、四、五下面都没有孩子，它们是叶子。',
+  '数一数边：五个节点，四条边。因为除了根，每个节点都正好有一条边连到父节点。'
+]});
+
+/* ===== 2 高度 ===== */
+add({ch:2, title:'高度：<em>往下最多几个节点</em>', vis:
+  gloss(0,[['高度 height','从这个节点往下，最长那条路上的节点数；空节点是 0，叶子是 1'],['深度 depth','从根往下走到这个节点；104 题的"最大深度"就是根的高度']])
+  + duo(dtg({...TM, done:{c:2,d:2,e:2,b:3,a:4}, hot:[[4,[0,2],'try']],
+      st:[[2,{c:'↑1',d:'↑1',e:'↑1'},'叶子：1 + max(0, 0) = <b>1</b>',null],
+          [3,{c:'↑1',d:'↑1',e:'↑1',b:'↑2'},'2：1 + max(1, 1) = <b>2</b>','b'],
+          [4,{c:'↑1',d:'↑1',e:'↑1',b:'↑2',a:'↑3'},'1：1 + max(2, 1) = <b>3</b>　1 → 2 → 4','a']]}),
+    q(1,'每个节点的高度是多少？只能问孩子"你有多高"，怎么算？')
+    + cards([[2,'出口：空节点回答 0','叶子两边都空：1 + 0 = 1','sky'],
+             [3,'合并：1 + max(左, 右)','自己算一层，加上高的那边','amber'],
+             [4,'根的高度 3','最长往下的路 1 → 2 → 4：3 个节点','mint']])),
+  say:[
+  '高度，是从这个节点往下，最长那条路上有几个节点。空节点高度是零，叶子是一。深度是反过来，从根往下走到这个节点；104 题说的最大深度，就是根的高度。',
+  '这一幕要回答的是：每个节点的高度是多少？如果每个节点只能问孩子"你有多高"，怎么算？',
+  '先定出口：问到空节点，回答零。三、四、五是叶子，两边都是空，自己算一层，一加零，高度是一。',
+  '节点二问两个孩子，四说一，五也说一。取大的那个，再加上自己这一层，高度是二。',
+  '根一问两个孩子，二说二，三说一。取大的加一，高度是三，最长往下的路是一、二、四，三个节点。'
+]});
+
+/* ===== 3 读题 ===== */
+add({ch:3, title:'读题：<em>直径数的是边</em>', vis:
+  gloss(0,[['路径 path','一串用边连起来的节点，每个节点最多经过一次'],['直径','所有路径里，边数最多的那条有几条边']])
+  + duo(dtg({...TM, hot:[[2,[2,0,1],'ok'],[3,[3,0,1],'ok'],[4,[2,0,1],'ok']],
+      st:[[2,{},'4 → 2 → 1 → 3：<em>3</em> 条边',null],[3,{},'5 → 2 → 1 → 3：也是 <em>3</em> 条边',null],[4,{},'4 个节点，3 条边',null],[5,{},'[1, 2]：1 → 2，<em>1</em> 条边',null]]}),
+    q(1,'[1, 2, 3, 4, 5] 的直径是多少？数节点还是数边？')
+    + cards([[2,'4 → 2 → 1 → 3 = 3','从 4 上到 2，再上到 1，下到 3','mint'],
+             [4,'边数 = 节点数 − 1','这条路 4 个节点，答案是 3 不是 4','coral'],
+             [5,'[1, 2] → 1','只有一条边；单个节点的树直径是 0','sky']])),
+  say:[
+  '路径，是一串用边连起来的节点，每个节点最多经过一次。直径，是所有路径里，边数最多的那条有几条边。',
+  '这一幕要回答的是：一、二、三、四、五这棵树，直径是多少？数的是节点，还是边？',
+  '最长的一条是四、二、一、三：从四上到二，再上到一，然后下到三。数一数，三条边。',
+  '五、二、一、三也一样长，也是三条边。最长的路可以不止一条，答案只要长度。',
+  '注意，这条路有四个节点，可答案是三。边数等于节点数减一，题目要的是边数，这里最容易多算一。',
+  '再看一、二这棵树：只有一条边，直径是一。如果树只有一个节点，没有边，直径是零。'
+]});
+
+/* ===== 4 直觉一 ===== */
+add({ch:4, title:'直觉一：<em>只看根，错在哪</em>', vis:
+  gloss(0,[['最高点','一条路径上离根最近的那个节点：路从它的左边上来，从右边下去'],['左高 / 右高','左孩子的高度 / 右孩子的高度']])
+  + duo(dtg({...TL, hot:[[3,[0,1,3],'try'],[4,[3,1,2,4],'ok'],[5,[3,1,2,4],'ok']],
+      st:[[2,{},'主例子：根的左高 2 + 右高 1 = 3',null],[3,{b:'↑3'},'根 1：左高 3 + 右高 0 = <b>3</b>','a'],[4,{},'5 → 3 → 2 → 4 → 6：<em>4</em> 条边','b'],[5,{},'最高点是 2，不是根',null]]}),
+    q(1,'只算"根的左高 + 右高"行不行？换一棵歪的树试试')
+    + cards([[2,'主例子上对了：2 + 1 = 3','4 → 2 → 1 → 3 正好经过根','sky'],
+             [3,'歪树：3 + 0 = 3','[1, 2, null, 3, 4, 5, null, null, 6]','amber'],
+             [4,'真正的答案是 4','5 → 3 → 2 → 4 → 6，整条都在左子树里','coral'],
+             [5,'卡点：最高点可以是任何节点','只看根，会漏掉其他节点当最高点的路','mint']])),
+  say:[
+  '最高点，是一条路径上离根最近的那个节点：路从它的左边上来，再从右边下去。左高和右高，就是左孩子和右孩子的高度。',
+  '这一幕要回答的是：只算根的左高加右高，行不行？换一棵歪的树试试。',
+  '先在主例子上试：左孩子二高度二，右孩子三高度一，二加一等于三，对了，因为最长的路正好经过根。',
+  '再看这棵歪树：一、二、null、三、四、五、null、null、六。根一只有左孩子二，高度三，右边是空，零。三加零等于三。',
+  '可真正最长的路是五、三、二、四、六，四条边。它整条都在左子树里，根本不碰根。',
+  '卡点就在这里：最长路的最高点可以是任何一个节点。这里是二，不是根。只看根，就会漏掉别的节点当最高点的路。'
+]});
+
+/* ===== 5 直觉二 ===== */
+add({ch:5, title:'直觉二：<em>每个点重算，太慢</em>', vis:
+  gloss(0,[['从头算','每次要高度，都把整棵子树重新走一遍'],['O(n²)','n 平方：节点数翻倍，时间变四倍']])
+  + q(1,'那就让每个节点都当一次最高点，各自从头算左高 + 右高。对吗？快吗？')
+  + cards([[2,'对：每条路都有唯一的最高点','挨个试一遍不会漏；歪树得到 4','mint'],
+           [3,'慢：一条 5 个节点的链','往下数 4 + 3 + 2 + 1 = 10 次','amber'],
+           [4,'n = 10⁴ 的链：约 5 千万次','n 乘 (n − 1) / 2，也就是 O(n²)','coral'],
+           [5,'卡点：下面的高度被一遍遍重算','孩子的高度早就算过，却又从头算','sky']]),
+  say:[
+  '从头算，就是每次需要一个高度，都把整棵子树重新走一遍。O n 平方，意思是节点数翻倍，时间变成四倍。',
+  '这一幕要回答的是：那就让每个节点都当一次最高点，各自从头算左高加右高。这样对吗？快吗？',
+  '对。每条路径都有唯一的最高点，把每个节点挨个试一遍，就不会漏。歪树上，节点二会给出四。',
+  '可是慢。想象一条五个节点的链，每个节点只有左孩子。第一个节点算高度要往下数四个，第二个数三个，加起来四加三加二加一，十次。',
+  '题目最多一万个节点。一万个节点的链，要数 n 乘 n 减一除以二，大约五千万次，这就是 O n 平方。',
+  '卡点在这里：下面那些节点的高度，算了一遍又一遍。明明孩子的高度早就算过，上面的节点却又从头算。'
+]});
+
+/* ===== 6 关键 ===== */
+add({ch:6, title:'关键：<em>返回高度，记录左加右</em>', vis:
+  gloss(0,[['后序 post-order','先算左右孩子，最后算自己'],['best','全局变量，记着目前见过的最多边数']])
+  + duo(dtg({...TM, hot:[[2,[0,2],'try'],[3,[1],'try'],[4,[2,0,1],'ok']],
+      st:[[2,{b:'↑2'},'左孩子 2 高度 2 = 1 往左下 <b>2</b> 条边','a'],
+          [3,{b:'↑2',c:'↑1'},'右孩子 3 高度 1 = 1 往右下 <b>1</b> 条边','a'],
+          [4,{b:'↑2',c:'↑1',a:'记 3'},'记录：2 + 1 = <em>3</em> 条边　best = 3','a'],
+          [5,{b:'↑2',c:'↑1',a:'↑3'},'返回：1 + max(2, 1) = <b>3</b>','a']]}),
+    q(1,'怎么不重算？孩子的高度，和边数有什么关系？')
+    + cards([[2,'孩子的高度 = 往那边走下去的边数','高度数节点；从我出发，每个节点多一条边','sky'],
+             [4,'记录：left + right','以我为最高点的最长路，直接就是边数','mint'],
+             [5,'返回：1 + max(left, right)','父节点要的是高度，不是直径','amber'],
+             [6,'和 124 一样：返回一个，记录另一个','后序一遍，每个节点只算一次','amber']])),
+  say:[
+  '后序，是先算左右孩子，最后算自己。best 是一个全局变量，记着目前见过的最多边数。',
+  '这一幕要回答的是：怎么才能不重算？孩子的高度，和边数有什么关系？',
+  '看根一。左孩子二的高度是二，数的是二和四两个节点。从一出发往左下走，一到二、二到四，正好两条边。孩子的高度，就是从我往那边走下去的边数。',
+  '右孩子三的高度是一，从一往右下走，一到三，一条边。',
+  '所以以一为最高点的最长路，就是左高加右高，二加一等于三条边，不用减一，直接就是边数。拿它和 best 比，记下来。',
+  '可父节点要的是一的高度：一加上左右里大的那个，也是三。两个数恰好相等，意思不一样。',
+  '这就是 124 题那个套路：函数返回高度，顺手记录左高加右高。高度是后序一路算上来的，每个节点只算一次。'
+]});
+
+/* ===== 7 走一遍：主例子 ===== */
+const WK = {...TM, done:{d:2,e:3,b:4,c:5,a:6}, hot:[[4,[2,3],'ok'],[6,[2,0,1],'ok'],[7,[2,0,1],'ok']], st:[
+  [2,{d:'↑1'},'4：左 0 右 0，记录 0　best = <em>0</em><br>返回 <b>1</b>','d'],
+  [3,{d:'↑1',e:'↑1'},'5：左 0 右 0，记录 0　best = <em>0</em><br>返回 <b>1</b>','e'],
+  [4,{d:'↑1',e:'↑1',b:'↑2'},'2：左 1 右 1，记录 2　best = <em>2</em><br>返回 1 + 1 = <b>2</b>','b'],
+  [5,{d:'↑1',e:'↑1',b:'↑2',c:'↑1'},'3：左 0 右 0，记录 0　best 还是 <em>2</em><br>返回 <b>1</b>','c'],
+  [6,{d:'↑1',e:'↑1',b:'↑2',c:'↑1',a:'↑3'},'1：左 2 右 1，记录 3　best = <em>3</em><br>返回 1 + 2 = <b>3</b>','a'],
+  [7,{d:'↑1',e:'↑1',b:'↑2',c:'↑1',a:'↑3'},'答案 best = <em>3</em><br>4 → 2 → 1 → 3',null]]};
+add({ch:7, title:'走一遍：<em>答案 3</em>', vis:
+  gloss(0,[['绿色','已经算完的节点'],['橙圈','正在算的节点'],['↑数字','这个节点返回给父节点的高度']])
+  + duo(dtg(WK),
+    q(1,'[1, 2, 3, 4, 5]：按后序一个个算，高度怎么往上流，best 怎么变成 3？')
+    + cards([[4,'2 记录 2：4 → 2 → 5','以 2 为最高点的最长路','sky'],
+             [6,'1 记录 3，返回 3','返回值没人要，答案看 best','amber'],
+             [7,'答案 3','4 → 2 → 1 → 3','mint']])),
+  say:[
+  '绿色是已经算完的节点，橙圈是正在算的节点。节点旁边的箭头数字，是它返回给父节点的高度。',
+  '这一幕要回答的是：一、二、三、四、五，按后序一个个算，高度怎么往上流，best 怎么一步步变成三？',
+  '后序先算最左下的叶子四。左右都是空，高度都是零，记录零加零等于零，best 是零。返回一。',
+  '接着算五，一样是叶子，记录零，best 还是零，返回一。',
+  '轮到二。左边四说一，右边五也说一。记录一加一等于二，也就是四、二、五这两条边，best 变成二。返回一加一，等于二。',
+  '再算三，叶子，记录零，best 还是二，返回一。',
+  '最后是根一。左边二说二，右边三说一。记录二加一等于三，best 变成三。返回一加二等于三，可根没有父节点，这个返回值没人要。',
+  '答案是 best 里的三，路径是四、二、一、三。'
+]});
+
+/* ===== 8 走一遍：歪树 ===== */
+const WL = {...TL, done:{e:2,c:3,f:4,d:4,b:5,a:6}, hot:[[5,[3,1,2,4],'ok'],[7,[3,1,2,4],'ok']], st:[
+  [2,{e:'↑1'},'5：记录 0　best = <em>0</em>　返回 <b>1</b>','e'],
+  [3,{e:'↑1',c:'↑2'},'3：左 1 右 0，记录 1　best = <em>1</em><br>返回 <b>2</b>','c'],
+  [4,{e:'↑1',c:'↑2',f:'↑1',d:'↑2'},'6：记录 0；4：左 0 右 1，记录 1<br>best 还是 <em>1</em>　4 返回 <b>2</b>','d'],
+  [5,{e:'↑1',c:'↑2',f:'↑1',d:'↑2',b:'↑3'},'2：左 2 右 2，记录 4　best = <em>4</em><br>返回 1 + 2 = <b>3</b>','b'],
+  [6,{e:'↑1',c:'↑2',f:'↑1',d:'↑2',b:'↑3',a:'↑4'},'1：左 3 右 0，记录 3　best 还是 <em>4</em><br>返回 <b>4</b>','a'],
+  [7,{e:'↑1',c:'↑2',f:'↑1',d:'↑2',b:'↑3',a:'↑4'},'答案 best = <em>4</em><br>5 → 3 → 2 → 4 → 6',null]]};
+add({ch:8, title:'走一遍：<em>不经过根的直径</em>', vis:
+  gloss(0,[['歪树','[1, 2, null, 3, 4, 5, null, null, 6]：根只有左孩子']])
+  + duo(dtg(WL),
+    q(1,'最长路不经过根时，这个做法还对吗？best 在哪一步拿到 4？')
+    + cards([[5,'2 记录 4','以 2 为最高点：5 → 3 → 2 → 4 → 6','mint'],
+             [6,'根只记录 3，best 不变','只看根的做法，答案就是这个 3','coral'],
+             [7,'答案 4','每个节点都当过一次最高点','sky']])),
+  say:[
+  '歪树就是上一幕那棵：一、二、null、三、四、五、null、null、六。根一只有左孩子。',
+  '这一幕要回答的是：最长路不经过根的时候，这个做法还对吗？best 在哪一步拿到四？',
+  '后序先算最左下的叶子五：记录零，best 是零，返回一。',
+  '再算三。左边五说一，右边是空，零。记录一加零等于一，best 变成一。返回二。',
+  '然后算右边那一支。叶子六记录零，返回一。节点四左边空，右边六说一，记录一，best 还是一，返回二。',
+  '轮到二。左边三说二，右边四也说二。记录二加二等于四，best 变成四。这就是五、三、二、四、六那条路。二返回一加二，等于三。',
+  '最后是根一。左边二说三，右边空，零。记录三加零等于三，比四小，best 不变。只看根的做法，答案就停在这个三。',
+  '所以答案是四。每个节点都当过一次最高点，以二为最高点的那条路，在半路就被记下了。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>一个 return，一个 best</em>', vis:
+  gloss(0,[['nonlocal','让内层函数能改外层的变量 best'],['height(node)','返回这个节点的高度，空节点返回 0']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def diameterOfBinaryTree(self, root):'],
+    [2,'o','        best = 0                      # 目前见过的最多边数'],
+    [2,'o','        def height(node):'],
+    [2,'o','            nonlocal best'],
+    [3,'o','            if not node:'],
+    [3,'o','                return 0              # 空节点：高度 0'],
+    [4,'o','            left = height(node.left)'],
+    [4,'o','            right = height(node.right)'],
+    [5,'hl','            best = max(best, left + right)   # 记录：以这里为最高点的边数'],
+    [6,'hl','            return 1 + max(left, right)      # 返回：高度'],
+    [7,'o','        height(root)'],
+    [7,'o','        return best']])
+  + q(1,'代码的每一行，对应刚才的哪一步？'),
+  say:[
+  'nonlocal 让内层函数能改外层的变量 best。height 是递归函数，返回一个节点的高度，空节点返回零。',
+  '这一幕要回答的是：代码的每一行，对应刚才的哪一步？',
+  'best 从零开始，记目前见过的最多边数。height 要改 best，所以写 nonlocal。',
+  '出口：节点是空，高度是零。',
+  '先问左右两个孩子要高度，这就是后序：孩子先算完。',
+  '记录：左高加右高，就是以这里为最高点的最长路的边数，和 best 比，留大的。',
+  '返回：一加上左右里大的那个，就是自己的高度，交给父节点。记录和返回只差一个 max 和一个加一，这是全题的核心。',
+  '最后从根调用一次 height，返回值不用，答案是 best。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['n','节点个数'],['h','树的高度，也是递归最多叠几层']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n)，空间 O(h)','每个节点算一次；树是一条链时 h = n','sky'],
+           [3,'坑一：数成节点','记录 left + right + 1，[1, 2] 会答成 2','coral'],
+           [4,'坑二：只看根','歪树会答成 3，正确是 4','coral'],
+           [4,'坑三：把 left + right 返回上去','父节点要的是高度：返回 1 + max(left, right)','coral']]),
+  say:[
+  'n 是节点个数。h 是树的高度，也是递归调用最多叠几层。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n，每个节点只算一次。空间 O h，递归最多叠 h 层；树退化成一条链时，h 就等于 n。best 从零开始就对，因为只有一个节点时直径就是零，这一点和 124 不一样。',
+  '坑一：数成节点。如果记录左加右再加一，那是路上的节点数。一、二这棵树会答成二，正确是一。',
+  '坑二：只看根，歪树会答成三，正确是四。坑三：把左加右返回上去。父节点要的是高度，返回的永远是一加较大的一边。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："为什么你返回的是高度，答案却是另一个数？"')
+  + flow([[2,'定义','直径 = 边数'],[2,'后序','先问左右高度'],[3,'记录','left + right'],[3,'返回','1 + max(left, right)'],[4,'复杂度','O(n) / O(h)']])
+  + chips(4,['diameter','height','post-order DFS','edges, not nodes','global max','124 Max Path Sum']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，为什么你返回的是高度，答案却是另一个数？',
+  '先讲定义：直径数的是边，而且不一定经过根。我用后序遍历，每个节点先拿到左右孩子的高度。',
+  '再讲为什么不一样：孩子的高度，正好是从我往那边走下去的边数，所以左高加右高，就是以我为最高点的最长路，我拿它更新全局最大值。可父节点只能接一条往下的路，所以往上返回的是一加较大的一边，也就是我的高度。',
+  '最后补复杂度：时间 O n，空间 O h。英文关键词是 diameter、height、post-order DFS，和 124 题同一个套路。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'先问孩子','后序'],[0,'记录','left + right'],[0,'返回','1 + max'],[0,'答案','best']])
+  + cards([[1,'① 直径数边，不一定过根','4 个节点的路是 3 条边；最高点可以是任何节点','amber'],
+           [2,'② 返回高度，记录左加右','return 1 + max(L, R)；best = max(best, L + R)','sky'],
+           [3,'③ 后序一遍，O(n)','每个节点只算一次，不要从头重算高度','mint']]),
+  say:[
+  '回顾一遍主线：后序遍历，先问左右孩子的高度；左高加右高拿去更新 best；往上只返回自己的高度；最后答案是 best。',
+  '第一句：直径数的是边，不一定经过根。四个节点的路是三条边，最长路的最高点可以是任何一个节点。',
+  '第二句：返回高度，记录左加右。返回一加较大的一边，记录左高加右高，和 124 题一样，返回一个，记录另一个。',
+  '第三句：后序一遍就够，时间 O n。每个节点只算一次，不要从头重算高度。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/dd9f6e53364f.mp3", "0-1": "a/12bfb5a3e45d.mp3", "0-2": "a/c698517f19a6.mp3", "0-3": "a/e0c69a82ec60.mp3", "1-0": "a/895aa5f8b0e1.mp3", "1-1": "a/dfbf386aff06.mp3", "1-2": "a/9379f76dd81d.mp3", "1-3": "a/a1630917ebc4.mp3", "1-4": "a/4f67e8f1c8d8.mp3", "2-0": "a/38d6460f13d6.mp3", "2-1": "a/52a7868e2fcf.mp3", "2-2": "a/142e4a8161f1.mp3", "2-3": "a/8050f8bd6f31.mp3", "2-4": "a/f288b7d1330d.mp3", "3-0": "a/cd175ff1b35c.mp3", "3-1": "a/159254a46d46.mp3", "3-2": "a/fc2b7769a53b.mp3", "3-3": "a/ea73771afb98.mp3", "3-4": "a/0fc311a28cef.mp3", "3-5": "a/2b902973b395.mp3", "4-0": "a/990b590fe266.mp3", "4-1": "a/c8fbad52dad9.mp3", "4-2": "a/a2b3e208c911.mp3", "4-3": "a/375f3ee97da4.mp3", "4-4": "a/f0ae0ae40802.mp3", "4-5": "a/91f79b93320b.mp3", "5-0": "a/83b3da0bf21f.mp3", "5-1": "a/5028dc486650.mp3", "5-2": "a/65dc056f6f3d.mp3", "5-3": "a/d894556156dd.mp3", "5-4": "a/f9585b430c2e.mp3", "5-5": "a/1c31fb19945e.mp3", "6-0": "a/2c885c426249.mp3", "6-1": "a/eb891eb79214.mp3", "6-2": "a/64dec7d5aab0.mp3", "6-3": "a/893e57839f8b.mp3", "6-4": "a/00f34eab02da.mp3", "6-5": "a/f0cd8338f7ac.mp3", "6-6": "a/e6b0bd1bf375.mp3", "7-0": "a/f902a2f28660.mp3", "7-1": "a/a683f6489211.mp3", "7-2": "a/4971361edfe8.mp3", "7-3": "a/5bc3da8a78c8.mp3", "7-4": "a/a21aea73e757.mp3", "7-5": "a/9d7cfd8a5d35.mp3", "7-6": "a/8563e6df1da6.mp3", "7-7": "a/fb326590075e.mp3", "8-0": "a/a254a9fe5171.mp3", "8-1": "a/f58e95000572.mp3", "8-2": "a/7f2b81404904.mp3", "8-3": "a/bee433ba818c.mp3", "8-4": "a/f0d9ad1a9bc9.mp3", "8-5": "a/4beb1e7aae74.mp3", "8-6": "a/35d9a996ee43.mp3", "8-7": "a/7d7444c760c3.mp3", "9-0": "a/0bd7bcc98199.mp3", "9-1": "a/f20a8743a514.mp3", "9-2": "a/c7f8eaa483d9.mp3", "9-3": "a/62dda7d0ec9f.mp3", "9-4": "a/b27f1d07ee5d.mp3", "9-5": "a/b644538f27a1.mp3", "9-6": "a/19d02b3ff64e.mp3", "9-7": "a/598744a7e478.mp3", "10-0": "a/4ccef0c45ba6.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/f20dabc37cfa.mp3", "10-3": "a/8d0d0c122be1.mp3", "10-4": "a/415949994289.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/4d51d86484c7.mp3", "11-2": "a/91bed856b000.mp3", "11-3": "a/bd99c30d92a3.mp3", "11-4": "a/da2434acd058.mp3", "12-0": "a/362a05857a8e.mp3", "12-1": "a/d27161a999dc.mp3", "12-2": "a/f7fae9231e8b.mp3", "12-3": "a/7d61b8a10c6e.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

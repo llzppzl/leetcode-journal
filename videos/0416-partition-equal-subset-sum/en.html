@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Split Into Halves</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Split Into Halves', template:'prep', lang:'en', sub:'LeetCode 416 Partition Equal Subset Sum · animated walkthrough', key:'lc416envid', doc:'LeetCode 416', blurb:'First turn "split into two equal halves" into "make half of the total", go from trying every subset to remembering only the sums you can make, then fill one boolean row backwards and see why going forwards is wrong.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: split into halves','The problem: make half','Instinct: try every pick','Key idea: remember only the sums','Animation: [1, 5, 11, 5]','From a set to an array','Going forwards: one number used twice','Going backwards: each number once','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a row of sums 0..T: green = reachable, amber = new this step, arrows = s - x to s ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ks{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.ks .only.s{opacity:0!important;transform:none} .ks .only.s.now{opacity:1!important}
+.ks rect.base{fill:var(--term);stroke:var(--line);stroke-width:1.5}
+.ks rect.goal{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ks rect.yes{fill:rgba(98,224,180,.4);stroke:var(--mint);stroke-width:1.5}
+.ks rect.new{fill:rgba(255,184,77,.45);stroke:var(--amber);stroke-width:2}
+.ks rect.ring{fill:none;stroke:var(--amber);stroke-width:3}
+.ks path{fill:none;stroke:var(--amber);stroke-width:2.5}
+.ks path.bad{stroke:var(--coral)}
+.ks text{fill:var(--paper);font-family:var(--f-mono);text-anchor:middle;dominant-baseline:central}
+.ks text.lab{fill:var(--dim);font-size:12px}
+.ksq{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:2.8em;position:relative}
+.ksq .s{position:absolute;left:0;right:0}
+.ksq .only.s{opacity:0!important;transform:none} .ksq .only.s.now{opacity:1!important}
+.ksq b{color:var(--amber)} .ksq em{font-style:normal;color:var(--mint)} .ksq i{font-style:normal;color:var(--coral)}
+</style>`;
+let LK_id = 0;
+// o: {T, st:[[step, yes[], new[], ring|null, arrows[[from,to,cls]], caption]]}
+function lk(o){
+  const T = o.T, n = T + 1, id = 'lk' + (LK_id++);
+  const gap = n > 8 ? 2 : 8, w = Math.floor((324 - gap * (n - 1)) / n), x0 = (340 - (n * w + gap * (n - 1))) / 2;
+  const X = k => x0 + k * (w + gap), CX = k => X(k) + w / 2, Y = 52, H = 34, fs = n > 8 ? 13 : 17;
+  let s = LCSS + `<svg class="ks" viewBox="0 0 340 112" role="img" aria-label="sums you can make"><defs>
+    <marker id="${id}a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--amber);stroke:none"/></marker>
+    <marker id="${id}b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--coral);stroke:none"/></marker></defs>`;
+  for(let k=0;k<n;k++) s += `<rect class="base" x="${X(k)}" y="${Y}" width="${w}" height="${H}" rx="5"/>`;
+  o.st.forEach(([st,yes,nw])=>{
+    s += `<g class="only s" data-s="${st}">` + yes.map(k=>`<rect class="${nw.includes(k)?'new':'yes'}" x="${X(k)}" y="${Y}" width="${w}" height="${H}" rx="5"/>`).join('') + `</g>`;
+  });
+  s += `<rect class="goal" x="${X(T)-2}" y="${Y-2}" width="${w+4}" height="${H+4}" rx="6"/>`;
+  for(let k=0;k<n;k++) s += `<text x="${CX(k)}" y="${Y+H/2}" style="font-size:${fs}px">${k}</text>`;
+  s += `<text class="lab" x="${CX(T)}" y="${Y+H+14}">target</text>`;
+  o.st.forEach(([st,,,ring,arrows])=>{
+    let g = '';
+    if(ring!=null) g += `<rect class="ring" x="${X(ring)-4}" y="${Y-4}" width="${w+8}" height="${H+8}" rx="7"/>`;
+    (arrows||[]).forEach(([a,b,cls])=>{
+      const ax = CX(a), bx = CX(b) - 2, hgt = Math.min(44, 14 + Math.abs(b - a) * (n > 8 ? 3 : 8));
+      g += `<path class="${cls||''}" marker-end="url(#${id}${cls?'b':'a'})" d="M${ax},${Y-3} Q${(ax+bx)/2},${Y-3-hgt} ${bx},${Y-5}"/>`;
+    });
+    if(g) s += `<g class="only s" data-s="${st}">${g}</g>`;
+  });
+  s += `</svg>`;
+  return s + `<div class="ksq">${o.st.map(([st,,,,,cap])=>`<span class="only s" data-s="${st}">${cap}</span>`).join('')}</div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Split Into Halves<br><em>LeetCode 416</em>', vis:
+  gloss(0,[['subset','Some of the numbers from the array; each number can be picked at most once'],['target','Half of the total: if you can make it, you can split into two halves'],['dp array','A table: dp[s] records "can we make the sum s"']])
+  + flow([[1,'Reframe','equal halves = make half'],[1,'Instinct','try all 2ⁿ picks'],[2,'Key idea','remember only the sums'],[2,'Animation','[1, 5, 11, 5]'],[3,'Direction','inner loop goes backwards'],[3,'Code','one boolean row']]),
+  say:[
+  'This lesson covers LeetCode 416, Partition Equal Subset Sum. First, three words. A subset is some of the numbers from the array, each picked at most once. The target is half of the total. The dp array is a table where dp of s records whether we can make the sum s.',
+  'Step one is to reframe: splitting into two equal halves really means picking some numbers that add up to half of the total. Then we start from the most direct idea, trying every pick, and see where it gets slow.',
+  'The key step is this: forget which numbers you used, and only remember which sums you can make. We will watch those sums grow, one number at a time, on 1, 5, 11, 5.',
+  'Finally we write it as one boolean row. The main point is why the inner loop must go backwards, from large to small, and what bug appears if it goes forwards.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>equal halves = make half</em>', vis:
+  gloss(0,[['partition','Put every number into one of two groups, none left out, none used twice'],['total','All the numbers added together']])
+  + q(1,'nums = [1, 5, 11, 5]. Can it be split into two groups with equal sums?')
+  + cards([[2,'Yes: [1, 5, 5] and [11]','Both groups sum to 11 → True','mint'],
+           [3,'Reframe: make total / 2','The total is 22, half is 11; pick a group that makes 11 and the rest is 11 too','amber'],
+           [4,'Odd total → False right away','[1, 2, 3, 5] totals 11, and half of it is not a whole number','coral'],
+           [5,'New problem: can we make the target?','target = total / 2, each number used at most once','sky']]),
+  say:[
+  'A partition puts every number into one of two groups, none left out and none used twice. The total is all the numbers added together.',
+  'The question for this scene: can 1, 5, 11, 5 be split into two groups with equal sums?',
+  'Yes. 1, 5, 5 in one group and 11 in the other. Both sum to 11, so the answer is true.',
+  'Here is an easier way to say it. The total is 22, and half of it is 11. If we can pick a group that makes 11, the rest automatically adds up to 11 too. So equal halves is the same as making half of the total.',
+  'This reframe also gives a quick check. If the total is odd, half of it is not a whole number, so return false right away. For example 1, 2, 3, 5 totals 11, and we do not need to try anything.',
+  'So the problem becomes: can we pick some numbers whose sum is exactly the target, which is the total divided by 2? Each number can be used at most once.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Instinct: <em>try every pick</em>', vis:
+  gloss(0,[['2 to the n','Each number is either picked or not, so n numbers give 2ⁿ picks']])
+  + q(1,'The most direct idea: try every pick and see whether any of them makes 11?')
+  + tbl(['Pick','Sum'],[[2,'nothing','0'],[2,'1','1'],[2,'5 / the other 5','5 / 5'],[3,'1 + 5 / 1 + the other 5','6 / 6'],[3,'11','11 ✓']])
+  + cards([[4,'n = 200 → 2²⁰⁰ picks','16 picks for 4 numbers is fine by hand; 200 numbers never finish','coral'],
+           [5,'Where it breaks: many picks give the same sum','We only care what the sum is, and there are only 12 sums from 0 to 11','amber']]),
+  say:[
+  'Here is where 2 to the n comes from: each number is either picked or not, so n numbers give 2 to the n different picks.',
+  'The question for this scene: the most direct idea is to try every pick and see whether any of them makes 11. Does that work?',
+  'Let us try a few by hand. Picking nothing gives 0, picking just 1 gives 1, the first 5 gives 5, and the other 5 also gives 5.',
+  '1 plus 5 is 6, and 1 plus the other 5 is still 6. Picking only 11 gives exactly 11, so we found one. Four numbers have 16 picks, which is fine by hand.',
+  'But the array can hold up to 200 numbers. 2 to the 200 picks would never finish, even on a computer.',
+  'Look at the spot where it gets stuck: many picks give the same sum. Swap the two 5s and the sum is exactly the same. We only care what the sum is, not which numbers made it. And there are only 12 sums that do not go past 11, from 0 to 11.'
+]});
+
+/* ===== 3 Key idea ===== */
+add({ch:3, title:'Key idea: <em>remember only the sums</em>', vis:
+  gloss(0,[['reachable sum','A sum you can get by adding some of the numbers seen so far'],['union ∪','Put two groups together and keep each value once']])
+  + q(1,'If we only remember which sums we can make, how do they change when a new number x arrives?')
+  + cards([[2,'Start: {0}','Pick nothing, and the sum is 0','sky'],
+           [3,'A new x: each old sum either takes x or not','Skip it: s stays; take it: s + x','amber'],
+           [4,'reach = reach ∪ {s + x}','Sums past the target are useless, so drop them','amber'],
+           [5,'At the end, is the target in there?','This is 0/1 knapsack: each number is used 0 or 1 times','mint']])
+  + term('idea.py',[
+    [4,'o','reach = {0}'],
+    [4,'o','for x in nums:'],
+    [4,'hl','    reach |= {s + x for s in reach if s + x <= target}'],
+    [5,'o','return target in reach']]),
+  say:[
+  'A reachable sum is a sum you can get by adding some of the numbers seen so far. A union puts two groups together and keeps each value only once.',
+  'The question for this scene: if we only remember which sums we can make, how do they change when a new number x arrives?',
+  'At the start, before looking at any number, the only sum we can make is 0, by picking nothing.',
+  'When a number x arrives, each sum s we can already make has two fates. Skip x, and s is still there. Take x, and we get a new sum, s plus x.',
+  'So the new sums are the old sums, unioned with every old sum plus x. Sums past the target will never help, so we drop them.',
+  'After all the numbers, check whether the target is in there. Each number is used zero times or one time, and this kind of problem is called 0/1 knapsack.'
+]});
+
+/* ===== 4 Animation ===== */
+add({ch:4, title:'Animation: <em>[1, 5, 11, 5]</em>, target 11', vis:
+  gloss(0,[['green cell','A sum we can already make'],['amber cell','A new sum brought by this number'],['arrow','From an old sum s to s + x']])
+  + duo(lk({T:11, st:[
+      [2,[0],[0],null,[],'Start: <b>{0}</b>, pick nothing'],
+      [3,[0,1],[1],null,[[0,1]],'x = 1: 0 + 1 → <b>1</b>'],
+      [4,[0,1,5,6],[5,6],null,[[0,5],[1,6]],'x = 5: 0 + 5 → <b>5</b>, 1 + 5 → <b>6</b>'],
+      [5,[0,1,5,6,11],[11],null,[[0,11]],'x = 11: 0 + 11 → <b>11</b><br>12, 16, 17 go past 11, drop'],
+      [6,[0,1,5,6,10,11],[10],11,[[5,10]],'x = 5: 5 + 5 → <b>10</b><br>11 is in → <em>True</em>']]}),
+    q(1,'Adding one number at a time, how do the reachable sums change? When does 11 show up?')
+    + cards([[6,'{0, 1, 5, 6, 10, 11} → True','Only 12 cells, no need to try 16 picks','mint']])),
+  say:[
+  'A green cell is a sum we can already make, an amber cell is a new sum brought by this number, and an arrow goes from an old sum s to s plus x.',
+  'The question for this scene: adding one number at a time, how do the reachable sums change, and when does 11 show up?',
+  'At the start there is only 0.',
+  'Here comes 1: 0 plus 1 is 1. Now we can make 0 and 1.',
+  'Here comes 5: 0 plus 5 is 5, and 1 plus 5 is 6. Now we have 0, 1, 5, 6.',
+  'Here comes 11: 0 plus 11 is 11, and the target appears. 1, 5 and 6 plus 11 all go past 11, so we drop them.',
+  'The last 5: 5 plus 5 is 10. 0 plus 5, 1 plus 5 and 6 plus 5 give 5, 6 and 11, which we already had. The final sums are 0, 1, 5, 6, 10, 11. 11 is in there, so return true.'
+]});
+
+/* ===== 5 From a set to an array ===== */
+add({ch:5, title:'From a set to <em>one boolean row</em>', vis:
+  gloss(0,[['bool','Only two values: True and False'],['dp[s]','Can we make the sum s; the index s runs from 0 to target']])
+  + q(1,'The sums can only be 0 to target. Can one array row replace the set?')
+  + cards([[2,'dp = [False] × (target + 1)','dp[0] = True: pick nothing and the sum is 0','sky'],
+           [3,'A new x: dp[s − x] true → dp[s] true','If s − x can be made, adding x makes s','amber'],
+           [4,'s only runs from x to target','When s is less than x, s − x is negative and useless','sky'],
+           [5,'Updating one row in place: which way should s go?','Small to large, or large to small? Next scene','coral']]),
+  say:[
+  'A boolean has only two values, true and false. dp of s means whether we can make the sum s, with the index running from 0 to the target.',
+  'The question for this scene: the sums can only be 0 to the target, so can one array row replace the set?',
+  'Yes. Make a row of length target plus 1, all false, and set only dp of 0 to true, because picking nothing gives the sum 0.',
+  'When a number x arrives, if dp of s minus x is true, then s minus x can be made, and adding x gives s. So set dp of s to true as well.',
+  's only needs to run from x up to the target. When s is less than x, s minus x is negative and useless.',
+  'Here is the catch. We only have one row, and we update it in place. Should s go from small to large, or from large to small? They look the same, but one is right and one is wrong.'
+]});
+
+/* ===== 6 Going forwards: bug ===== */
+add({ch:6, title:'Going forwards: <em>one number used twice</em>', vis:
+  gloss(0,[['in place','Write new values back into the same row instead of making a new one'],['this round','The pass of the inner loop for one number x']])
+  + duo(lk({T:4, st:[
+      [2,[0],[],null,[],'Before x = 1: only <b>0</b>'],
+      [3,[0,1],[1],1,[[0,1]],'s = 1: dp[0] true → dp[1] true'],
+      [4,[0,1,2],[2],2,[[1,2,'bad']],'s = 2: reads the <b>just written</b> dp[1]<br><i>1 used twice</i>'],
+      [5,[0,1,2,3,4],[3,4],4,[[2,3,'bad'],[3,4,'bad']],'s = 3, 4: 1 + 1 + 1 + 1 = 4<br>dp[4] true → <i>True, wrong</i>']]}),
+    q(1,'[1, 2, 5], target 4. What goes wrong if the inner loop runs from small to large?')
+    + cards([[2,'Correct answer: False','The sums you can make are 0, 1, 2, 3, 5, 6, 7, 8, with no 4','sky'],
+             [5,'Going forwards → True','dp[s − x] may have been written this round, so the same x is added again','coral']])),
+  say:[
+  'In place means writing new values back into the same row, instead of making a new one. This round means the pass of the inner loop for one number x.',
+  'The question for this scene: 1, 2, 5 total 8, so the target is 4. What goes wrong if the inner loop runs from small to large?',
+  'First, the correct answer. These three numbers can make 0, 1, 2, 3, 5, 6, 7 and 8, but not 4, so we should return false. Before handling the first number, 1, only dp of 0 is true.',
+  's equals 1: dp of 0 is true, so dp of 1 becomes true. That step is fine; the 1 has been added.',
+  's equals 2: look at dp of 1. It is true, but it was written just now in this round, and it already used the 1. Adding 1 again means the 1 is used twice.',
+  's equals 3 and s equals 4: the same thing keeps happening. 1 plus 1 plus 1 plus 1 is 4, dp of 4 becomes true, and we return true. The answer is wrong, because one number was reused.'
+]});
+
+/* ===== 7 Going backwards ===== */
+add({ch:7, title:'Going backwards: <em>each number once</em>', vis:
+  gloss(0,[['backwards','s runs from target down to x'],['last round\'s value','The answer from before this x was added']])
+  + duo(lk({T:4, st:[
+      [2,[0,1],[1],1,[[0,1]],'x = 1: s = 4, 3, 2 all read false<br>s = 1 reads dp[0] → <b>dp[1]</b>'],
+      [3,[0,1,2,3],[2,3],null,[[1,3],[0,2]],'x = 2: s = 4 reads dp[2], still false<br>3 ← 1, 2 ← 0'],
+      [4,[0,1,2,3],[],4,[],'x = 5: bigger than 4, skip<br>dp[4] false → <em>False ✓</em>'],
+      [5,[0,1,2,3],[],4,[],'dp[s − x] is <b>left</b> of s: not yet changed']]}),
+    q(1,'Same [1, 2, 5], target 4. Why does going backwards work?')
+    + cards([[5,'Cells on the left are not changed yet this round','They hold the answer without x → x is used at most once','mint']])),
+  say:[
+  'Going backwards means s runs from the target down to x. Last round\'s value is the answer from before this x was added.',
+  'The question for this scene: with the same 1, 2, 5 and target 4, why does going backwards work?',
+  'Handle 1: s starts at 4, and dp of 3, dp of 2 and dp of 1 are all still false. Finally s equals 1 reads dp of 0, and dp of 1 becomes true. The 1 was added only once.',
+  'Handle 2: s equals 4 reads dp of 2, which is still false at this moment, so dp of 4 stays false. s equals 3 reads dp of 1, which is true, so 3 is 1 plus 2. s equals 2 reads dp of 0, which is true.',
+  'Handle 5: 5 is bigger than the target 4, so the inner loop does not run at all. In the end dp of 4 is false, we return false, and the answer is correct.',
+  'The reason fits in one sentence: dp of s minus x is always to the left of s. Going backwards, the cells on the left have not been changed this round, so they hold the answer without x, and each number is used at most once.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>one row, filled backwards</em>', vis:
+  gloss(0,[['range(target, x − 1, −1)','Count from target down to x, one step at a time; the second argument is excluded, so write x − 1']])
+  + term('solution.py',[
+    [2,'o','def canPartition(nums):'],
+    [2,'o','    total = sum(nums)'],
+    [2,'hl','    if total % 2 == 1:              # odd: no two halves'],
+    [2,'o','        return False'],
+    [3,'o','    target = total // 2'],
+    [3,'o','    dp = [False] * (target + 1)     # dp[s]: can we make s'],
+    [3,'o','    dp[0] = True                    # pick nothing'],
+    [4,'o','    for x in nums:'],
+    [4,'hl','        for s in range(target, x - 1, -1):   # backwards'],
+    [4,'o','            if dp[s - x]:'],
+    [4,'o','                dp[s] = True'],
+    [5,'o','    return dp[target]']])
+  + q(1,'Writing "reachable sums" as code, which part matches which step?')
+  + tbl(['Input','Total / target','Result'],[[6,'[1, 5, 11, 5]','22 / 11','True'],[6,'[1, 2, 3, 5]','11, odd','False'],[6,'[2, 2, 3, 5]','12 / 6','False'],[6,'[1, 1]','2 / 1','True']]),
+  say:[
+  'The three arguments of this range mean: count from the target down to x, one step at a time. The second argument itself is excluded, so we write x minus 1.',
+  'The question for this scene: writing reachable sums as code, which part matches which step?',
+  'The first part is the reframe: compute the total, and if it is odd, return false.',
+  'The second part builds the table: the target is the total floor divided by 2, make a row of target plus 1 falses, and set dp of 0 to true.',
+  'The third part is the core: for each number x, s goes backwards from the target down to x, and whenever dp of s minus x is true, set dp of s to true.',
+  'Finally return dp of target, which says whether we can make half of the total.',
+  'Run the four examples. 1, 5, 11, 5 returns true. 1, 2, 3, 5 totals 11, which is odd, so false. 2, 2, 3, 5 has target 6 but can only make 0, 2, 3, 4, 5, so false. 1, 1 has target 1, so true.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['n','How many numbers are in the array'],['O(n × target)','Each number scans the whole row once']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n × target), space O(target)','n ≤ 200, each number ≤ 100 → target ≤ 10000, about 2 million steps at most','sky'],
+           [3,'Forgetting the odd check','total // 2 rounds down, so an odd total still gives a wrong target','coral'],
+           [3,'Forgetting dp[0] = True','The whole row stays false and nothing can be made','coral'],
+           [4,'Running the inner loop forwards','A number gets reused; that is "unbounded knapsack", like 518 Coin Change II','coral']]),
+  say:[
+  'n is how many numbers are in the array. Big O of n times target means each number scans the whole row once.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to go wrong?',
+  'Time is big O of n times target, and space is just one row, big O of target. The array has at most 200 numbers, each at most 100, so the target is at most ten thousand, about two million steps at most. That is far smaller than 2 to the 200.',
+  'Pitfall one: forgetting the odd check. Floor division rounds down, so an odd total still produces a target, and the answer is wrong. Pitfall two: forgetting to set dp of 0 to true. The whole row stays false, and nothing can be made.',
+  'Pitfall three: running the inner loop forwards, which reuses a number several times. Going forwards is not wrong in itself; it is how unbounded knapsack is written, where each number can be used any number of times, like problem 518, Coin Change II. Here each number can be used only once, so we must go backwards.'
+]});
+
+/* ===== 10 Interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first; write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why does the inner loop go backwards?"')
+  + flow([[2,'Reframe','make total / 2'],[2,'Odd','False right away'],[3,'State','dp[s]: can we make s'],[3,'Transition','dp[s] |= dp[s − x]'],[4,'Direction','backwards, each number once'],[4,'Complexity','O(n × target)']])
+  + chips(4,['partition equal subset sum','0/1 knapsack','subset sum','dp[s] |= dp[s - x]','iterate backwards','O(n · target)']),
+  say:[
+  'The habit in interviews is idea first: explain the approach out loud, and write code after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why does the inner loop go backwards?',
+  'First the approach: equal halves means making half of the total, and an odd total returns false. This is 0/1 knapsack. I use one boolean row where dp of s means whether s can be made, and dp of 0 is true.',
+  'For each number x, dp of s becomes dp of s or dp of s minus x.',
+  'Then why backwards: dp of s minus x is on the left, and going backwards it still holds last round\'s value, so each number is used once. Going forwards reads values written this round; for 1, 2, 5 with target 4, the 1 gets used four times. Complexity is big O of n times target. The English keywords are 0/1 knapsack and subset sum.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Reframe','make half'],[0,'Only sums','start from {0}'],[0,'dp[s]','can we make s'],[0,'Backwards','each number once']])
+  + cards([[1,'① Equal halves ⟺ make total / 2','If the total is odd, return False','amber'],
+           [2,'② Remember only the reachable sums: start at {0}, union in s + x for each x','Written as one boolean row dp[s], with dp[0] = True','sky'],
+           [3,'③ The inner loop runs backwards from target to x','The left side still holds last round\'s values, so each number is used once; forwards reuses it','mint']]),
+  say:[
+  'One more pass over the main line: reframe it as making half of the total; remember only the reachable sums, starting from 0; write them as one dp row; and run the inner loop backwards.',
+  'Number one: equal halves is the same as making half of the total. If the total is odd, return false.',
+  'Number two: remember only the reachable sums. Start with just 0, and for each new number x, union in every old sum plus x. In code that is one boolean row, with dp of 0 set to true.',
+  'Number three: the inner loop runs backwards from the target down to x. The cells on the left still hold last round\'s values, so each number is used once. Going forwards would reuse the same number.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/faf6e874249d.mp3", "0-1": "a/57775a2070a2.mp3", "0-2": "a/a674366bcefb.mp3", "0-3": "a/5ac86f3f998a.mp3", "1-0": "a/1b4341d98145.mp3", "1-1": "a/15914cdc01d1.mp3", "1-2": "a/3550b64ab697.mp3", "1-3": "a/c4f2577e86a8.mp3", "1-4": "a/1f44cc41ef65.mp3", "1-5": "a/c00df1d16834.mp3", "2-0": "a/2fdfe62fba81.mp3", "2-1": "a/9dcc4c6e3282.mp3", "2-2": "a/9eaf3df89b2c.mp3", "2-3": "a/353e4fe6c35d.mp3", "2-4": "a/5b5d765ee57a.mp3", "2-5": "a/b9740704c3ae.mp3", "3-0": "a/a35360473be9.mp3", "3-1": "a/e2508ca3bd8e.mp3", "3-2": "a/2f529c921c6c.mp3", "3-3": "a/52f34822085b.mp3", "3-4": "a/b47ef2917612.mp3", "3-5": "a/cc6094a870e2.mp3", "4-0": "a/639459d3e9ee.mp3", "4-1": "a/7e7795a9b731.mp3", "4-2": "a/c416b63247aa.mp3", "4-3": "a/cbfd371a780c.mp3", "4-4": "a/4c3dcfffaf9a.mp3", "4-5": "a/f33a5390fc9d.mp3", "4-6": "a/6755c60f8a46.mp3", "5-0": "a/8c13d0b4ebb8.mp3", "5-1": "a/1b4624fc65a1.mp3", "5-2": "a/76cc5c804f1b.mp3", "5-3": "a/6cd86ade31f6.mp3", "5-4": "a/9a3cace1b29f.mp3", "5-5": "a/3ab5abd97634.mp3", "6-0": "a/787437a9d7a9.mp3", "6-1": "a/9e8093e83096.mp3", "6-2": "a/984b6ee764e6.mp3", "6-3": "a/124d670ff91d.mp3", "6-4": "a/c790e0619474.mp3", "6-5": "a/12d4c2b0bb10.mp3", "7-0": "a/76e8cf20c741.mp3", "7-1": "a/7081fbe7d641.mp3", "7-2": "a/fb2c212e3beb.mp3", "7-3": "a/daad88ea00da.mp3", "7-4": "a/78b4c2c0bced.mp3", "7-5": "a/5ba8d9db5cf5.mp3", "8-0": "a/5b1b892a0494.mp3", "8-1": "a/143d47faa390.mp3", "8-2": "a/6dd961d5fe5a.mp3", "8-3": "a/ec1ce9cd1c2e.mp3", "8-4": "a/d3bf5b03a06f.mp3", "8-5": "a/afc402458c52.mp3", "8-6": "a/460ccdfc5f8f.mp3", "9-0": "a/716aae2f2709.mp3", "9-1": "a/8bac07fdf8f7.mp3", "9-2": "a/c071a797fe38.mp3", "9-3": "a/2ed02964db1f.mp3", "9-4": "a/b5d77330b96f.mp3", "10-0": "a/72dcc3811c22.mp3", "10-1": "a/342af87f56e2.mp3", "10-2": "a/d378c709ab54.mp3", "10-3": "a/01bf51ea4db2.mp3", "10-4": "a/ee4877ccba65.mp3", "11-0": "a/9a413fde5900.mp3", "11-1": "a/c1cbcd5af358.mp3", "11-2": "a/bf55b7783ad5.mp3", "11-3": "a/5a58cd4da9d4.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

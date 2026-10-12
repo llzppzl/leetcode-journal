@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Max of the Window</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Max of the Window', template:'prep', lang:'en', sub:'LeetCode 239 Sliding Window Maximum · animated walkthrough', key:'lc239envid', doc:'LeetCode 239', blurb:'Start with the obvious idea, recomputing the max of every window, and see where it gets slow; the key step is that a newer, bigger number stays longer, so every smaller number before it can never be a maximum again, and once you throw those away, what is left is a decreasing double-ended queue.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a sliding window','The problem: the max of each window','Instinct: max() of every window','A heap works, with lazy deletion','Key insight: who can never be the max','Deque: in and out at both ends','Each new number: four rules','Walk through: [1, 3, -1, -3, 5, 3, 6, 7]','Expired front: [9, 8, 7, 6]','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip + deque: blue = current window, amber ring = newest number, mint box = deque front (current max) ---------- */
+const SW_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.sw{margin:0 auto;max-width:100%}
+.sw-row{display:grid;gap:4px;justify-content:center}
+.sw-row>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.sw-row>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.75em}
+.sw-row>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.sw-row>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.2em}
+.sw .only.s{opacity:0!important;transform:none;box-shadow:none} .sw .only.s.now{opacity:1!important;box-shadow:none}
+.sw i.win{position:absolute;inset:0;border-radius:7px;background:rgba(127,180,255,.3)}
+.sw i.ring{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber)!important}
+.sw-lab{display:flex;justify-content:space-between;margin-top:.8em;font-size:.75em;color:var(--dim);font-family:var(--f-mono)}
+.sw-dq{position:relative;min-height:3.4em;border:1px dashed var(--line);border-radius:10px}
+.sw-dq>.s{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:6px}
+.sw-dq .bx{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:2.4em;padding:.15em .3em;border:1px solid var(--sky);border-radius:8px;background:var(--term)}
+.sw-dq .bx.top{border:2px solid var(--mint)}
+.sw-dq .bx b{font-family:var(--f-display);font-weight:400;font-size:1.1em;line-height:1.1}
+.sw-dq .bx small{font-family:var(--f-mono);font-size:.65em;color:var(--dim)}
+.sw-dq .emp{color:var(--dim);font-size:.85em}
+.sw-txt,.sw-out{position:relative;text-align:center;font-family:var(--f-mono);font-size:.82em}
+.sw-txt{min-height:2.8em;margin-top:.5em;color:var(--paper)}
+.sw-out{min-height:1.5em;color:var(--mint)}
+.sw-txt>.s,.sw-out>.s{position:absolute;left:0;right:0}
+</style>`;
+const SW_L = {front:'front', back:'back', empty:'empty', out:'output'};
+// st: [[step, i, dqIndices, text]]; window = [i - k + 1, i]; o: {dq:false, out:false, lab}
+function sw_(nums, k, st, o={}){
+  const n = nums.length;
+  let h = SW_CSS + `<div class="sw"><div class="sw-row" style="grid-template-columns:repeat(${n},2.3em)">`;
+  h += nums.map((_,j)=>`<div class="ix">${j}</div>`).join('');
+  h += nums.map((v,j)=>{
+    let inner = `<b>${v}</b>`;
+    st.forEach(([s,i])=>{
+      if(j>=i-k+1 && j<=i) inner += `<i class="win only s" data-s="${s}"></i>`;
+      if(j===i && !o.noring) inner += `<i class="ring only s" data-s="${s}"></i>`;
+    });
+    return `<div class="v">${inner}</div>`;
+  }).join('');
+  h += `</div>`;
+  if(o.dq!==false){
+    h += `<div class="sw-lab"><span>${SW_L.front}</span><span>${o.lab||'deque'}</span><span>${SW_L.back}</span></div><div class="sw-dq">`;
+    h += st.map(([s,,dq])=>`<div class="only s" data-s="${s}">${dq.length?dq.map((j,t)=>`<span class="bx ${t===0&&o.top!==false?'top':''}"><b>${nums[j]}</b><small>i=${j}</small></span>`).join(''):`<span class="emp">${SW_L.empty}</span>`}</div>`).join('');
+    h += `</div>`;
+  }
+  h += `<div class="sw-txt">${st.map(([s,,,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  if(o.out!==false){
+    h += `<div class="sw-out">${st.map(([s,i])=>{ const r=[]; for(let j=k-1;j<=i;j++) r.push(Math.max(...nums.slice(j-k+1,j+1))); return `<span class="only s" data-s="${s}">${SW_L.out} [${r.join(', ')}]</span>`; }).join('')}</div>`;
+  }
+  return h + `</div>`;
+}
+const E1 = [1,3,-1,-3,5,3,6,7];
+const E2 = [9,8,7,6];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Max of the Window<br><em>LeetCode 239</em>', vis:
+  gloss(0,[['sliding window','A fixed-length stretch of the array that moves one step right each time'],['deque','A double-ended queue: you can add and remove at both the front and the back'],['monotonic','Always getting smaller from front to back (or always getting bigger)']])
+  + flow([[1,'Read','the max of each window'],[1,'Instinct','max() per window: O(n·k)'],[2,'Insight','smaller than the new one: useless'],[2,'Tool','monotonic deque'],[3,'Walk through','two examples'],[3,'Code','O(n)']]),
+  say:[
+  'This lesson covers LeetCode 239, Sliding Window Maximum. First, three words. A sliding window is a fixed-length stretch of the array that moves one step right each time. A deque is a double-ended queue, where you can add and remove at both ends. Monotonic means always getting smaller from front to back.',
+  'We start with the most direct idea: find the max of every window from scratch, try it on a small example, and see where it gets slow.',
+  'Then we use one observation: a new number that is bigger and stays longer makes every smaller number before it useless. Throw those away, and what is left is a deque that goes from big to small.',
+  'Finally we walk through two examples step by step and write big O of n code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>the max of each window</em>', vis:
+  gloss(0,[['k','The window length: look at k numbers in a row'],['nums[i]','The i-th number of the array; indices start at 0']])
+  + duo(sw_(E1,3,[[2,2,[],'window [1, 3, -1]'],[3,3,[],'window [3, -1, -3]'],[4,7,[],'last window [3, 6, 7]']],{dq:false,noring:true}),
+    q(1,'nums = [1, 3, -1, -3, 5, 3, 6, 7], k = 3. What is the max of each window?')
+    + cards([[2,'First window [1, 3, -1] → 3','indices 0 to 2','sky'],
+             [3,'Move right by one: [3, -1, -3] → 3','one number leaves on the left, one enters on the right','sky'],
+             [4,'Answer [3, 3, 5, 5, 6, 7]','8 numbers, 6 windows: n − k + 1','mint']])),
+  say:[
+  'k is the window length: you look at k numbers in a row. nums of i is the i-th number of the array, and indices start at zero.',
+  'The question for this scene: the array is 1, 3, minus 1, minus 3, 5, 3, 6, 7, and k is 3. What is the max of each window?',
+  'The first window is indices zero to two: 1, 3, minus 1. Its max is 3.',
+  'Move the window right by one. The 1 on the left leaves, the minus 3 on the right enters, giving 3, minus 1, minus 3. The max is still 3.',
+  'Keep sliding to the end, and the answer is 3, 3, 5, 5, 6, 7. Eight numbers make six windows, which is n minus k plus 1.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Instinct: <em>max() of every window</em>', vis:
+  gloss(0,[['max()','Look through the given numbers from start to end and pick the biggest'],['O(n·k)','n − k + 1 windows, each looking at k numbers']])
+  + term('brute.py',[
+    [2,'o','def maxSlidingWindow(nums, k):'],
+    [2,'o','    n = len(nums)'],
+    [2,'hl','    return [max(nums[i:i + k]) for i in range(n - k + 1)]']])
+  + q(1,'The most direct idea: call max() once per window. Is it correct? Is it fast?')
+  + cards([[3,'Correct, but it starts from zero every time','6 windows × 3 numbers = 18 numbers looked at','sky'],
+           [4,'n = 10⁵, k = 5 × 10⁴','about 2.5 billion numbers: time limit exceeded','coral'],
+           [5,'Where is the waste','one slide changes only two numbers, yet everything seen is thrown away','amber']]),
+  say:[
+  'max looks through the given numbers from start to end and picks the biggest. Big O of n times k means there are n minus k plus 1 windows, and each one looks at k numbers.',
+  'The question for this scene: the most direct idea is to call max once per window. Is it correct? Is it fast?',
+  'The code is one line: for every start i, slice from i to i plus k and take the max.',
+  'The result is correct. But every window starts from zero: six windows of three numbers each, eighteen numbers in total.',
+  'In the problem, n can be up to ten to the fifth. With k equal to fifty thousand, that is about two and a half billion numbers, which will time out.',
+  'Where is the waste? One slide removes one number and adds one, yet we throw away everything we have seen. So the question becomes: how do we keep what we saw for the next window?'
+]});
+
+/* ===== 3 Heap ===== */
+add({ch:3, title:'A heap works, <em>with lazy deletion</em>', vis:
+  gloss(0,[['heap','Always gives you the biggest item; adding and removing are O(log n)'],['lazy deletion','Do not delete right away; check and discard an item only when it reaches the top']])
+  + q(1,'Keep the window in a heap, and the max sits on top. What is the hard part?')
+  + cards([[2,'Hard part: the leaving number is in the middle','a heap can only remove its top easily','coral'],
+           [3,'Fix: store (value, index), delete lazily','if the top index is outside the window, pop it and look again','sky'],
+           [4,'It passes: O(n log n)','the interviewer will ask: can you do O(n)?','amber']]),
+  say:[
+  'A heap is a structure that always gives you the biggest item, and adding or removing costs big O of log n. Lazy deletion means you do not delete right away; you check and discard an item only when it reaches the top.',
+  'The question for this scene: keep the window in a heap, and the max sits on top. What is the hard part?',
+  'The hard part is that the number leaving on the left is often not on top but somewhere in the middle. A heap can only remove its top easily.',
+  'The fix is lazy deletion. Store the value together with its index. Each time you look at the top, if its index is already outside the window, pop it and look again, until the top is inside the window.',
+  'This passes, in big O of n log n time. But the interviewer will ask: can you do big O of n? The answer is the observation in the next scene.'
+]});
+
+/* ===== 4 Key insight ===== */
+add({ch:4, title:'Key insight: <em>who can never be the max</em>', vis:
+  gloss(0,[['candidate','A number that still has a chance to be the max of some window']])
+  + duo(sw_(E1,3,[[2,3,[1,2,3],'i = 3: candidates 3, -1, -3'],[3,4,[1,2,3],'i = 4: 5 arrives'],[4,4,[4],'drop what is smaller than 5: only 5 left'],[5,4,[4],'bigger toward the front']],{out:false,lab:'candidates',top:false}),
+    q(1,'After the window [3, -1, -3], 5 arrives. Which earlier numbers can never be the max again?')
+    + cards([[3,'-1 and -3: smaller than 5 and leave before it','while they are in the window, so is 5','coral'],
+             [4,'Same for 3: drop it','smaller than 5 and leaves before it','coral'],
+             [5,'The candidates left: bigger toward the front','when a new number arrives, drop every smaller one at the back','mint']])),
+  say:[
+  'A candidate is a number that still has a chance to be the max of some window.',
+  'The question for this scene: after the window 3, minus 1, minus 3, the number 5 arrives. Which earlier numbers can never be the max again?',
+  'Before 5 arrives, 3, minus 1 and minus 3 are all candidates. When 3 leaves, minus 1 has a chance; when minus 1 leaves, minus 3 has a chance.',
+  'Now 5 arrives. Minus 1 and minus 3 are smaller than 5 and leave before it. Whenever they are in the window, 5 is there too, so they will never be the max.',
+  'Same for 3: it is smaller than 5 and leaves before it, so drop it. The only candidate left is 5.',
+  'So the rule is: when a new number arrives, drop every smaller number at the back. The candidates that stay get bigger toward the front, and the front one is the max.'
+]});
+
+/* ===== 5 Deque ===== */
+add({ch:5, title:'Deque: <em>in and out at both ends</em>', vis:
+  gloss(0,[['queue','A line: join at the back, leave from the front'],['deque','A double-ended queue: join and leave at both ends']])
+  + q(1,'Candidates get added at the back, dropped at the back, and dropped at the front. What holds them?')
+  + tbl(['Operation','Meaning','Cost'],[
+    [2,c('dq.append(i)'),'add at the back','O(1)'],
+    [2,c('dq.pop()'),'remove from the back','O(1)'],
+    [2,c('dq.popleft()'),'remove from the front','O(1)'],
+    [2,c('dq[0]  dq[-1]'),'look at front, back','O(1)']])
+  + cards([[3,'Not list.pop(0)','removing the first item shifts all the rest: O(n)','coral'],
+           [4,'Store indices, not values','the index tells you when it slides out of the window','amber'],
+           [5,'This is a monotonic deque','indices grow front to back, values shrink front to back','mint']]),
+  say:[
+  'A queue is a line: you join at the back and leave from the front. A deque, a double-ended queue, lets you join and leave at both ends.',
+  'The question for this scene: candidates get added at the back, dropped at the back, and dropped at the front. What should hold them?',
+  'In Python, use deque from collections. append adds at the back, pop removes from the back, popleft removes from the front, and dq of 0 and dq of minus 1 look at the two ends. All of them are big O of 1.',
+  'Why not a plain list? Removing the first item of a list shifts every other item forward by one, which is big O of n.',
+  'Store indices in the deque, not values. You can always look up the value with nums of the index, and the index also tells you when that number slides out of the window.',
+  'A deque like this is called a monotonic deque: indices grow from front to back, and their values shrink from front to back.'
+]});
+
+/* ===== 6 Four rules ===== */
+add({ch:6, title:'Each new number: <em>four rules</em>', vis:
+  gloss(0,[['i − k','The window is [i − k + 1, i]: any index at most i − k is already outside']])
+  + q(1,'Each time a new number x = nums[i] arrives, what does the deque do?')
+  + flow([[2,'1. Drop the back','while back value < x: pop()'],[3,'2. Add it','append(i)'],[4,'3. Check the front','front ≤ i − k: popleft()'],[5,'4. Record','i ≥ k − 1: nums[front]']])
+  + cards([[6,'The front is always the max of the current window','it is the biggest candidate, and it is still inside','mint']]),
+  say:[
+  'The window runs from i minus k plus 1 to i. Any index less than or equal to i minus k is already outside the window.',
+  'The question for this scene: each time a new number x, which is nums of i, arrives, what does the deque do?',
+  'Rule one, drop the back: while the back number is smaller than x, pop it from the back, until the back is greater than or equal to x, or the deque is empty.',
+  'Rule two: add the new index i at the back.',
+  'Rule three, check the front: if the front index is less than or equal to i minus k, it has slid out of the window, so pop it from the front.',
+  'Rule four, record: if i is greater than or equal to k minus 1, the window holds k numbers, so record the value at the front.',
+  'That is why the front is always the max of the current window: it is the biggest candidate, and we just checked that it is still inside.'
+]});
+
+/* ===== 7 Walk through ===== */
+add({ch:7, title:'Walk through: <em>[1, 3, -1, -3, 5, 3, 6, 7]</em>', vis:
+  gloss(0,[['blue','the current window'],['amber ring','the number that just arrived'],['green box','the front: the current max']])
+  + duo(sw_(E1,3,[
+      [2,0,[0],'i = 0: add 1'],
+      [3,1,[1],'i = 1: 3 arrives, pop 1'],
+      [4,2,[1,2],'i = 2: -1 is smaller than 3, just add'],
+      [5,3,[1,2,3],'i = 3: add -3; front 3 still inside'],
+      [6,4,[4],'i = 4: 5 arrives, pop -3, -1, 3'],
+      [7,5,[4,5],'i = 5: 3 is smaller than 5, just add'],
+      [8,6,[6],'i = 6: 6 arrives, pop 3, 5'],
+      [9,7,[7],'i = 7: 7 arrives, pop 6'],
+      [10,7,[7],'done']]),
+    q(1,'[1, 3, -1, -3, 5, 3, 6, 7], k = 3. What is in the deque at each step?')
+    + cards([[10,'Output [3, 3, 5, 5, 6, 7]','same as running max() on every window','mint']])),
+  say:[
+  'Blue is the current window, the amber ring is the number that just arrived, and the green box is the front, which is the current max.',
+  'The question for this scene: 1, 3, minus 1, minus 3, 5, 3, 6, 7, with k equal to 3. What is in the deque at each step?',
+  'i is 0 and 1 arrives. The deque is empty, so just add it. The window is not full yet, so no output.',
+  'i is 1 and 3 arrives. The 1 at the back is smaller than 3, so pop it, then add 3. The window is still not full.',
+  'i is 2 and minus 1 arrives. It is smaller than the 3 at the back, so just add it. The window is full, the front is 3, output 3.',
+  'i is 3 and minus 3 arrives, just add it. The front 3 has index 1, which is greater than 3 minus 3, which is 0, so it is still inside. Output 3.',
+  'i is 4 and 5 arrives. Minus 3, minus 1 and 3 are all smaller than 5, so pop them from the back one by one. Only 5 is left, output 5.',
+  'i is 5 and 3 arrives. It is smaller than 5, so just add it. The front 5 is still inside, output 5.',
+  'i is 6 and 6 arrives. Pop 3, then pop 5. Only 6 is left, output 6.',
+  'i is 7 and 7 arrives. Pop 6. Only 7 is left, output 7.',
+  'The answer is 3, 3, 5, 5, 6, 7, the same as brute force. In this example the front never expired, so the next scene looks at expiring.'
+]});
+
+/* ===== 8 Expired front ===== */
+add({ch:8, title:'Expired front: <em>[9, 8, 7, 6]</em>', vis:
+  gloss(0,[['expired','The front index is at most i − k: it is no longer in the window']])
+  + duo(sw_(E2,2,[
+      [2,0,[0],'i = 0: add 9'],
+      [3,1,[0,1],'i = 1: 8 is smaller than 9, just add'],
+      [4,2,[1,2],'i = 2: add 7; index of 9 is 0 ≤ 0, expired'],
+      [5,3,[2,3],'i = 3: add 6; index of 8 is 1 ≤ 1, expired'],
+      [6,3,[2,3],'done'],
+      [7,3,[2,3],'done']]),
+    q(1,'[9, 8, 7, 6], k = 2. The numbers keep shrinking, so nothing is popped from the back. When does the front leave?')
+    + cards([[6,'Output [9, 8, 7]','without the front check it would be [9, 9, 9]','mint'],
+             [7,'[1], k = 1 → [1]','add 1, the window is full at once, output 1','sky']])),
+  say:[
+  'Expired means the front index is less than or equal to i minus k, so it is no longer in the window.',
+  'The question for this scene: 9, 8, 7, 6, with k equal to 2. The numbers keep shrinking, so nothing is ever popped from the back. When does the front leave?',
+  'i is 0 and 9 arrives, add it. The window is not full yet.',
+  'i is 1 and 8 is smaller than 9, so just add it. The window is full, the front is 9, output 9.',
+  'i is 2, add 7. Now check the front: 9 has index 0, which is less than or equal to 2 minus 2, which is 0. It expired, so pop it from the front. The front becomes 8, output 8.',
+  'i is 3, add 6. The front 8 has index 1, which is less than or equal to 3 minus 2, which is 1. It expired, pop it. The front is 7, output 7.',
+  'The answer is 9, 8, 7. If you only drop from the back and never check the front, 9 stays at the front forever and the answer becomes 9, 9, 9.',
+  'Now the smallest case: a single number 1 with k equal to 1. Add 1; i is 0, which is greater than or equal to k minus 1, so the window is full at once. Output 1.'
+]});
+
+/* ===== 9 Code ===== */
+add({ch:9, title:'Code: <em>the four rules, copied down</em>', vis:
+  gloss(0,[['dq','the deque, holding indices'],['res','the answer list, one max per window']])
+  + term('solution.py',[
+    [2,'o','from collections import deque'],
+    [2,'o','def maxSlidingWindow(nums, k):'],
+    [2,'o','    dq = deque()                       # indices; values decrease front to back'],
+    [2,'o','    res = []'],
+    [3,'o','    for i, x in enumerate(nums):'],
+    [3,'hl','        while dq and nums[dq[-1]] < x:  # smaller than x: never the max again'],
+    [3,'o','            dq.pop()'],
+    [3,'o','        dq.append(i)'],
+    [4,'hl','        if dq[0] <= i - k:             # the front slid out of the window'],
+    [4,'o','            dq.popleft()'],
+    [5,'hl','        if i >= k - 1:                 # output only once the window is full'],
+    [5,'o','            res.append(nums[dq[0]])'],
+    [5,'o','    return res']])
+  + q(1,'Which of the four rules does each part of the code match?'),
+  say:[
+  'dq is the deque, and it holds indices. res is the answer list, with one max per window.',
+  'The question for this scene: which of the four rules does each part of the code match?',
+  'At the top, create an empty deque and an empty answer list. The comment says it clearly: we store indices, and their values decrease from front to back.',
+  'Inside the loop, the first part drops the back: while the back value is less than x, pop. This must be a while, because one big number can pop several at once. Then append i.',
+  'The second part checks the front: if the front index is less than or equal to i minus k, popleft. An if is enough here, because the window moves one step at a time, so at most one number expires.',
+  'The third part records: if i is greater than or equal to k minus 1, the window is full, so record the value at the front. Finally return res.'
+]});
+
+/* ===== 10 Complexity ===== */
+add({ch:10, title:'Complexity, and <em>two pitfalls</em>', vis:
+  gloss(0,[['amortized','Spread the total cost over all steps: one step may pop a lot, but the total is at most n'],['O(k)','the deque holds at most k indices']])
+  + q(1,'There is a while loop inside the for loop. Why is it still O(n)? Where do people slip?')
+  + cards([[2,'Time O(n): each index enters once, leaves at most once','n appends, at most n pops and poplefts combined','sky'],
+           [3,'Space O(k)','only indices inside the window remain','sky'],
+           [4,'Pitfall: storing values, not indices','you cannot tell when the front expires','coral'],
+           [4,'Pitfall: forgetting i ≥ k − 1','output starts before the window is full: k − 1 extra answers','coral']]),
+  say:[
+  'Amortized means spreading the total cost over all steps: one step may pop a lot, but added up it is at most n pops. Big O of k means the deque holds at most k indices.',
+  'The question for this scene: there is a while loop inside the for loop, so why is it still big O of n? And where do people slip?',
+  'Each index enters the deque once and leaves at most once. There are n appends, and pops plus poplefts add up to at most n, so the total time is big O of n.',
+  'Space is big O of k: expired indices get popped, so only indices inside the window remain, at most k of them. The answer list itself does not count.',
+  'Pitfall one: storing values instead of indices, so you cannot tell when the front expires. Pitfall two: forgetting the check that i is greater than or equal to k minus 1, so output starts before the window is full and you get k minus 1 extra answers.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud, then code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can you just throw away the numbers smaller than the new one?"')
+  + flow([[2,'Brute force','max per window: O(n·k)'],[2,'Heap','lazy deletion: O(n log n)'],[3,'Insight','smaller and leaves earlier → useless'],[4,'Deque','indices up, values down'],[4,'Complexity','O(n) / O(k)']])
+  + chips(4,['sliding window','monotonic deque','decreasing','amortized O(n)','lazy deletion','heap']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and start coding once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can you just throw away the numbers smaller than the new one?',
+  'First the route: brute force takes the max of each window, big O of n times k. A heap with lazy deletion gets big O of n log n. I want big O of n.',
+  'Then the why: an old number that is smaller than the new one also leaves the window before it. Whenever the old one is in the window, the new one is too, so the old one can never be the max, and I can drop it.',
+  'So the deque keeps indices increasing and values decreasing, and the front is the max. Each index goes in and out once, so time is big O of n and space is big O of k. The keywords are monotonic deque and amortized big O of n.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Drop the back','pop what is smaller than x'],[0,'Add it','append(i)'],[0,'Check the front','popleft if expired'],[0,'Record','nums[dq[0]]']])
+  + cards([[1,'1. Smaller than the new one and leaves earlier → never the max','drop it from the back','amber'],
+           [2,'2. The deque stores indices; values decrease front to back','the front is the max of the current window','sky'],
+           [3,'3. Each index goes in and out once → O(n)','while at the back, if at the front','mint']]),
+  say:[
+  'One more pass over the main line: for each new number, drop the smaller ones from the back, add it, check whether the front has expired, and once the window is full, record the front.',
+  'First: a number that is smaller than the new one and leaves earlier can never be the max, so drop it from the back.',
+  'Second: the deque stores indices, their values decrease from front to back, and the front is the max of the current window.',
+  'Third: each index goes in and out once, so it is big O of n. Use while at the back, because several may pop at once; use if at the front, because at most one expires each step.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/143a5b220024.mp3", "0-1": "a/67f950d83be3.mp3", "0-2": "a/3f806615b3c3.mp3", "0-3": "a/8c5b55318236.mp3", "1-0": "a/1614210f5355.mp3", "1-1": "a/27c1be1bef3a.mp3", "1-2": "a/7e3f83f4c9ba.mp3", "1-3": "a/9f4026a93025.mp3", "1-4": "a/3fed8e7c2c70.mp3", "2-0": "a/5f97b801597a.mp3", "2-1": "a/8c96c70d64db.mp3", "2-2": "a/431e5e001af7.mp3", "2-3": "a/030dad970d7e.mp3", "2-4": "a/a462349ac917.mp3", "2-5": "a/38d123055cc8.mp3", "3-0": "a/5169afc88184.mp3", "3-1": "a/d2cca53f9200.mp3", "3-2": "a/bf6536c1b9df.mp3", "3-3": "a/9d2eb31a2312.mp3", "3-4": "a/fdb0344b631b.mp3", "4-0": "a/196ebb1f50a4.mp3", "4-1": "a/6f181222f9b7.mp3", "4-2": "a/d46506933018.mp3", "4-3": "a/fffe621ef93e.mp3", "4-4": "a/197f9621f993.mp3", "4-5": "a/bc4e448954d9.mp3", "5-0": "a/108c2f8041d7.mp3", "5-1": "a/3fee679c928a.mp3", "5-2": "a/609e109db3ad.mp3", "5-3": "a/bcb30da23916.mp3", "5-4": "a/1cc6a7d9d484.mp3", "5-5": "a/6d16782ecddc.mp3", "6-0": "a/e7999952af2a.mp3", "6-1": "a/e2f26478c0ae.mp3", "6-2": "a/d85cac0ef24a.mp3", "6-3": "a/402695dd8c8d.mp3", "6-4": "a/fe62ff66f9b4.mp3", "6-5": "a/183e9a8ba053.mp3", "6-6": "a/3e42fed82b28.mp3", "7-0": "a/9ae0335a4eea.mp3", "7-1": "a/3df229ba2eab.mp3", "7-2": "a/e13e65510d0b.mp3", "7-3": "a/5658bf23d2aa.mp3", "7-4": "a/7e3bb59dbad6.mp3", "7-5": "a/adf6ef14ff30.mp3", "7-6": "a/2b850dc6c660.mp3", "7-7": "a/b5b1a55535c8.mp3", "7-8": "a/154b052630d4.mp3", "7-9": "a/0b045a48a273.mp3", "7-10": "a/1e73ee9e080e.mp3", "8-0": "a/32a301df723c.mp3", "8-1": "a/07a5ff649a65.mp3", "8-2": "a/56863afbb3d4.mp3", "8-3": "a/6102dcafb376.mp3", "8-4": "a/2b3c18ad8d26.mp3", "8-5": "a/e3a2f4b01bf4.mp3", "8-6": "a/31a3e3f1744c.mp3", "8-7": "a/a6c3e40c13fa.mp3", "9-0": "a/2994ce9a1396.mp3", "9-1": "a/af947e2556d5.mp3", "9-2": "a/1e150b918d01.mp3", "9-3": "a/7e6f49889e29.mp3", "9-4": "a/3d2661ba8ebb.mp3", "9-5": "a/13203b026688.mp3", "10-0": "a/9aeaa3744538.mp3", "10-1": "a/b59c542cba58.mp3", "10-2": "a/cb30212bb8d0.mp3", "10-3": "a/fde67f1e15f0.mp3", "10-4": "a/f4551fd8708e.mp3", "11-0": "a/7227622d4094.mp3", "11-1": "a/aa9fc58ebb47.mp3", "11-2": "a/eb0cd17c2ddb.mp3", "11-3": "a/8a45f5c3d8d1.mp3", "11-4": "a/87c22de71c6e.mp3", "12-0": "a/0448630ed506.mp3", "12-1": "a/aae7f1b2b949.mp3", "12-2": "a/5f8dae344138.mp3", "12-3": "a/a1d98ffdc759.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

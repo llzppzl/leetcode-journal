@@ -1,0 +1,765 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Permutation Odometer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Permutation Odometer', template:'prep', lang:'en', sub:'LeetCode 31 Next Permutation · animated walkthrough', key:'lc31envid', doc:'LeetCode 31', blurb:'Starting from listing every permutation and finding the next one, see why the change should be as far right as possible: find the first drop from the right, swap in the number just larger from the suffix, then reverse the suffix into its smallest order.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: reordering numbers','The problem: next in dictionary order','Intuition: list them all','Observation: change as far right as possible','Step 1: find i','Step 2: find j and swap','Step 3: reverse the suffix','Walk through: nine numbers','Verify: small cases and brute force','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip: one full state per step (.only + .now); sky edge = decreasing suffix, amber = i, coral = j, green = done ---------- */
+const NCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.np{display:grid;justify-content:center;gap:3px;margin:0 auto}
+.np .row{display:grid;gap:4px;grid-template-columns:repeat(var(--n),2.3em)}
+.np .ix{text-align:center;color:var(--dim);font-family:var(--f-mono);font-size:.75em}
+.np .stk{display:grid}
+.np .stk>.st{grid-area:1/1;display:grid;gap:3px}
+.np .st.only.s{opacity:0!important;transform:none;box-shadow:none}
+.np .st.only.s.now{opacity:1!important;box-shadow:none}
+.np .c{display:grid;place-items:center;height:2.4em;border-radius:8px;border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.2em}
+.np .c.suf{border-color:var(--sky);box-shadow:inset 0 -3px 0 var(--sky)}
+.np .c.ok{background:rgba(98,224,180,.35);border-color:var(--mint)}
+.np .c.i{border-color:var(--amber);box-shadow:0 0 0 3px var(--amber)}
+.np .c.j{border-color:var(--coral);box-shadow:0 0 0 3px var(--coral)}
+.np .mk{text-align:center;font-family:var(--f-mono);font-weight:700;font-size:.85em;height:1.3em}
+.np .mk.i{color:var(--amber)} .np .mk.j{color:var(--coral)}
+.np .cap{text-align:center;font-family:var(--f-mono);font-size:.82em;color:var(--dim);min-height:1.4em}
+.np .cap b{color:var(--amber)} .np .cap em{font-style:normal;color:var(--mint)} .np .cap i{font-style:normal;color:var(--coral)}
+</style>`;
+// o: {suf: true|'ok', i, j}
+function NP_m(o={}){
+  const m = {};
+  if(o.suf) [4,5,6,7,8].forEach(k=>m[k]=o.suf===true?'suf':o.suf);
+  if(o.i!=null) m[o.i]=((m[o.i]||'')+' i').trim();
+  if(o.j!=null) m[o.j]=((m[o.j]||'')+' j').trim();
+  return m;
+}
+const NP_lab = m => { const t=(m||'').split(' '); return t.includes('i')?'i':t.includes('j')?'j':''; };
+// st: [[step, vals, marks, caption]]
+function NP_strip(st){
+  const n = st[0][1].length;
+  let h = NCSS + `<div class="np" style="--n:${n}"><div class="row">${[...Array(n)].map((_,k)=>`<div class="ix">${k}</div>`).join('')}</div><div class="stk">`;
+  st.forEach(([s,vals,mk,cap])=>{
+    h += `<div class="st only s" data-s="${s}"><div class="row">${vals.map((v,k)=>`<div class="c ${mk[k]||''}">${v}</div>`).join('')}</div>`
+       + `<div class="row">${vals.map((_,k)=>`<div class="mk ${mk[k]||''}">${NP_lab(mk[k])}</div>`).join('')}</div>`
+       + `<div class="cap">${cap||''}</div></div>`;
+  });
+  return h + `</div></div>`;
+}
+const A0 = [1,5,8,4,7,6,5,3,1], A1 = [1,5,8,5,7,6,4,3,1], A2 = [1,5,8,5,1,3,4,6,7];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Permutation Odometer<br><em>LeetCode 31</em>', vis:
+  gloss(0,[['permutation','The same set of numbers, arranged in a different order'],['lexicographic order','Compare like a dictionary: left to right, at the first position that differs, the smaller one comes first'],['in place','Change the original array directly, using only a few extra variables']])
+  + flow([[1,'Read','next in dictionary order'],[1,'Intuition','list them all: n!'],[2,'Observe','change as far right as possible'],[2,'Three steps','find i / swap j / reverse'],[3,'Animation','nine numbers'],[3,'Code','O(n), O(1)']]),
+  say:[
+  'This lesson covers LeetCode 31, Next Permutation. First, three words. A permutation is the same set of numbers in a different order. Lexicographic order compares like a dictionary: left to right, at the first position that differs, the smaller one comes first. In place means changing the original array directly, using only a few variables.',
+  'We start from the most direct idea: write out every permutation, then find the next one. Then we see exactly where it gets unbearably slow.',
+  'Next, we find a pattern in the list of permutations: the change should be as far right as possible. That pattern gives three steps, find i, swap with j, reverse the suffix, and we explain why each one works.',
+  'Finally we walk through nine numbers, check against brute force, then write the code and cover the pitfalls.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>next in dictionary order</em>', vis:
+  gloss(0,[['next permutation','The one right after it in lexicographic order, the next larger one'],['last permutation','The largest one in lexicographic order; its next wraps around to the smallest']])
+  + q(1,'Sort all permutations of 1, 2, 3 in lexicographic order. What does the list look like? What comes after 1 2 3? After 3 2 1?')
+  + tbl(['#','permutation'],[[2,'1','1 2 3'],[2,'2','1 3 2'],[3,'3','2 1 3'],[3,'4','2 3 1'],[3,'5','3 1 2'],[3,'6','3 2 1']])
+  + cards([[4,'3 2 1 is the last → next wraps to 1 2 3','The rule: if nothing is larger, become the smallest','coral']]),
+  say:[
+  'The next permutation is the one right after it in lexicographic order. The last permutation is the largest one, and its next wraps around to the smallest.',
+  'The question for this scene: sort all permutations of 1, 2, 3 in lexicographic order. What does the list look like? What comes after 1, 2, 3? And after 3, 2, 1?',
+  '1, 2, 3 is first. Next is 1, 3, 2. Both start with 1, and in the second position 2 is less than 3, so 1, 2, 3 comes first.',
+  'Then come the ones starting with 2, which are 2, 1, 3 and 2, 3, 1, and then the ones starting with 3, which are 3, 1, 2 and 3, 2, 1. Six in total.',
+  '3, 2, 1 is the last, nothing is larger. The problem says to wrap around to the smallest, 1, 2, 3. And the array must be changed in place.'
+]});
+
+/* ===== 2 Intuition ===== */
+add({ch:2, title:'Intuition: <em>list them all, then find the next</em>', vis:
+  gloss(0,[['n! (n factorial)','1 times 2 times ... times n: the number of orderings of n distinct numbers']])
+  + q(1,'The most direct approach: write out every permutation, sort them, find this one, take the next. Does it work?')
+  + cards([[2,'3 numbers: 6 permutations','Quick by hand: find this row, read the next row','mint'],
+           [3,'9 numbers: 362880','10 numbers is 3628800, just to move forward one step','coral'],
+           [4,'And it is not in place','Storing every permutation costs space on the order of n!','coral'],
+           [5,'This is where it breaks','Can we look at just this one permutation and compute the next directly?','amber']]),
+  say:[
+  'n factorial means 1 times 2, all the way up to n. That is how many orderings n distinct numbers have.',
+  'The question for this scene: the most direct approach is to write out every permutation, sort them, find this one, and take the next. Does it work?',
+  'With three numbers, no problem at all. There are six permutations; write them down, find this row, read the next row.',
+  'But nine numbers have three hundred sixty-two thousand, eight hundred eighty permutations, and ten numbers have three million, six hundred twenty-eight thousand, eight hundred. We only want to move one step, yet we would list them all.',
+  'And all of them have to be stored, so the space is on the order of n factorial too. Not in place at all.',
+  'Here is where it breaks: can we look at just this one permutation and compute its next directly? The next scene finds a pattern in the list.'
+]});
+
+/* ===== 3 Observation ===== */
+add({ch:3, title:'Observation: <em>change as far right as possible</em>', vis:
+  gloss(0,[['prefix','A run starting from the leftmost position'],['suffix','A run from some position all the way to the right end']])
+  + q(1,'Going from one permutation to the next, what exactly changes?')
+  + tbl(['from','to','what changed'],[[2,'1 2 3','1 3 2','only the last two'],[3,'1 3 2','2 1 3','the tail 3 2 is already maxed, so the first one changes']])
+  + cards([[4,'Like an odometer: 1299 → 1300','The 99 has run out, so the 2 before it goes up by one, and the rest restarts from the smallest','sky'],
+           [5,'Pattern: keep the prefix, change as far right as possible','The changed position grows only a little, and everything after it is smallest','mint']]),
+  say:[
+  'A prefix is a run starting from the leftmost position. A suffix is a run from some position all the way to the right end.',
+  'The question for this scene: going from one permutation to the next, what exactly changes?',
+  'From 1, 2, 3 to 1, 3, 2, the leading 1 stays put and only the last two change. The farther right the change, the less the number grows, and the more likely it is the very next one.',
+  'From 1, 3, 2 to 2, 1, 3, the tail 3, 2 is already the largest order of those two numbers. Any swap there makes it smaller, so the first position has to change.',
+  'It is like an odometer: after 1299 comes 1300. The 99 has run out, so the 2 before it goes up by one, and the rest restarts from the smallest, 00.',
+  'The pattern: keep the prefix, change as far right as possible, grow the changed position only a little, and make everything after it as small as possible. The next three steps take that sentence apart.'
+]});
+
+/* ===== 4 Step 1: find i ===== */
+add({ch:4, title:'Step 1: <em>find the first drop from the right</em>', vis:
+  gloss(0,[['decreasing','Each number is smaller than the one before it, ties included'],['i','The index of the position we will change']])
+  + duo(NP_strip([[0,A0,{},''],[1,A0,{},''],
+      [2,A0,NP_m({suf:true}),'right to left 1 3 5 6 7: growing'],
+      [3,A0,NP_m({suf:true,i:3}),'<b>4 &lt; 7</b> → i = 3'],
+      [4,A0,NP_m({suf:true,i:3}),'no i → reverse everything']]),
+    q(1,'1 5 8 4 7 6 5 3 1: which position should change, and why?')
+    + cards([[2,'The suffix 7 6 5 3 1 is decreasing','Already the largest order of these 5 numbers: any swap makes it smaller','sky'],
+             [3,'So we must change i = 3 (value 4)','The rightmost position that can grow; the prefix 1 5 8 stays','amber'],
+             [4,'No i at all?','The whole array is decreasing, the last permutation → reverse it to the first','coral']])),
+  say:[
+  'Decreasing means each number is smaller than the one before it, with ties included. i is the index of the position we will change.',
+  'The question for this scene: with 1, 5, 8, 4, 7, 6, 5, 3, 1, which position should change, and why?',
+  'Read from the right end going left: 1, 3, 5, 6, 7, always growing. In other words, the suffix 7, 6, 5, 3, 1 is decreasing. A decreasing suffix is already the largest order of those numbers, so shuffling only inside it can only make it smaller.',
+  'One more step left is 4, and 4 is less than 7, so the decrease breaks. To grow, we must change this 4, so i equals 3. It is the rightmost position that can grow, and the prefix 1, 5, 8 stays put.',
+  'If we scan all the way to the left without a break, like 3, 2, 1, the whole array is decreasing, so it is the last permutation. Then we reverse the whole array to get the smallest, 1, 2, 3.'
+]});
+
+/* ===== 5 Step 2: find j and swap ===== */
+add({ch:5, title:'Step 2: <em>swap in a number just a bit larger</em>', vis:
+  gloss(0,[['swap','Exchange the numbers at two positions'],['j','The index of the position swapped with i']])
+  + duo(NP_strip([[0,A0,NP_m({suf:true,i:3}),''],[1,A0,NP_m({suf:true,i:3}),''],
+      [2,A0,NP_m({suf:true,i:3}),'the new number must be <b>&gt; 4</b>'],
+      [3,A0,NP_m({suf:true,i:3}),'larger than 4: 7 6 5 → smallest is 5'],
+      [4,A0,NP_m({suf:true,i:3,j:6}),'from right: 1 no, 3 no, <i>5</i> yes'],
+      [5,A1,NP_m({suf:true,i:3,j:6}),'swap → 4 becomes <b>5</b>']]),
+    q(1,'What should 4 be swapped with? Why is the first number larger than 4 from the right enough?')
+    + cards([[2,'To grow: the new number must be > 4','It can only come from the suffix; the prefix stays','sky'],
+             [3,'To grow the least: the smallest number > 4','The suffix has 7, 6, 5 above 4: pick 5','amber'],
+             [4,'Decreasing suffix → first > 4 from the right is it','1 no, 3 no, 5 yes: j = 6','mint']])),
+  say:[
+  'A swap exchanges the numbers at two positions. j is the index of the position swapped with i.',
+  'The question for this scene: what should 4 be swapped with? And why is the first number larger than 4, scanning from the right, enough?',
+  'For the whole thing to grow, position i needs a number larger than 4. The prefix cannot change, so it has to come from the suffix.',
+  'To grow by the least, pick the smallest of the numbers larger than 4. In the suffix, the ones above 4 are 7, 6 and 5, and the smallest is 5.',
+  'The suffix is decreasing, so it gets smaller toward the right. Scanning from the right, the first number larger than 4 is exactly the smallest such number. 1 no, 3 no, 5 yes, so j equals 6.',
+  'Swap 4 and 5, and the array becomes 1, 5, 8, 5, 7, 6, 4, 3, 1. Position i went from 4 to 5, only a little bigger.'
+]});
+
+/* ===== 6 Step 3: reverse the suffix ===== */
+add({ch:6, title:'Step 3: <em>reverse the suffix into its smallest order</em>', vis:
+  gloss(0,[['reverse','Flip a run around: swap the ends in pairs'],['ascending','Growing from left to right: the smallest order of a run']])
+  + duo(NP_strip([[0,A1,NP_m({i:3}),''],[1,A1,NP_m({i:3}),''],
+      [2,A1,NP_m({i:3}),'this position 4 → <b>5</b>, already bigger'],
+      [3,A1,NP_m({suf:true,i:3}),'suffix 7 6 4 3 1: still decreasing'],
+      [4,A2,NP_m({suf:'ok',i:3}),'reverse → <em>1 3 4 6 7</em>']]),
+    q(1,'After the swap, how should the suffix 7 6 4 3 1 be ordered? Why is reversing enough?')
+    + cards([[2,'Position i already grew','Any order of the suffix is larger than before: make the suffix smallest','sky'],
+             [3,'After the swap, the suffix is still decreasing','4 takes the spot of 5: 6 on its left is larger, 3 on its right is not','amber'],
+             [4,'Decreasing → reversed is ascending','1 3 4 6 7: O(n), no O(n log n) sort needed','mint']])),
+  say:[
+  'Reversing flips a run around by swapping the ends in pairs. Ascending means growing from left to right, which is the smallest order of a run.',
+  'The question for this scene: after the swap, how should the suffix 7, 6, 4, 3, 1 be ordered? And why is reversing enough?',
+  'Position i has already gone from 4 to 5, so whatever order the suffix takes, the whole thing is larger than before. To be the very next one, the suffix should be as small as possible, which means ascending.',
+  'After the swap, the suffix is still decreasing. At the old spot of 5, the 6 on its left is larger than 4, and the 3 on its right is not, because j was the first number larger than 4 from the right. So 4 fits right in between.',
+  'A decreasing run, flipped around, is ascending. Reversing the suffix gives 1, 3, 4, 6, 7. A reverse is big O of n, faster than a sort at big O of n log n.'
+]});
+
+/* ===== 7 Walk through ===== */
+add({ch:7, title:'Walk through: <em>nine numbers</em>', vis:
+  gloss(0,[['sky edge','the decreasing suffix'],['amber / coral frame','i and j'],['green','suffix already in its smallest order']])
+  + duo(NP_strip([[0,A0,{},''],[1,A0,{},''],
+      [2,A0,NP_m({suf:true}),'suffix 7 6 5 3 1 decreasing'],
+      [3,A0,NP_m({suf:true,i:3}),'<b>i = 3</b>'],
+      [4,A0,NP_m({suf:true,i:3,j:6}),'<i>j = 6</i>'],
+      [5,A1,NP_m({suf:true,i:3,j:6}),'swap 4 and 5'],
+      [6,A2,NP_m({suf:'ok',i:3}),'<em>[1, 5, 8, 5, 1, 3, 4, 6, 7]</em>']]),
+    q(1,'What is the next permutation of [1, 5, 8, 4, 7, 6, 5, 3, 1]?')
+    + term('each step',[
+      [2,'o','right to left: 1 3 5 6 7  growing'],
+      [3,'hl','4 < 7         → i = 3'],
+      [4,'o','find > 4: 1 no, 3 no, 5 yes → j = 6'],
+      [5,'o','swap:    1 5 8 5 | 7 6 4 3 1'],
+      [6,'hl','reverse: 1 5 8 5 | 1 3 4 6 7']])),
+  say:[
+  'The sky blue edge marks the decreasing suffix, the amber frame is i, the coral frame is j, and green is a suffix already in its smallest order.',
+  'The question for this scene: what is the next permutation of 1, 5, 8, 4, 7, 6, 5, 3, 1? We chain the three steps together.',
+  'Step one, scan from right to left: 3 is at least 1, 5 is at least 3, 6 is at least 5, 7 is at least 6. The suffix 7, 6, 5, 3, 1 keeps decreasing.',
+  'At index 3, the 4 is less than the 7 after it. Stop, i equals 3.',
+  'Step two, from the right end find the first number larger than 4: the 1 at index 8 no, the 3 at index 7 no, the 5 at index 6 yes. j equals 6.',
+  'Swap 4 and 5 to get 1, 5, 8, 5, 7, 6, 4, 3, 1. The suffix 7, 6, 4, 3, 1 is still decreasing.',
+  'Step three, reverse the suffix after index 3, giving 1, 5, 8, 5, 1, 3, 4, 6, 7. That is the answer, without listing any other permutation.'
+]});
+
+/* ===== 8 Verify ===== */
+add({ch:8, title:'Verify: <em>small cases and brute force</em>', vis:
+  gloss(0,[['itertools.permutations','Built into Python: generates every permutation in lexicographic order'],['brute force','List every permutation and read off the next one']])
+  + q(1,'Are the three steps right? Work small cases by hand, then compare one by one against brute force.')
+  + tbl(['input','i','j','output'],[[2,'[1, 2, 3]','1','2','[1, 3, 2]'],[3,'[3, 2, 1]','−1 (none)','—','[1, 2, 3]'],[4,'[1, 1, 5]','1','2','[1, 5, 1]']])
+  + cards([[5,'Compare against itertools','All 24 of 1 2 3 4 and all 12 of 1 1 2 3: every next matches, and the last wraps to the first','mint']]),
+  say:[
+  'itertools dot permutations is built into Python and generates every permutation in lexicographic order. Brute force means listing every permutation and reading off the next one.',
+  'The question for this scene: are the three steps right? Work small cases by hand, then compare one by one against brute force.',
+  '1, 2, 3: the 2 at index 1 is less than 3, so i equals 1. The first number larger than 2 from the right is 3, so j equals 2. Swap to get 1, 3, 2; the suffix has one number, so reversing changes nothing.',
+  '3, 2, 1: decreasing all the way, no i, so i equals minus 1. Reverse the whole array to get 1, 2, 3, wrapping around to the first.',
+  '1, 1, 5: the 1 at index 1 is less than 5, so i equals 1 and j equals 2. Swap to get 1, 5, 1. Repeated numbers are no problem.',
+  'Finally, itertools generates the twenty-four permutations of 1, 2, 3, 4 and the twelve of 1, 1, 2, 3. Running the three steps on each one gives exactly the next row of the list, and the last wraps to the first.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>three steps, three blocks</em>', vis:
+  gloss(0,[['i = −1','Scanned from the right to the left end without finding a position to change'],['l, r','Left and right pointers used for the reverse']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def nextPermutation(self, nums: List[int]) -> None:'],
+    [2,'o','        i = len(nums) - 2'],
+    [2,'hl','        while i >= 0 and nums[i] >= nums[i + 1]:  # suffix still decreasing'],
+    [2,'o','            i -= 1'],
+    [3,'o','        if i >= 0:                                # found the position to change'],
+    [3,'o','            j = len(nums) - 1'],
+    [3,'hl','            while nums[j] <= nums[i]:             # first larger one from the right'],
+    [3,'o','                j -= 1'],
+    [3,'o','            nums[i], nums[j] = nums[j], nums[i]'],
+    [4,'hl','        l, r = i + 1, len(nums) - 1               # i = -1 reverses everything'],
+    [4,'o','        while l < r:'],
+    [4,'o','            nums[l], nums[r] = nums[r], nums[l]'],
+    [4,'o','            l += 1'],
+    [4,'o','            r -= 1']])
+  + q(1,'Which step does each of the three blocks implement?'),
+  say:[
+  'i equals minus 1 means we scanned from the right to the left end without finding a position to change. l and r are the left and right pointers used for the reverse.',
+  'The question for this scene: which step does each of the three blocks implement?',
+  'Block one finds i. Start at the second to last position; as long as nums of i is at least the next one, the suffix is still decreasing, so keep moving left. Where it stops is the first drop.',
+  'Block two swaps with j. If i was found, j starts at the right end and moves left while nums of j is at most nums of i. Where it stops, nums of j is the first larger number, so swap.',
+  'Block three reverses. l starts at i plus 1, r starts at the end, swap in pairs and move toward the middle. When i is minus 1, l starts at zero and reverses the whole array, so one piece of code handles both cases.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three traps</em>', vis:
+  gloss(0,[['O(n)','Each pointer walks the array at most once'],['O(1)','Only a few variables, no new array']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(1)','i, j, l, r each walk at most once; changed in place','sky'],
+           [3,'Finding i needs >=','With >: [5, 1, 1] gives [1, 5, 1], but it should be [1, 1, 5]','coral'],
+           [4,'Finding j needs <=','With <: [1, 5, 1] gives [1, 1, 5], but it should be [5, 1, 1]','coral'],
+           [5,'Reverse even when there is no i','Put the reverse outside the if: 3 2 1 → 1 2 3','coral']]),
+  say:[
+  'Big O of n means each pointer walks the array at most once. Big O of 1 means only a few variables, no new array.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Finding i, finding j and reversing each walk at most once, so time is big O of n. Everything is swapped in place, so space is big O of 1.',
+  'Trap one: writing greater than when finding i, so equal numbers no longer count as decreasing. 5, 1, 1 is the last permutation and should wrap to 1, 1, 5, but you get 1, 5, 1.',
+  'Trap two: writing less than when finding j, which can swap in a number equal to nums of i, so nothing grows. 1, 5, 1 gives 1, 1, 5, but the right answer is 5, 1, 1.',
+  'Trap three: the reverse must sit outside the if. When i is minus 1, the whole array still has to be reversed, so that 3, 2, 1 becomes 1, 2, 3.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud, and write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why reverse after the swap instead of sorting?"')
+  + flow([[2,'Find i','first drop from the right'],[2,'Find j','first > nums[i] from the right'],[2,'Swap','i grows a little'],[3,'Reverse','suffix becomes smallest'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['next permutation','lexicographic order','non-increasing suffix','pivot','swap','reverse','in place']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why reverse after the swap instead of sorting?',
+  'First the approach: from the right, find the first position i that is smaller than the one after it. The suffix to its right is decreasing, already the largest, so i must change. Then from the right find the first number larger than nums of i and swap, so position i grows only a little.',
+  'Then why reverse: after the swap the suffix is still decreasing, and a decreasing run flipped around is ascending, its smallest order. So a reverse is enough, big O of n, no sort needed.',
+  'Time is big O of n, space is big O of 1. The English keywords are lexicographic order and non-increasing suffix, and you can call i the pivot.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Find i','first drop from the right'],[0,'Swap j','first larger one from the right'],[0,'Reverse','suffix becomes ascending'],[0,'No i','reverse everything']])
+  + cards([[1,'① From the right, find the first nums[i] < nums[i+1]','Its right side is decreasing and already largest, so i must change','amber'],
+           [2,'② From the right, find the first one larger than nums[i], and swap','The suffix is decreasing, so the first larger one is the smallest larger value','sky'],
+           [3,'③ Reverse the suffix after i','It is still decreasing, so flipped it is smallest; with no i, reverse the whole array','mint']]),
+  say:[
+  'One more pass through the main line: from the right find the first drop i; from the right find the first number larger than it and swap; reverse the suffix into ascending order; with no i, reverse the whole array.',
+  'Number one: scanning from right to left, find the first position where nums of i is less than nums of i plus 1. Its right side is decreasing and already the largest, so i must change.',
+  'Number two: from the right, find the first number larger than nums of i and swap. The suffix is decreasing, so the first larger one from the right is the smallest of the larger numbers.',
+  'Number three: reverse the suffix after i. It is still decreasing, so flipped around it is the smallest order. With no i, reverse the whole array and wrap around to the first permutation.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/8e72154ff9ff.mp3", "0-1": "a/22c68383dbfa.mp3", "0-2": "a/b98129094cac.mp3", "0-3": "a/01ff95728bd4.mp3", "1-0": "a/94f800cdecb0.mp3", "1-1": "a/6d13238a093d.mp3", "1-2": "a/2803b60c7b0d.mp3", "1-3": "a/6f1b50eec885.mp3", "1-4": "a/39e422cceee5.mp3", "2-0": "a/2623204be835.mp3", "2-1": "a/f166b6102b5e.mp3", "2-2": "a/f6144e829f94.mp3", "2-3": "a/161c2328f4cd.mp3", "2-4": "a/da5dcfcd4b8e.mp3", "2-5": "a/6dac19c3e69f.mp3", "3-0": "a/67ff5e55a55e.mp3", "3-1": "a/38448fe27fbd.mp3", "3-2": "a/7229965386a3.mp3", "3-3": "a/d4981e34d35a.mp3", "3-4": "a/bfd1a31bb966.mp3", "3-5": "a/175ea799e215.mp3", "4-0": "a/5cca3c106a4c.mp3", "4-1": "a/5a6bbb22fde2.mp3", "4-2": "a/7eb30253dbf3.mp3", "4-3": "a/0e917647e742.mp3", "4-4": "a/e6232372dbff.mp3", "5-0": "a/538de7e38894.mp3", "5-1": "a/36f4bfe8c41d.mp3", "5-2": "a/eb61febf67a3.mp3", "5-3": "a/444dd0c5daa5.mp3", "5-4": "a/fbe12d0c41a8.mp3", "5-5": "a/94abd1f6dd13.mp3", "6-0": "a/ece061510749.mp3", "6-1": "a/9116713dcee2.mp3", "6-2": "a/891788597c7f.mp3", "6-3": "a/b1f955b9f455.mp3", "6-4": "a/e2d0ad812969.mp3", "7-0": "a/2a3ca792fbf5.mp3", "7-1": "a/0b37de020d89.mp3", "7-2": "a/1cb53adfcaa6.mp3", "7-3": "a/70a7beccfa51.mp3", "7-4": "a/662a23eb1327.mp3", "7-5": "a/2a9d2c05370e.mp3", "7-6": "a/55534446fcfa.mp3", "8-0": "a/3e9fb9c53eec.mp3", "8-1": "a/0d6172170e5c.mp3", "8-2": "a/9b7b01dcabc8.mp3", "8-3": "a/35ee1fca7b6e.mp3", "8-4": "a/baeb42fe2c1e.mp3", "8-5": "a/912fea3a2a49.mp3", "9-0": "a/5e02074b1f33.mp3", "9-1": "a/589e6d631e8f.mp3", "9-2": "a/85ddb33bccc2.mp3", "9-3": "a/8f535427e9ad.mp3", "9-4": "a/38609607616b.mp3", "10-0": "a/6dffb1f12547.mp3", "10-1": "a/7c35137176fb.mp3", "10-2": "a/8f6e57749c45.mp3", "10-3": "a/33716973f57e.mp3", "10-4": "a/744c19cca622.mp3", "10-5": "a/075e8f25c76d.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/32c27e839441.mp3", "11-2": "a/87bb91938cc2.mp3", "11-3": "a/fec26e79debf.mp3", "11-4": "a/ad15953ac2e7.mp3", "12-0": "a/69baa776d9df.mp3", "12-1": "a/f4a3dfb3d46a.mp3", "12-2": "a/365fa6a15893.mp3", "12-3": "a/bb3acf7e4c95.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

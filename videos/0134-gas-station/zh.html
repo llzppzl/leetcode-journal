@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>绕圈加油</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'绕圈加油', template:'prep', sub:'LeetCode 134 Gas Station · 算法动画', key:'lc134vid', doc:'LeetCode 134 题', blurb:'从"每个起点都开一圈试试"讲起：先用总油量判断有没有答案，再看油箱一变负，为什么中间那些起点全都不用再试，一次扫描就找到起点。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：一圈加油站','读题：加油和耗油','直觉：每个起点都试','洞察一：总量够不够','油箱变负的那一刻','为什么"只会更少"','走一遍：[1, 2, 3, 4, 5]','再验证：答案是 4','凭什么能绕回来','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- labels (the -en file swaps these) ---------- */
+const TK_L = {st:'站', start:'起点', ring:'加油站环'};
+
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tk{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.tk .s:not(.on){opacity:0}
+.tk .only.s{opacity:0!important} .tk .only.s.now{opacity:1!important}
+.tk text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.tk text.lab{font-family:var(--f-body);font-size:13px;fill:var(--dim)}
+.tk text.g{font-family:var(--f-mono);font-size:15px;fill:var(--mint)}
+.tk text.c{font-family:var(--f-mono);font-size:15px;fill:var(--coral)}
+.tk text.v{font-family:var(--f-mono);font-size:13px}
+.tk text.flag{font-family:var(--f-body);font-size:13px;fill:var(--amber)}
+.tk text.x{font-size:26px;fill:var(--coral)}
+.tk circle.nd{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.tk circle.hot{fill:none;stroke:var(--amber);stroke-width:4}
+.tk path.road{fill:none;stroke:var(--sky);stroke-width:3}
+.tk path.road.hot{stroke:var(--amber);stroke-width:5}
+.tk line.base{stroke:var(--dim);stroke-width:1.5}
+.tk rect.pos{fill:rgba(98,224,180,.75)} .tk rect.neg{fill:rgba(255,122,107,.8)}
+.tk rect.col{fill:rgba(255,190,90,.12);stroke:var(--amber);stroke-width:2}
+.tk rect.col.fin{fill:rgba(98,224,180,.15);stroke:var(--mint)}
+.tk rect.skip{fill:rgba(255,122,107,.16)}
+.tkq{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.tkq .s{position:absolute;left:0;right:0}
+.tkq .only.s{opacity:0!important} .tkq .only.s.now{opacity:1!important}
+.tkq b{color:var(--amber)} .tkq em{font-style:normal;color:var(--mint)}
+</style>`;
+
+/* the circle of stations: + gas next to each station, − cost on the road to the next one; hot: [[step, k]] lights station k and road k → k+1 */
+function TK_ring(gas, cost, hot=[]){
+  const n = gas.length, cx = 170, cy = 130, R = 76, r = 18, D = Math.PI/180;
+  const ang = k => (-90 + k*360/n)*D, pt = (a, rr) => [cx + rr*Math.cos(a), cy + rr*Math.sin(a)];
+  const road = (k, cls) => { const a1 = ang(k) + (r+3)/R, a2 = ang(k+1) - (r+9)/R, [x1,y1] = pt(a1,R), [x2,y2] = pt(a2,R);
+    return `<path class="road ${cls}" marker-end="url(#tkah${cls?'h':''})" d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}"/>`; };
+  let s = TCSS + `<svg class="tk" viewBox="0 0 340 245" role="img" aria-label="${TK_L.ring}"><defs>
+    <marker id="tkah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sky)"/></marker>
+    <marker id="tkahh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--amber)"/></marker></defs>`;
+  for(let k=0;k<n;k++) s += road(k,'');
+  hot.forEach(([st,k]) => s += `<g class="only s" data-s="${st}">${road(k,'hot')}</g>`);
+  for(let k=0;k<n;k++){
+    const [x,y] = pt(ang(k),R), [gx,gy] = pt(ang(k),R+36), [mx,my] = pt(ang(k)+180/n*D,R-26);
+    s += `<circle class="nd" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/><text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${k}</text>`;
+    s += `<text class="g" x="${gx.toFixed(1)}" y="${gy.toFixed(1)}">+${gas[k]}</text><text class="c" x="${mx.toFixed(1)}" y="${my.toFixed(1)}">−${cost[k]}</text>`;
+  }
+  hot.forEach(([st,k]) => { const [x,y] = pt(ang(k),R); s += `<circle class="hot only s" data-s="${st}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r+6}"/>`; });
+  return s + `</svg>`;
+}
+
+/* tank bars: one column per station; bar = tank after leaving station i (green up, red down).
+   steps: [{s, i, v, st, t, fin}]  i = station just driven (null = none), v = tank after it, st = start after this step */
+function TK_bars(gas, cost, steps){
+  const n = gas.length, W = 60, x0 = (340 - n*W)/2, u = 8;
+  const vs = steps.filter(e=>e.i!=null).map(e=>e.v), mp = Math.max(1,...vs), mn = Math.max(0,...vs.map(v=>-v));
+  const top = 100, base = top + mp*u + 4, h = base + mn*u + 24, cx = k => x0 + k*W + W/2;
+  let s = TCSS + `<svg class="tk" viewBox="0 0 340 ${h}" role="img" aria-label="tank">`;
+  for(let k=0;k<n;k++) s += `<text class="lab" x="${cx(k)}" y="16">${TK_L.st} ${k}</text><text class="g" x="${cx(k)}" y="40">+${gas[k]}</text><text class="c" x="${cx(k)}" y="62">−${cost[k]}</text>`;
+  s += `<line class="base" x1="${x0}" y1="${base}" x2="${x0+n*W}" y2="${base}"/>`;
+  let prev = 0;
+  steps.forEach(e => {
+    if(e.i!=null) s += `<rect class="col only s" data-s="${e.s}" x="${x0+e.i*W+3}" y="2" width="${W-6}" height="${h-4}" rx="8"/>`;
+    if(e.fin) s += `<rect class="col fin only s" data-s="${e.s}" x="${x0+e.st*W+3}" y="2" width="${W-6}" height="${h-4}" rx="8"/>`;
+    if(e.i!=null){ const v = e.v, x = cx(e.i) - 15;
+      s += `<g class="s" data-s="${e.s}">` + (v>=0
+        ? `<rect class="pos" x="${x}" y="${base - v*u}" width="30" height="${Math.max(v*u,2)}" rx="3"/><text class="v" style="fill:var(--mint)" x="${cx(e.i)}" y="${base - v*u - 10}">${v}</text>`
+        : `<rect class="neg" x="${x}" y="${base}" width="30" height="${-v*u}" rx="3"/><text class="v" style="fill:var(--coral)" x="${cx(e.i)}" y="${base - v*u + 11}">${v}</text>`) + `</g>`; }
+    for(let k=prev;k<e.st;k++) s += `<g class="s" data-s="${e.s}"><rect class="skip" x="${x0+k*W+6}" y="4" width="${W-12}" height="70" rx="6"/><text class="x" x="${cx(k)}" y="${base - mp*u - 14}">✗</text></g>`;
+    prev = Math.max(prev, e.st);
+    s += `<text class="flag only s" data-s="${e.s}" x="${cx(e.st)}" y="84">▲ ${TK_L.start}</text>`;
+  });
+  s += `</svg><div class="tkq">${steps.map(e=>`<span class="only s" data-s="${e.s}">${e.t}</span>`).join('')}</div>`;
+  return s;
+}
+
+const A = [[1,2,3,4,5],[3,4,5,1,2]];
+const B = [[5,1,2,3,4],[4,4,1,5,1]];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'绕圈加油<br><em>LeetCode 134</em>', vis:
+  gloss(0,[['环形路线','加油站排成一圈，开过最后一站就回到第一站'],['gas[i]','到站 i 能加多少油'],['cost[i]','从站 i 开到下一站要烧多少油'],['油箱 tank','车上现在还剩多少油，不能变成负数']])
+  + flow([[1,'读题','从哪站出发能绕一圈'],[1,'直觉','每个起点都试：O(n²)'],[2,'洞察一','总油量 < 总耗油 → -1'],[2,'洞察二','油箱变负 → 起点跳到 i + 1'],[3,'走一遍','看油箱柱子'],[3,'代码','一次扫描 O(n)']]),
+  say:[
+  '这节课讲力扣 134 题，加油站。先认四个词：环形路线，是加油站排成一圈，开过最后一站就回到第一站。gas i 是到站 i 能加多少油，cost i 是从站 i 开到下一站要烧多少油。油箱，是车上现在剩多少油，不能变成负数。',
+  '我们先从最自然的做法讲起：每个起点都真的开一圈试试。这个能做对，但慢，要 O n 平方。',
+  '然后是两个洞察：第一，总油量比总耗油少，谁都回不来；第二，油箱一变负，中间那些起点全都不用再试，直接跳过去。',
+  '最后在例子上一站一站看油箱的柱子怎么涨、怎么掉，再写出只扫一遍的代码。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>加油和耗油</em>', vis:
+  gloss(0,[['+ 绿色','这一站能加的油 gas[i]'],['− 红色','开到下一站的路上要烧的油 cost[i]']])
+  + duo(TK_ring(A[0],A[1],[[2,3],[3,4]]),
+    q(1,'gas = [1, 2, 3, 4, 5]，cost = [3, 4, 5, 1, 2]：从哪一站出发，能绕一圈回到出发点？')
+    + cards([[2,'站 3：加 4，烧 1','开到站 4 时，油箱剩 3','sky'],
+             [3,'站 4 的下一站是站 0','这就是"环"：开过最后一站，回到开头','amber'],
+             [4,'油箱从空开始，途中不能是负数','能绕回来，返回起点下标；不行返回 -1','mint']])),
+  say:[
+  '图上绿色的加号，是这一站能加的油，就是 gas i。红色的减号写在路上，是开到下一站要烧的油，就是 cost i。',
+  '这一幕要回答的是：gas 是 1、2、3、4、5，cost 是 3、4、5、1、2，从哪一站出发，能绕一圈回到出发点？',
+  '先看一段路：从站 3 出发，油箱是空的，加 4 升油，开到站 4 烧掉 1 升，到站 4 时还剩 3 升。',
+  '站 4 往前开，下一站不是站 5，而是回到站 0。这就是环形：开过最后一站，回到开头。',
+  '规则是：油箱从空开始，每到一站先加油再开，路上油不能变成负数，正好用完是可以的。能绕回来，返回起点下标；不行，返回负一。'
+]});
+
+/* ===== 2 直觉 ===== */
+add({ch:2, title:'直觉：<em>每个起点都试一圈</em>', vis:
+  gloss(0,[['模拟','照着规则，一站一站真的开一遍'],['O(n²)','n 个起点，每个最多开 n 段路']])
+  + q(1,'最自然的做法：每个起点都开一圈试试。它卡在哪？')
+  + term('每个起点开一圈（每段开完时的油箱）',[
+    [2,'e','起点 0：−2  ✗'],
+    [2,'e','起点 1：−2  ✗      起点 2：−2  ✗'],
+    [3,'hl','起点 3：3, 6, 4, 2, 0  ✓  → 答案 3']])
+  + cards([[4,'这个例子运气好','失败的起点，第一段就没油了','sky'],
+           [5,'最坏：每个起点都开到快一圈才失败','n 个起点 × n 段，n 到 10⁵ 时大约 10¹⁰ 步：超时','coral']]),
+  say:[
+  '模拟，就是照着规则一站一站真的开一遍。O n 平方的意思是：n 个起点，每个最多开 n 段路。',
+  '这一幕要回答的是：最自然的做法，每个起点都开一圈试试，它卡在哪？',
+  '从站 0 出发：加 1 升，要烧 3 升，开到一半就变成负二，失败。站 1、站 2 也一样，第一段就是负二。',
+  '从站 3 出发：油箱依次是 3、6、4、2、0，最后正好用完回到站 3，成功，答案是 3。',
+  '这个例子运气好，失败的起点在第一段就没油了，试得很快。',
+  '最坏的情况，每个起点都要开到快一圈才失败，就是 n 乘 n 步。n 到十万时，大约一百亿步，超时。我们要的是：一次失败，能不能一下排除一大批起点？'
+]});
+
+/* ===== 3 洞察一 ===== */
+add({ch:3, title:'洞察一：<em>总量够不够</em>', vis:
+  gloss(0,[['总油量','sum(gas)：一圈下来一共能加的油'],['总耗油','sum(cost)：一圈下来一共要烧的油']])
+  + q(1,'有没有一种情况，一个起点都不用试，就知道答案是 -1？')
+  + cards([[2,'绕一圈：每站都加一次，每段都开一次','不管从哪出发，加的总是 sum(gas)，烧的总是 sum(cost)','sky'],
+           [3,'sum(gas) < sum(cost) → -1','[2, 3, 4] 共 9，[3, 4, 3] 共 10：少 1 升，谁都回不来','coral'],
+           [4,'够的话，答案恰好一个','题目保证唯一。剩下的事：把它找出来','mint']]),
+  say:[
+  '总油量就是 sum gas，一圈下来一共能加的油。总耗油就是 sum cost，一圈下来一共要烧的油。',
+  '这一幕要回答的是：有没有一种情况，一个起点都不用试，就知道答案是负一？',
+  '有。不管从哪一站出发，绕完一圈，每一站都正好加一次油，每一段路都正好开一次。所以加的总是总油量，烧的总是总耗油，跟起点无关。',
+  '如果总油量小于总耗油，绕完一圈油箱一定是负的，谁都回不来，直接返回负一。比如 gas 是 2、3、4，一共 9；cost 是 3、4、3，一共 10，少了 1 升。',
+  '反过来，总量够的话，题目保证正好有一个起点能成功。剩下的事，就是把它找出来，而且只想扫一遍。'
+]});
+
+/* ===== 4 油箱变负的那一刻 ===== */
+add({ch:4, title:'油箱<em>变负的那一刻</em>', vis:
+  gloss(0,[['净油','gas[i] − cost[i]：在站 i 加完油、开到下一站，油箱净多了多少'],['柱子','每段开完时油箱的油：绿色向上，红色向下']])
+  + duo(TK_bars(B[0],B[1],[
+      {s:2,i:0,v:1,st:0,t:'站 0：0 + 5 − 4 = <em>1</em>'},
+      {s:3,i:1,v:-2,st:0,t:'站 1：1 + 1 − 4 = <b>−2</b>  没油了'},
+      {s:4,i:null,st:1,t:'改从站 1 出发：0 + 1 − 4 = <b>−3</b>'}]),
+    q(1,'gas = [5, 1, 2, 3, 4]，cost = [4, 4, 1, 5, 1]。从站 0 出发，在站 1 后没油了。下一个该试站 1 吗？')
+    + cards([[4,'站 1 当起点：−3，比 −2 还少','白试。站 1 和站 0 一起排除','coral']])),
+  say:[
+  '净油是 gas i 减 cost i，在站 i 加完油、开到下一站，油箱净多了多少。柱子是每段开完时油箱的油，绿色向上，红色向下。',
+  '这一幕要回答的是：换一个例子，gas 是 5、1、2、3、4，cost 是 4、4、1、5、1。从站 0 出发，在站 1 之后没油了，下一个该试站 1 吗？',
+  '从站 0 出发：加 5 烧 4，到站 1 时油箱有 1 升，绿色柱子。',
+  '在站 1：1 升加 1 升是 2 升，要烧 4 升，变成负二，红色柱子，失败。',
+  '如果改从站 1 出发呢？到站 1 时油箱是空的，比刚才少了站 0 攒下的那 1 升。0 加 1 减 4 是负三，比负二还少，白试。所以站 1 和站 0 一起排除，下一个直接试站 2。'
+]});
+
+/* ===== 5 为什么只会更少 ===== */
+add({ch:5, title:'为什么<em>"只会更少"</em>', vis:
+  gloss(0,[['中间站 k','起点 start 和出事的站 i 之间的那些站'],['跳到 i + 1','下一个候选起点；油箱清零重新算']])
+  + q(1,'从 start 开到站 i 才变负。为什么 start 到 i 之间的站，一个都不用再试？')
+  + cards([[2,'能开到中间站 k，说明到 k 时油箱 ≥ 0','要是负了，早在 k 之前就失败、早就跳走了','sky'],
+           [3,'从 k 出发 = 到 k 时油箱是 0','等于把那段 ≥ 0 的存油扔掉','amber'],
+           [4,'后面的路一模一样，只是起步油更少','到站 i 时只会更少：还是负的','coral'],
+           [5,'所以：start = i + 1，tank = 0','start 到 i 全部排除，一站都不回头','mint']]),
+  say:[
+  '中间站 k，就是起点 start 和出事的站 i 之间的那些站。跳到 i 加一，是把下一个候选起点设成 i 加一，油箱清零重新算。',
+  '这一幕要回答的是：从 start 开到站 i 才变负，为什么 start 到 i 之间的站，一个都不用再试？',
+  '先看一个事实：我们能开到中间站 k，说明到 k 的时候油箱大于等于零。要是负了，早在 k 之前就失败、早就跳走了，根本到不了 k。',
+  '那从 k 出发会怎样？从 k 出发，就是到 k 时油箱是零。等于把从 start 到 k 攒下的那些大于等于零的油，全扔掉了。',
+  '从 k 到 i，后面的路一模一样，加的油、烧的油都不变，只是起步的油更少或者一样。原来到 i 就是负的，现在只会更少，还是负的。',
+  '所以 start 到 i 里的每一站都不行，直接让 start 等于 i 加一，油箱清零。这就是整个技巧：一次失败，排除一整段起点，扫描永远不回头。'
+]});
+
+/* ===== 6 走一遍 ===== */
+add({ch:6, title:'走一遍：<em>[1, 2, 3, 4, 5]</em>', vis:
+  gloss(0,[['▲ 起点','当前的候选起点 start'],['红叉','已经被排除的起点']])
+  + duo(TK_bars(A[0],A[1],[
+      {s:2,i:null,st:0,t:'start = 0，tank = 0'},
+      {s:3,i:0,v:-2,st:1,t:'站 0：0 + 1 − 3 = <b>−2</b> → start = 1，清零'},
+      {s:4,i:1,v:-2,st:2,t:'站 1：0 + 2 − 4 = <b>−2</b> → start = 2，清零'},
+      {s:5,i:2,v:-2,st:3,t:'站 2：0 + 3 − 5 = <b>−2</b> → start = 3，清零'},
+      {s:6,i:3,v:3,st:3,t:'站 3：0 + 4 − 1 = <em>3</em>'},
+      {s:7,i:4,v:6,st:3,t:'站 4：3 + 5 − 2 = <em>6</em>  扫完'},
+      {s:8,i:null,st:3,fin:true,t:'总量 15 = 15 → 返回 <em>3</em>'}]),
+    q(1,'gas = [1, 2, 3, 4, 5]，cost = [3, 4, 5, 1, 2]：只扫一遍，起点最后停在哪？')),
+  say:[
+  '橙色的三角是当前的候选起点 start，红叉是已经被排除的起点。',
+  '这一幕要回答的是：gas 是 1、2、3、4、5，cost 是 3、4、5、1、2，只扫一遍，起点最后停在哪？',
+  '一开始，start 是零，油箱是零。',
+  '站 0：0 加 1 减 3，等于负二，变负了。站 0 排除，start 跳到 1，油箱清零。',
+  '站 1：0 加 2 减 4，又是负二。站 1 排除，start 跳到 2，清零。',
+  '站 2：0 加 3 减 5，还是负二。站 2 排除，start 跳到 3，清零。',
+  '站 3：0 加 4 减 1，等于 3，绿色柱子，没变负，start 不动。',
+  '站 4：3 加 5 减 2，等于 6，扫到最后一站了，油箱一直没再变负。',
+  '前面算过，总油量 15 等于总耗油 15，有答案。返回 start，也就是 3，跟暴力模拟的结果一样，但每一站只看了一次。'
+]});
+
+/* ===== 7 再验证 ===== */
+add({ch:7, title:'再验证：<em>答案是 4</em>', vis:
+  gloss(0,[['清零','跳到新起点时，油箱从 0 重新算']])
+  + duo(TK_bars(B[0],B[1],[
+      {s:2,i:null,st:0,t:'start = 0，tank = 0'},
+      {s:3,i:0,v:1,st:0,t:'站 0：0 + 5 − 4 = <em>1</em>'},
+      {s:4,i:1,v:-2,st:2,t:'站 1：1 + 1 − 4 = <b>−2</b> → start = 2，清零'},
+      {s:5,i:2,v:1,st:2,t:'站 2：0 + 2 − 1 = <em>1</em>'},
+      {s:6,i:3,v:-1,st:4,t:'站 3：1 + 3 − 5 = <b>−1</b> → start = 4，清零'},
+      {s:7,i:4,v:3,st:4,t:'站 4：0 + 4 − 1 = <em>3</em>  扫完'},
+      {s:8,i:null,st:4,fin:true,t:'总量 15 = 15 → 返回 <em>4</em>'}]),
+    q(1,'gas = [5, 1, 2, 3, 4]，cost = [4, 4, 1, 5, 1]：这次起点跳了几次？')),
+  say:[
+  '清零的意思是，跳到新起点时，油箱从零重新算。',
+  '这一幕要回答的是：回到刚才那个例子，gas 是 5、1、2、3、4，cost 是 4、4、1、5、1，这次起点跳了几次？',
+  '开始，start 是零，油箱是零。',
+  '站 0：0 加 5 减 4，等于 1，没问题。',
+  '站 1：1 加 1 减 4，等于负二。站 0 和站 1 一起排除，start 跳到 2，清零。这就是上一幕说的一次排除一整段。',
+  '站 2：0 加 2 减 1，等于 1。',
+  '站 3：1 加 3 减 5，等于负一。站 2、站 3 排除，start 跳到 4，清零。',
+  '站 4：0 加 4 减 1，等于 3，扫完。',
+  '总油量 15 等于总耗油 15，返回 4。起点一共跳了两次，暴力一个个试，也是只有从站 4 出发能成功。'
+]});
+
+/* ===== 8 凭什么能绕回来 ===== */
+add({ch:8, title:'凭什么<em>能绕回来</em>', vis:
+  gloss(0,[['亏空','start 前面那几段，加起来亏掉的油'],['攒下','从 start 开到最后一站，油箱里剩的油']])
+  + q(1,'扫描只开到最后一站，没真的绕回开头。凭什么说 start 一定能绕完一圈？')
+  + cards([[2,'start 前面：每一段都以负数结束','[5, 1, 2, 3, 4]：先 −2，再 −1，一共亏 3','coral'],
+           [3,'start 到结尾：攒下 3','带着 3 升绕回站 0','sky'],
+           [4,'总量 ≥ 0 ⟺ 攒下的 ≥ 亏空','3 ≥ 3：补得上，所以能绕完','mint'],
+           [5,'[2, 3, 4] / [3, 4, 3]：前面亏 2，后面只攒 1','补不上；总量 9 < 10，返回 −1','amber']]),
+  say:[
+  '亏空，是 start 前面那几段加起来亏掉的油。攒下，是从 start 开到最后一站，油箱里剩的油。',
+  '这一幕要回答的是：扫描只开到最后一站，没有真的绕回开头，凭什么说 start 一定能绕完一圈？',
+  '看 start 前面：每一段都是开着开着变成负数才结束的。刚才的例子，第一段到负二，第二段到负一，一共亏了 3 升。而且每一段在中间都没变负，只在段尾亏。',
+  '再看 start 到结尾：从站 4 开到最后，攒下了 3 升，带着这 3 升绕回站 0。',
+  '总油量减总耗油，正好等于攒下的减去亏空。总量大于等于零，就说明攒下的大于等于亏空。带着够多的油再走一遍前面那几段，每一段都撑得住，所以能绕完。',
+  '反过来看 gas 2、3、4，cost 3、4、3：前面两段各亏 1，一共亏 2，后面只攒了 1，补不上。总油量 9 小于 10，返回负一，跟总量检查的结论一样。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>一个起点，一个油箱</em>', vis:
+  gloss(0,[['start','当前的候选起点'],['tank','从 start 开到现在，油箱里的油']])
+  + term('solution.py',[
+    [2,'o','def canCompleteCircuit(gas, cost):'],
+    [2,'hl','    if sum(gas) < sum(cost):          # 洞察一：总量不够'],
+    [2,'o','        return -1'],
+    [3,'o','    start = tank = 0'],
+    [4,'o','    for i in range(len(gas)):'],
+    [4,'o','        tank += gas[i] - cost[i]      # 加油，开到下一站'],
+    [4,'hl','        if tank < 0:                  # 洞察二：变负了'],
+    [4,'o','            start = i + 1             # start 到 i 全部排除'],
+    [4,'o','            tank = 0'],
+    [5,'hl','    return start']])
+  + q(1,'代码的每一段，对应前面哪一幕？'),
+  say:[
+  'start 是当前的候选起点，tank 是从 start 开到现在油箱里的油。',
+  '这一幕要回答的是：代码的每一段，对应前面哪一幕？',
+  '第一段是洞察一：总油量小于总耗油，直接返回负一。',
+  '然后 start 和 tank 都从零开始。',
+  '循环里，每到一站，油箱加上 gas i 减 cost i。一旦小于零，就是洞察二：start 到 i 全部排除，start 等于 i 加一，油箱清零。',
+  '最后返回 start。总量已经检查过，前一幕说了，这个 start 一定能绕回来。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(n)','每一站只看一次'],['O(1)','只用 start、tank 两个变量']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n)，空间 O(1)','一次扫描，加上两次求和','sky'],
+           [3,'写成 tank <= 0','油正好用完也算到了。gas = [1]，cost = [1] 会返回 1，正确是 0','coral'],
+           [4,'跳到 i，不是 i + 1','站 i 自己也排除了：油箱就是开完它那段才变负的','coral'],
+           [4,'忘了总量检查','[2, 3, 4] / [3, 4, 3] 会返回 2，正确是 −1','coral']]),
+  say:[
+  'O n 是每一站只看一次。O 一是只用 start 和 tank 两个变量。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '一次扫描加两次求和，时间 O n；只用两个变量，空间 O 一。',
+  '坑一：把小于零写成小于等于零。油正好用完也算到了。gas 是 1、cost 是 1 的时候，会错误地返回 1，正确答案是 0。',
+  '坑二：start 跳到 i，而不是 i 加一。站 i 自己也被排除了，油箱就是开完它那段才变负的。坑三：忘了总量检查，gas 2、3、4，cost 3、4、3 会返回 2，正确是负一。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："油箱变负以后，为什么不从 start + 1 重新试？"')
+  + flow([[2,'暴力','每个起点开一圈 O(n²)'],[3,'总量','sum(gas) < sum(cost) → -1'],[3,'扫描','tank < 0 → start = i + 1'],[4,'为什么','中间站起步油只会更少'],[4,'复杂度','O(n) / O(1)']])
+  + chips(4,['greedy','running sum','net gain','reset the start','prefix sum','O(n) one pass']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，油箱变负以后，为什么不从 start 加一重新试？',
+  '先讲做法：暴力是每个起点开一圈，O n 平方。我先比总油量和总耗油，不够就返回负一；够的话从左到右扫一遍，维护油箱，变负就把起点跳到 i 加一，油箱清零。',
+  '再讲为什么：能开到中间任何一站，到那里时油箱都大于等于零。从那一站出发，等于扔掉这些存油，到站 i 只会更少，还是负的。所以整段都可以跳过。',
+  '最后报复杂度：时间 O n，空间 O 一。英文关键词是 greedy 和 running sum，油箱就是一个不断累加、变负就清零的和。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'总量','不够就 -1'],[0,'扫描','tank += gas − cost'],[0,'变负','start = i + 1，清零'],[0,'返回','start']])
+  + cards([[1,'① 总油量 < 总耗油 → -1','绕一圈加的、烧的跟起点无关','amber'],
+           [2,'② tank < 0 → start = i + 1，tank = 0','中间站起步油只会更少，全部排除','sky'],
+           [3,'③ 总量够，最后的 start 一定能绕回来','后面攒下的，补得上前面的亏空','mint']]),
+  say:[
+  '回顾一遍主线：先比总量，不够就返回负一；从左往右扫，油箱加上每站的净油；一变负，起点跳到下一站，油箱清零；最后返回起点。',
+  '第一句：总油量小于总耗油，返回负一，因为绕一圈加的油、烧的油，跟从哪出发无关。',
+  '第二句：油箱小于零，start 跳到 i 加一，油箱清零。中间每一站当起点，起步的油只会更少，全部排除。',
+  '第三句：总量够的话，最后剩下的 start 一定能绕回来，因为它后面攒下的油，补得上前面所有的亏空。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/622068785c92.mp3", "0-1": "a/dbc18d7190ee.mp3", "0-2": "a/82a120b9ff90.mp3", "0-3": "a/c1889d603933.mp3", "1-0": "a/3bdd717caa55.mp3", "1-1": "a/71f7917ef9c0.mp3", "1-2": "a/87dfb7505d5d.mp3", "1-3": "a/96a43a7389cd.mp3", "1-4": "a/03e6c61a5365.mp3", "2-0": "a/b14173b7bdce.mp3", "2-1": "a/c2881eba8012.mp3", "2-2": "a/e2a8cede3a84.mp3", "2-3": "a/89ae3f54e662.mp3", "2-4": "a/f96726ccc79e.mp3", "2-5": "a/d6a9849ec35c.mp3", "3-0": "a/e74eaaf4c85e.mp3", "3-1": "a/b50609876869.mp3", "3-2": "a/4691e3bf88ad.mp3", "3-3": "a/b004233d41c5.mp3", "3-4": "a/d185b383f259.mp3", "4-0": "a/f87891f8f84a.mp3", "4-1": "a/9956c090fa06.mp3", "4-2": "a/33cc3c6abc87.mp3", "4-3": "a/effd3fc14b4a.mp3", "4-4": "a/812b076fb7c5.mp3", "5-0": "a/c73aaafecbf3.mp3", "5-1": "a/50368acef8de.mp3", "5-2": "a/91e9656326c4.mp3", "5-3": "a/945e1d504c44.mp3", "5-4": "a/adb9d2ecc72a.mp3", "5-5": "a/1d49a745e004.mp3", "6-0": "a/f7c8c102f512.mp3", "6-1": "a/fcf45c3cf6f4.mp3", "6-2": "a/32cc106df5b9.mp3", "6-3": "a/8406b545ac8d.mp3", "6-4": "a/da819b4b54c4.mp3", "6-5": "a/20357dd11c1a.mp3", "6-6": "a/9789c2c95b31.mp3", "6-7": "a/d792ee7d2780.mp3", "6-8": "a/d2d0549112db.mp3", "7-0": "a/82b7279a2c52.mp3", "7-1": "a/e5d64e499e76.mp3", "7-2": "a/cf2c6b6b0434.mp3", "7-3": "a/26e3b6f75498.mp3", "7-4": "a/38d0b9f1f800.mp3", "7-5": "a/cda50dc4cc8f.mp3", "7-6": "a/213a8e58835f.mp3", "7-7": "a/cebd721928f3.mp3", "7-8": "a/16f11f428105.mp3", "8-0": "a/45eb466d19eb.mp3", "8-1": "a/e955d7526f5a.mp3", "8-2": "a/4a940d8513f4.mp3", "8-3": "a/f13c2b8a7596.mp3", "8-4": "a/212e2e7df0b9.mp3", "8-5": "a/95cb94910e4f.mp3", "9-0": "a/74390d64773c.mp3", "9-1": "a/cc4b84856d96.mp3", "9-2": "a/13b2c5291276.mp3", "9-3": "a/50f09c73c7d1.mp3", "9-4": "a/f61ee360e7af.mp3", "9-5": "a/54eece43302a.mp3", "10-0": "a/bb93e76c4f2a.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/df0ca183bbe9.mp3", "10-3": "a/5eea1885dc73.mp3", "10-4": "a/3e2635ebfca5.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/dd40ffd9509c.mp3", "11-2": "a/400e58b72347.mp3", "11-3": "a/a737d5c1116d.mp3", "11-4": "a/9964fe48d6fc.mp3", "12-0": "a/8d4a1759e825.mp3", "12-1": "a/a277cb3e8d27.mp3", "12-2": "a/6362f75d6a0f.mp3", "12-3": "a/e3ad1933eeb1.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

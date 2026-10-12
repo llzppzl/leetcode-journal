@@ -1,0 +1,784 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Back to the Fork</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Back to the Fork', template:'prep', lang:'en', sub:'LeetCode 46 Permutations · animated walkthrough', key:'lc46envid', doc:'LeetCode 46', blurb:'The intro to backtracking: draw "who goes 1st, who goes 2nd" as a decision tree, walk to the bottom to save an answer, then step back to the fork and try the next branch; the template is just three steps: choose, explore, un-choose.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: three numbers in a row','The problem: how many orders','Instinct: nested loops','Draw the decision tree','What to remember at each step','The template: choose, explore, un-choose','Walk through: starting with 1','Walk the whole tree','Write the code','Pitfall: save path[:]','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- decision tree for [1, 2, 3]: node id = path so far ('' = root) ---------- */
+const TR_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tr{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.tr .s:not(.on){opacity:0}
+.tr .only.s{opacity:0!important} .tr .only.s.now{opacity:1!important}
+.tr line{stroke:var(--line);stroke-width:2.5}
+.tr line.hot{stroke:var(--amber);stroke-width:4.5}
+.tr circle{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.tr circle.done{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.tr circle.ring{fill:none;stroke:var(--amber);stroke-width:3.5}
+.tr text{fill:var(--paper);font-family:var(--f-display);font-size:16px;text-anchor:middle;dominant-baseline:central}
+.tr text.rt{font-family:var(--f-mono);font-size:11px;fill:var(--dim)}
+.tr text.leaf{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.tr text.leaf.ok{fill:var(--mint)}
+.trq{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:2.8em;position:relative}
+.trq .s{position:absolute;left:0;right:0}
+.trq .only.s{opacity:0!important} .trq .only.s.now{opacity:1!important}
+.trq b{color:var(--amber)} .trq em{font-style:normal;color:var(--mint)}
+</style>`;
+const TR_P = ['123','132','213','231','312','321'];
+const TR_N = {'':[170,28]};
+TR_P.forEach((p,k)=>{ const x=30+56*k; TR_N[p]=[x,208]; TR_N[p.slice(0,2)]=[x,148]; });
+['1','2','3'].forEach(a=>{ const xs=TR_P.filter(p=>p[0]===a).map(p=>TR_N[p][0]); TR_N[a]=[(xs[0]+xs[1])/2,88]; });
+const TR_line = (id, cls='', st=null) => { const [x1,y1]=TR_N[id.slice(0,-1)], [x2,y2]=TR_N[id];
+  return `<line class="${cls}"${st!=null?` data-s="${st}"`:''} x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`; };
+// o: {lv:[step per level] (omit = all shown), st:[[step, nodeId, text]], done:{leafId: step}}
+function TR_tree(o={}){
+  const R = 15, ids = Object.keys(TR_N);
+  const wrap = (d, inner) => o.lv ? `<g class="s" data-s="${o.lv[d]}">${inner}</g>` : inner;
+  let s = TR_CSS + `<svg class="tr" viewBox="0 0 340 250" role="img" aria-label="decision tree">`;
+  for(let d=1; d<=3; d++) s += wrap(d, ids.filter(i=>i.length===d).map(i=>TR_line(i)).join(''));
+  (o.st||[]).forEach(([st,id])=>{ for(let k=1;k<=id.length;k++) s += TR_line(id.slice(0,k),'hot only s',st); });
+  for(let d=0; d<=3; d++){
+    let g = '';
+    ids.filter(i=>i.length===d).forEach(i=>{
+      const [x,y] = TR_N[i];
+      g += `<circle cx="${x}" cy="${y}" r="${R}"/>`;
+      if(d===3) g += `<text class="leaf" x="${x}" y="${y+30}">${i}</text>`;
+      if(o.done && o.done[i]!=null) g += `<g class="s" data-s="${o.done[i]}"><circle class="done" cx="${x}" cy="${y}" r="${R}"/><text class="leaf ok" x="${x}" y="${y+30}">${i}</text></g>`;
+      g += d===0 ? `<text class="rt" x="${x}" y="${y}">[ ]</text>` : `<text x="${x}" y="${y}">${i.slice(-1)}</text>`;
+    });
+    s += wrap(d, g);
+  }
+  (o.st||[]).forEach(([st,id])=>{ const [x,y]=TR_N[id]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+5}"/>`; });
+  s += `</svg>`;
+  if(o.st) s += `<div class="trq">${o.st.map(([st,,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return s;
+}
+const SP = '&nbsp;&nbsp;';
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Back to the Fork<br><em>LeetCode 46</em>', vis:
+  gloss(0,[['permutation','All the numbers arranged in a row; a different order counts as a different permutation'],['decision tree','Each level makes one decision, and each branch is one choice'],['backtracking','After reaching the bottom, step back to the last fork and try another path']])
+  + flow([[1,'Read','[1, 2, 3] has 6'],[1,'Instinct','nested loops'],[2,'Decision tree','one level per position'],[2,'Template','choose → explore → un-choose'],[3,'Walk through','6 leaves'],[3,'Pitfall','save path[:]']]),
+  say:[
+  'This lesson covers LeetCode 46, Permutations, which is also the intro problem for backtracking. First, three words. A permutation is all the numbers arranged in a row, and a different order counts as different. A decision tree is a picture where each level makes one decision and each branch is one choice. Backtracking means after reaching the bottom, you step back to the last fork and try another path.',
+  'We start from how you would write permutations by hand: who goes first, who goes second. The most direct code is nested loops, and we will see where that gets stuck.',
+  'Then we draw the choices as a decision tree, learn the three-step backtracking template, choose, explore, un-choose, and walk the whole tree for 1, 2, 3.',
+  'Finally we write the code, cover a pitfall everyone has hit, why you must save a copy of path, and the complexity, n times n factorial.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>how many orders</em>', vis:
+  gloss(0,[['nums','The input array; all its numbers are distinct'],['return','Every permutation, in any order']])
+  + q(1,'nums = [1, 2, 3]: how many permutations are there, and what are they?')
+  + cards([[2,'Position 1: 3 choices','Pick any of 1, 2, 3','sky'],
+           [3,'Position 2 has 2 left, position 3 has 1 left','3 × 2 × 1 = 6','amber'],
+           [4,'6 permutations','[1,2,3] [1,3,2] [2,1,3] [2,3,1] [3,1,2] [3,2,1]','mint']]),
+  say:[
+  'nums is the input array, and all its numbers are distinct. We return every permutation of it, in any order.',
+  'The question for this scene: nums is 1, 2, 3. How many permutations are there, and what are they?',
+  'Writing them by hand, you first fix the first position: 1, 2, or 3, so three choices.',
+  'Once the first is fixed, the second position has only two numbers left, and the third has only one. So that is 3 times 2 times 1, which is six.',
+  'Written out: 1 2 3, 1 3 2, 2 1 3, 2 3 1, 3 1 2, 3 2 1. Notice how you just thought: one position at a time, never reusing a number.'
+]});
+
+/* ===== 2 Instinct: nested loops ===== */
+add({ch:2, title:'Instinct: <em>one loop per position</em>', vis:
+  gloss(0,[['nested loops','A loop inside a loop, one level per position'],['recursion','A function that calls itself']])
+  + q(1,'The most direct code: one loop for position 1, one for position 2, and so on. Does that work?')
+  + term('nested.py',[
+    [2,'o','for a in nums:                      # position 1'],
+    [2,'o','    for b in nums:                  # position 2'],
+    [2,'o','        if b == a: continue'],
+    [2,'o','        for c in nums:              # position 3'],
+    [2,'o','            if c == a or c == b: continue'],
+    [2,'hl','            res.append([a, b, c])   # 6 of them, correct'],
+    [3,'e','# n = 4 needs 4 levels, n = 6 needs 6'],
+    [3,'e','# n is input, so the depth cannot be fixed']])
+  + cards([[4,'Replace the loops with recursion','One call handles one position: choose it, then call yourself for the next','mint']]),
+  say:[
+  'Nested loops means a loop inside a loop, one level per position. Recursion means a function that calls itself.',
+  'The question for this scene: the most direct code is one loop for the first position, one for the second, and so on. Does that work?',
+  'For three numbers it is completely correct: three loops, skip any number already used, and you get exactly six permutations.',
+  'The problem: n equals 4 needs four levels, and n equals 6 needs six. n comes from the input, so you cannot fix the number of loops ahead of time. This is where the instinct gets stuck.',
+  'The fix is to replace the loops with recursion: one call handles only one position. Choose it, then call yourself to choose the next. However big n is, you nest that many levels automatically.'
+]});
+
+/* ===== 3 Decision tree ===== */
+add({ch:3, title:'Draw it as <em>a decision tree</em>', vis:
+  gloss(0,[['node','A circle in the tree: it means "we have chosen up to here"'],['leaf','A node at the very bottom, with no branches below']])
+  + duo(TR_tree({lv:[2,2,3,4]}),
+    q(1,'Draw "who goes 1st, who goes 2nd" as a picture. What does it look like?')
+    + cards([[5,'One path from root to leaf = one permutation','6 leaves means 6 answers','mint']])),
+  say:[
+  'A node is a circle in the tree, meaning we have chosen up to here. A leaf is a node at the very bottom, with no branches below it.',
+  'The question for this scene: if we draw who goes first and who goes second as a picture, what does it look like?',
+  'At the top is the root, meaning nothing is chosen yet. The first level has three branches: the first position takes 1, 2, or 3.',
+  'Under each branch, the second position can only use the two numbers left, so each node splits into two.',
+  'The third position has just one number left, so each path goes down one more step. That gives six leaves at the bottom.',
+  'Walking from the root to a leaf and joining the numbers chosen along the way gives one permutation. Six leaves means six answers.'
+]});
+
+/* ===== 4 What to remember ===== */
+add({ch:4, title:'At a node, <em>what to remember</em>', vis:
+  gloss(0,[['path','The numbers chosen on the way from the root to the current node'],['used','Which numbers are already in path, so the next position cannot take them']])
+  + duo(TR_tree({st:[[2,'13','path = <b>[1, 3]</b>'+SP+'used <em>{1, 3}</em>'],[3,'13','path = <b>[1, 3]</b>'+SP+'used <em>{1, 3}</em>'],[4,'13','path = <b>[1, 3]</b>'+SP+'used <em>{1, 3}</em>']]}),
+    q(1,'At the node [1, 3], what does the program need to remember?')
+    + cards([[2,'path = [1, 3]','Down from the root: chose 1, then chose 3','amber'],
+             [3,'used {1, 3}','So the next position can only take 2','sky'],
+             [4,'Just these two','With path and used, you know where you can go next','mint']])),
+  say:[
+  'path is the numbers chosen on the way from the root to the current node. used records which numbers are already in path, so the next position cannot take them.',
+  'The question for this scene: at the node 1, 3, what does the program need to remember?',
+  'The first thing is path: coming down from the root, we chose 1, then 3, so path is 1, 3.',
+  'The second thing is used: 1 and 3 are both used, so the next position can only take 2.',
+  'Just these two. At any node in the tree, path and used tell you which branches you can take next.'
+]});
+
+/* ===== 5 Template ===== */
+add({ch:5, title:'The template: <em>choose, explore, un-choose</em>', vis:
+  gloss(0,[['append / pop','Add one to the end of a list / remove the last one'],['un-choose','Cancel the choice you just made, restoring the state']])
+  + q(1,'After saving [1, 2, 3], how do we get to [1, 3, 2]?')
+  + flow([[2,'① Choose','path.append(x), mark it used'],[3,'② Explore','recurse: choose the next position'],[4,'③ Un-choose','path.pop(), unmark it']])
+  + cards([[5,'This is "backtracking"','Step back to the fork, restore the state, then try the next branch','mint']]),
+  say:[
+  'append adds one item to the end of a list, and pop removes the last one. Un-choose means canceling the choice you just made, so the state goes back to how it was.',
+  'The question for this scene: after saving 1, 2, 3, how do we get to 1, 3, 2?',
+  'Step one, choose: for the current position, pick a number that is not used, add it to path, and mark it used.',
+  'Step two, explore: call yourself recursively to choose the next position. Keep going until path is full, which means you reached a leaf, and save it.',
+  'Step three, un-choose: after coming back, pop the number you chose and unmark it. From 1, 2, 3, undo 3, then undo 2, and you are back at 1, where you can now choose 3.',
+  'These three steps are backtracking: go to the bottom, step back to the fork, restore the state, and try the next branch.'
+]});
+
+/* ===== 6 Walk through: starting with 1 ===== */
+add({ch:6, title:'Walk through: <em>the branch starting with 1</em>', vis:
+  gloss(0,[['orange route','The current path'],['green leaf','A permutation already saved in res']])
+  + duo(TR_tree({st:[
+      [2,'','path = <b>[ ]</b>'+SP+'used <em>{ }</em>'],
+      [3,'1','choose 1 → path = <b>[1]</b>'+SP+'used <em>{1}</em>'],
+      [4,'12','choose 2 → path = <b>[1, 2]</b>'+SP+'used <em>{1, 2}</em>'],
+      [5,'123','choose 3 → <b>[1, 2, 3]</b> full, save!'+SP+'res <em>1</em>'],
+      [6,'1','undo 3, undo 2 → path = <b>[1]</b>'],
+      [7,'13','choose 3 → path = <b>[1, 3]</b>'+SP+'used <em>{1, 3}</em>'],
+      [8,'132','choose 2 → <b>[1, 3, 2]</b> full, save!'+SP+'res <em>2</em>'],
+      [9,'','undo 2, 3, 1 → path = <b>[ ]</b>'+SP+'res <em>2</em>']],
+      done:{'123':5,'132':8}}),
+    q(1,'Starting from the root, how does the program walk the branch that starts with 1?')
+    + cards([[9,'Both permutations starting with 1 found','After each save, step back to the nearest fork','mint']])),
+  say:[
+  'The orange route is the current path, and a green leaf is a permutation already saved in res.',
+  'The question for this scene: starting from the root, how exactly does the program walk the branch that starts with 1?',
+  'At the start we are at the root. path is empty and nothing is used.',
+  'For the first position, we try 1 first, in order: choose 1, path becomes 1, and 1 is marked used.',
+  'For the second position, 1 is used so we skip it and try 2: path becomes 1, 2.',
+  'The third position only has 3 left: path becomes 1, 2, 3. Its length equals 3, so it is full. We reached a leaf, and we save it into res.',
+  'Now we backtrack: undo 3. At 1, 2, the number 3 was the only option, so there is nothing else to try. We undo 2 as well and are back at 1.',
+  'At 1, the second position has not tried 3 yet: choose 3, and path becomes 1, 3.',
+  'The third position only has 2 left: path becomes 1, 3, 2. It is full, so save it into res.',
+  'Backtrack again: undo 2, undo 3. Everything under 1 is tried, so undo 1 and return to the root. Both permutations starting with 1 are found.'
+]});
+
+/* ===== 7 Walk the whole tree ===== */
+add({ch:7, title:'Walk <em>the whole tree</em>', vis:
+  gloss(0,[['res','The list that stores the answers']])
+  + duo(TR_tree({st:[
+      [2,'2','choose 2 → path = <b>[2]</b>'+SP+'used <em>{2}</em>'],
+      [3,'213','choose 1, choose 3 → <b>[2, 1, 3]</b>, save!'+SP+'res <em>3</em>'],
+      [4,'231','undo 3, 1, choose 3, choose 1 → <b>[2, 3, 1]</b>, save!'],
+      [5,'312','back to root, choose 3, 1, 2 → <b>[3, 1, 2]</b>, save!'],
+      [6,'321','undo 2, 1, choose 2, choose 1 → <b>[3, 2, 1]</b>, save!'],
+      [7,'','back to root, loop ends'+SP+'res <em>6</em>']],
+      done:{'123':0,'132':0,'213':3,'231':4,'312':5,'321':6}}),
+    q(1,'What do the remaining branches, starting with 2 and with 3, give us?')
+    + cards([[7,'res has 6','[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]','mint']])),
+  say:[
+  'res is the list that stores the answers, and it already holds two.',
+  'The question for this scene: what do the remaining branches, starting with 2 and with 3, give us?',
+  'Back at the root, the first position tries 2 next: path becomes 2, and 2 is marked used.',
+  'The second position tries 1 first, and the third only has 3 left: we get 2, 1, 3. Save it, and res now has three.',
+  'Undo 3, undo 1, and the second position switches to 3, leaving only 1 for the third: we get 2, 3, 1. Save it.',
+  'Everything under 2 is tried, so we undo all the way back to the root, and the first position takes 3. Then choose 1, then 2: we get 3, 1, 2. Save it.',
+  'Undo 2 and 1, the second position switches to 2, and the third only has 1 left: we get 3, 2, 1. Save it.',
+  'Finally we return to the root. All three numbers have been tried for the first position, so the loop ends. res holds exactly six permutations, in the same order as the leaves from left to right.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>copy the template directly</em>', vis:
+  gloss(0,[['dfs','The function that goes down one level: it chooses the current position'],['used[i]','Whether the i-th number is used, True or False']])
+  + q(1,'What do choose, explore, and un-choose look like as code?')
+  + term('solution.py',[
+    [2,'o','def permute(nums):'],
+    [2,'o','    res, path = [], []'],
+    [2,'o','    used = [False] * len(nums)'],
+    [2,'o','    def dfs():'],
+    [2,'o','        if len(path) == len(nums):      # reached a leaf'],
+    [2,'hl','            res.append(path[:])         # save a copy'],
+    [2,'o','            return'],
+    [3,'o','        for i in range(len(nums)):      # try each for this position'],
+    [3,'o','            if used[i]:'],
+    [3,'o','                continue'],
+    [3,'hl','            used[i] = True              # ① choose'],
+    [3,'o','            path.append(nums[i])'],
+    [4,'hl','            dfs()                       # ② explore'],
+    [4,'hl','            path.pop()                  # ③ un-choose'],
+    [4,'o','            used[i] = False'],
+    [4,'o','    dfs()'],
+    [4,'o','    return res']])
+  + cards([[5,'Check','[0, 1] → [[0, 1], [1, 0]]; [1] → [[1]]','mint']]),
+  say:[
+  'dfs is the function that goes down one level and chooses the current position. used of i records whether the i-th number is used, true or false.',
+  'The question for this scene: what do choose, explore, and un-choose look like as code?',
+  'First the leaf: if the length of path equals the length of nums, every position is chosen. Save a copy of path into res, then return.',
+  'Then try each number for this position: skip any that is used. For one that is not, mark it used and add it to path. That is step one, choose.',
+  'Next, call dfs to choose the next position. That is step two. After it returns, pop, and set used back to false. That is step three, un-choose. At the top level, call dfs once and return res.',
+  'Let\'s check: 0, 1 gives 0, 1 and 1, 0. With just the single number 1, the output is the one permutation containing 1.'
+]});
+
+/* ===== 9 Pitfall: path[:] ===== */
+add({ch:9, title:'Pitfall: save <em>path[:]</em>, not path', vis:
+  gloss(0,[['reference','What res stores is a sticky note pointing at path, not a photo of path'],['path[:]','Copies the current contents of path into a new list']])
+  + q(1,'If res.append(path[:]) is written as res.append(path), what is the output?')
+  + term('bug.py',[
+    [2,'e','res.append(path)        # missing [:]'],
+    [2,'o','print(permute([1, 2, 3]))'],
+    [2,'e','[[], [], [], [], [], []]']])
+  + cards([[3,'6 sticky notes, all pointing at one path','Right after saving, res is [[1, 2, 3]]; one pop and it becomes [[1, 2]]','coral'],
+           [4,'After the whole tree, path is popped empty','All 6 slots change with it into [ ]','coral'],
+           [5,'path[:] = take a snapshot','It stores the contents at that moment; later pops do not affect it','mint']]),
+  say:[
+  'A reference means that what res stores is just a sticky note pointing at path, not a photo of path. path colon copies the current contents of path into a new list.',
+  'The question for this scene: if we write append path instead of append path colon, what is the output?',
+  'The result is six empty lists. The count is right, but every one of them is empty.',
+  'Here is why: all six appends stored the same path. Right after saving, res holds 1, 2, 3. Then backtracking pops once, and that slot in res changes with it to 1, 2.',
+  'By the time the whole tree is walked, path has been popped all the way to empty, and all six slots point at it, so they are all empty lists.',
+  'With the colon, you store a snapshot: the contents at that moment are copied, and no matter how path gets popped later, the saved answers stay the same.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>forgetting to un-choose</em>', vis:
+  gloss(0,[['n!','n factorial: n × (n − 1) × … × 1'],['O(n · n!)','n! permutations, each needs n numbers copied']])
+  + q(1,'How much time and space does it take? And what other pitfall is there?')
+  + cards([[2,'Time O(n · n!)','n! leaves, each copies n numbers; n is at most 6, which means 720 permutations','sky'],
+           [3,'Extra space O(n)','path, used, and recursion depth are all n (output not counted)','sky'],
+           [4,'Pitfall: forgetting to set used back to False','[1, 2, 3] gives only [[1, 2, 3]]','coral']]),
+  say:[
+  'n factorial is n times n minus 1, all the way down to 1. Big O of n times n factorial means n factorial permutations, each needing n numbers copied.',
+  'The question for this scene: how much time and space does it take, and what other pitfall is there?',
+  'Time is big O of n times n factorial: there are n factorial leaves, and each copies n numbers. The tree for 1, 2, 3 has 16 nodes and 6 leaves, and the node count is never more than three times the leaves. In this problem n is at most 6, which means 720 permutations.',
+  'Extra space is big O of n: path, used, and the recursion depth are all n. The res list of answers is not counted.',
+  'Pitfall: un-choose completely. If you pop but forget to set used back to false, then after saving 1, 2, 3 every number stays marked used, and you end up with only one permutation.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "How exactly does your backtracking walk?"')
+  + flow([[2,'Decision tree','one level per position'],[2,'State','path + used'],[3,'Template','choose → recurse → un-choose'],[3,'Leaf','save path[:]'],[4,'Complexity','O(n · n!)']])
+  + chips(4,['backtracking','decision tree','choose, explore, un-choose','shallow copy','78 Subsets','39 Combination Sum']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, how exactly does your backtracking walk?',
+  'First explain the tree: I treat the problem as a decision tree, choosing one position per level. Wherever I am, path records the numbers chosen, and used records which ones cannot be chosen again.',
+  'Then explain the template: for each position, try every unused number, choose, recurse, un-choose. When path is full, that is a leaf, and I save a copy.',
+  'Finally, the complexity is big O of n times n factorial. The key terms are backtracking and decision tree. With small changes, the same template solves 78, Subsets, and 39, Combination Sum.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Decision tree','one level per position'],[0,'Choose','append + mark'],[0,'Explore','recurse to the next'],[0,'Un-choose','pop + unmark']])
+  + cards([[1,'① A permutation = a root-to-leaf path in the decision tree','Nested loops cannot fix the depth; one recursive call handles one position','amber'],
+           [2,'② Backtracking in three steps: choose → explore → un-choose','Un-choose completely: pop, then set used back to False','sky'],
+           [3,'③ At a leaf, save path[:], not path','Otherwise 6 slots point at one list, and all end up [ ]','mint']]),
+  say:[
+  'Let\'s review the main thread: draw the choices as a decision tree, one position per level. Choose a number, recurse to choose the next, and un-choose when you come back.',
+  'Number one: a permutation is one path from root to leaf in the decision tree. Nested loops cannot fix the depth, so one recursive call handles one position.',
+  'Number two: backtracking has three steps, choose, explore, un-choose. Un-choose completely: pop, then set used back to false.',
+  'Number three: at a leaf, save a copy of path, not path itself. Otherwise six slots point at the same list, and they all end up empty.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/5b63e6666efc.mp3", "0-1": "a/49dc2390082d.mp3", "0-2": "a/f52aac0a66a7.mp3", "0-3": "a/fc1cfce18e0f.mp3", "1-0": "a/4bf2ea820809.mp3", "1-1": "a/12b988ae49ba.mp3", "1-2": "a/84a4b1580468.mp3", "1-3": "a/16594d8ae4a5.mp3", "1-4": "a/ad2643b37481.mp3", "2-0": "a/82ad70415f61.mp3", "2-1": "a/915e0ebd2ada.mp3", "2-2": "a/9c076c7db189.mp3", "2-3": "a/52be7033348d.mp3", "2-4": "a/bf91f8cdc191.mp3", "3-0": "a/a7d01189fe6e.mp3", "3-1": "a/cdef80938fbf.mp3", "3-2": "a/8bea9399826b.mp3", "3-3": "a/51d57e1139cd.mp3", "3-4": "a/91675aa6ca55.mp3", "3-5": "a/752729b6355d.mp3", "4-0": "a/014e83a76271.mp3", "4-1": "a/e441b48c0307.mp3", "4-2": "a/41bb95c4e8b0.mp3", "4-3": "a/c47aa2fb7ae4.mp3", "4-4": "a/9a981fe19d0d.mp3", "5-0": "a/e7585e2b7654.mp3", "5-1": "a/1661b6b5890c.mp3", "5-2": "a/4f0efb82e648.mp3", "5-3": "a/9e1025474209.mp3", "5-4": "a/e0f98cb21a45.mp3", "5-5": "a/b3bfb067af82.mp3", "6-0": "a/ba379d906afa.mp3", "6-1": "a/eef2f0ee9212.mp3", "6-2": "a/cf5de690a67f.mp3", "6-3": "a/02bfe023644e.mp3", "6-4": "a/713b37327e3c.mp3", "6-5": "a/f7a5b0bb14f3.mp3", "6-6": "a/6f636e17547d.mp3", "6-7": "a/9c3c46dd8479.mp3", "6-8": "a/8b1004263e17.mp3", "6-9": "a/be29d42ad297.mp3", "7-0": "a/97eefc3853bd.mp3", "7-1": "a/fa64098d63bd.mp3", "7-2": "a/d1c7345a76bc.mp3", "7-3": "a/5fa76f8d974f.mp3", "7-4": "a/42aae58a04fd.mp3", "7-5": "a/b1dd1fb32635.mp3", "7-6": "a/499b5a49363f.mp3", "7-7": "a/7f2586f421ba.mp3", "8-0": "a/41d2a954345b.mp3", "8-1": "a/39e19acf29a2.mp3", "8-2": "a/9fffe5e9dd97.mp3", "8-3": "a/18cacff21637.mp3", "8-4": "a/40a809f78e39.mp3", "8-5": "a/723b297b1e8e.mp3", "9-0": "a/e438898a9545.mp3", "9-1": "a/82854d7ce54e.mp3", "9-2": "a/0d35b91d313a.mp3", "9-3": "a/e04a25b2d212.mp3", "9-4": "a/e2396a56ec63.mp3", "9-5": "a/f9ca8ad90a29.mp3", "10-0": "a/aa9ca58568b7.mp3", "10-1": "a/f1c369b96031.mp3", "10-2": "a/ab95dbaf3801.mp3", "10-3": "a/9d1274a7ab75.mp3", "10-4": "a/3e448a91dccc.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/452054001c76.mp3", "11-2": "a/6916694f1625.mp3", "11-3": "a/1b10bb0d280d.mp3", "11-4": "a/db8764bb7102.mp3", "12-0": "a/4fc134022db3.mp3", "12-1": "a/15ed39c7f581.mp3", "12-2": "a/ffe9a37afaf7.mp3", "12-3": "a/e0d0a2e5e799.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

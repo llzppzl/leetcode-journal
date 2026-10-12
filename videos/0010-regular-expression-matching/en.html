@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>How Much Star Eats</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'How Much Star Eats', template:'prep', lang:'en', sub:'LeetCode 10 Regular Expression Matching · animated walkthrough', key:'lc10envid', doc:'LeetCode 10', blurb:'Start from matching left to right one character at a time, watch it get stuck on how many characters x* should eat, then see that every x* has only two moves: use it zero times or eat one more, and dp[i][j] records both.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: dot and star','The problem: dot and star','Left to right: where it breaks','Key idea: x* has two moves','Rule one: plain char and dot','Rule two: star','Start: the empty-string row','Fill the table: "aab" and "c*a*b"','Write the code','Another way: memoized recursion','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+
+/* ---------- dp grid: rows i = 0..m (s prefix), columns j = 0..n (p prefix) ---------- */
+const RX_CSS = `<style>
+.rxg{display:grid;gap:4px;justify-content:center;margin:0 auto}
+.rxg>div{position:relative;display:grid;place-items:center;height:2.3em;border-radius:7px;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.rxg>.hd{border:0;background:none;font-family:var(--f-display);font-size:1.1em;line-height:1;grid-auto-flow:row;align-content:center}
+.rxg>.hd small{display:block;font-family:var(--f-mono);font-size:.6em;color:var(--dim)}
+.rxg b{font-family:var(--f-mono);font-weight:700;font-size:1.05em}
+.rxg b.t{color:var(--mint)} .rxg b.f{color:var(--dim);font-weight:400}
+.rxg b.s:not(.on){opacity:0}
+.rxg b.s.now{box-shadow:none}
+.rxg i.ring{position:absolute;inset:-4px;border-radius:9px;box-shadow:0 0 0 3px var(--amber);transform:none}
+.rxg i.ring.src{box-shadow:0 0 0 3px var(--sky)}
+.rxg .only.s{opacity:0!important} .rxg .only.s.now{opacity:1!important}
+.rxn{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:2.6em;position:relative;margin-top:6px}
+.rxn .s{position:absolute;left:0;right:0}
+.rxn .only.s{opacity:0!important} .rxn .only.s.now{opacity:1!important}
+.rxn b{color:var(--amber)} .rxn em{font-style:normal;color:var(--mint)}
+.rxa{display:flex;flex-direction:column;gap:8px}
+.rxa .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rxa .lb{width:5.2em;color:var(--dim);font-size:.82em}
+.rxa .col{display:flex;flex-direction:column;align-items:center;gap:2px}
+.rxa .col span{min-width:2em;text-align:center;font-family:var(--f-mono);padding:.08em .3em;border-radius:6px;border:1px solid var(--line);background:rgba(10,17,36,.8)}
+.rxa .col.ok span{border-color:var(--mint);color:var(--mint)}
+.rxa .col.bad span{border-color:var(--coral);color:var(--coral)}
+.rxa .vd{font-size:.85em;color:var(--paper)}
+</style>`;
+// o: {s, p, cells:[[i,j,bool,step]], cur:[[step,i,j]], src:[[step,[[i,j]...]]], notes:[[step,html]]}
+function RX_grid(o){
+  const m = o.s.length, n = o.p.length;
+  let h = RX_CSS + `<div class="rxg" style="grid-template-columns:2em repeat(${n+1},2.3em)">`;
+  h += `<div class="hd"></div>` + [...Array(n+1).keys()].map(j=>`<div class="hd"><small>${j}</small>${j?o.p[j-1]:'∅'}</div>`).join('');
+  for(let i=0;i<=m;i++){
+    h += `<div class="hd"><small>${i}</small>${i?o.s[i-1]:'∅'}</div>`;
+    for(let j=0;j<=n;j++){
+      h += `<div>` + o.cells.filter(x=>x[0]===i&&x[1]===j).map(([,,v,st])=>`<b class="s ${v?'t':'f'}" data-s="${st}">${v?'T':'F'}</b>`).join('')
+        + (o.cur||[]).filter(x=>x[1]===i&&x[2]===j).map(([st])=>`<i class="ring only s" data-s="${st}"></i>`).join('')
+        + (o.src||[]).filter(([,l])=>l.some(([a,b])=>a===i&&b===j)).map(([st])=>`<i class="ring src only s" data-s="${st}"></i>`).join('')
+        + `</div>`;
+    }
+  }
+  h += `</div>`;
+  if(o.notes) h += `<div class="rxn">${o.notes.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// rows: [[step, label, [[sChar, pUnit, tone]], verdict]]
+const RX_align = rows => RX_CSS + `<div class="rxa">${rows.map(([st,lb,cols,vd])=>`<div class="row s" data-s="${st}"><span class="lb">${lb}</span>${
+  cols.map(([a,b,t])=>`<div class="col ${t||''}"><span>${a||'&nbsp;'}</span><span>${b||'&nbsp;'}</span></div>`).join('')}<span class="vd">${vd}</span></div>`).join('')}</div>`;
+
+// the full table for s = "aab", p = "c*a*b" (verified in Python)
+const RX_T = [[1,0,1,0,1,0],[0,0,0,1,1,0],[0,0,0,0,1,0],[0,0,0,0,0,1]];
+const RX_cellsAt = (rowsSteps) => { const out=[]; rowsSteps.forEach(([i,js,st])=>js.forEach(j=>out.push([i,j,!!RX_T[i][j],st]))); return out; };
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'How much star eats<br><em>LeetCode 10</em>', vis:
+  gloss(0,[['regular expression (regex)','A way to describe what a string looks like using symbols'],['dot .','Stands in for any one character'],['star *','The character before it, repeated zero or more times'],['dp','Dynamic programming table: store answers to small problems, build the big answer from them']])
+  + flow([[1,'Problem','dot and star'],[1,'Instinct','match left to right'],[2,'Stuck','how much x* eats'],[2,'Two moves','zero / one more'],[3,'Table','dp[i][j]'],[3,'Code','two loops']]),
+  say:[
+  'This lesson covers LeetCode 10, Regular Expression Matching. A few words first. A regular expression describes what a string looks like using symbols. A dot stands in for any one character. A star means the character before it, repeated zero or more times. And dp is a dynamic programming table.',
+  'Here is the route: first we read dot and star with tiny examples, then we try the most natural idea, matching left to right one by one.',
+  'That idea gets stuck at one spot: how many characters should a star eat? The answer is that we never guess. Every x star has only two moves: use it zero times, or eat one more.',
+  'Finally we fill the table cell by cell on a a b and c star a star b, then write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>dot and star</em>', vis:
+  gloss(0,[['match','The whole of s must be covered by p, not just part of it'],['.','Any one character'],['x*','x repeated zero or more times; x* is one unit and cannot be split']])
+  + q(1,'Do these s and p match?')
+  + tbl(['s','p','result','why'],[
+    [2,'"ab"','"a."','True','. stands in for b'],
+    [3,'"aa"','"a"','False','p covers only one a'],
+    [4,'"aa"','"a*"','True','a* repeats twice'],
+    [4,'"ab"','".*"','True','.* is any string'],
+    [5,'""','"a*b*"','True','both units used zero times']]),
+  say:[
+  'Match means the whole of s must be covered by p, not just part of it. A dot is any one character. And x star is one unit; never read it as two separate pieces.',
+  'The question for this scene: do these pairs of s and p match?',
+  's is a b, p is a dot. a matches a, the dot stands in for b. It matches, true.',
+  's is a a, p is a. p covers only one a, and the second a is left uncovered, so it is false.',
+  's is a a, p is a star: a repeats twice, true. s is a b, p is dot star: each dot can stand in for a different character, so dot star covers any string, true.',
+  'The last one is the least intuitive: s is the empty string, p is a star b star, and it is true. Both units are used zero times, nothing is left, and that equals the empty string.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Left to right: <em>where it breaks</em>', vis:
+  gloss(0,[['greedy','At each step take what looks best right now, and never go back']])
+  + q(1,'The natural idea: match left to right, one character at a time. Where does it go wrong?')
+  + RX_align([
+    [2,'one by one',[['a','c','bad'],['a','*'],['b','a']],'c ≠ a → False?'],
+    [4,'greedy',[['a','a*','ok'],['a','a*','ok'],['a','a*','ok'],['','a','bad']],'a has nothing → False?'],
+    [5,'correct',[['a','a*','ok'],['a','a*','ok'],['a','a','ok']],'a* eats two → True']])
+  + cards([[3,'Patch: treat x* as a unit, eat as much as you can','c* eats zero, a* eats two, b matches b: correct this time','sky'],
+           [6,'Where it gets stuck: you cannot know in advance how much x* eats','Eat too much and the rest has nothing; eat too little and s has leftovers','coral']]),
+  say:[
+  'Greedy means at each step you take what looks best right now, and you never go back.',
+  'The question for this scene: the natural idea is to match left to right, one character at a time. Where does it go wrong?',
+  'Try s equals a a b, p equals c star a star b. Match one by one: the first a against c, no match, return false? But the right answer is true. The mistake is splitting c star apart.',
+  'Patch it: treat x star as a unit and eat as much as you can. c star meets a and eats zero; a star eats both a characters; b matches b. Correct this time.',
+  'Now try s equals a a a, p equals a star a. Greedy lets a star eat all three a characters, and the last a in the pattern has nothing left to match. Return false?',
+  'But the right answer is true: a star eats only two, and leaves one for the last a.',
+  'That is where it gets stuck: you cannot know in advance how much x star should eat. Eat too much and the rest has nothing to match; eat too little and s has leftovers.'
+]});
+
+/* ===== 3 Key idea ===== */
+add({ch:3, title:'Key idea: <em>x* has two moves</em>', vis:
+  gloss(0,[['unit','One piece of p: a plain character, a dot, or a whole x*'],['position','The pair of numbers: how far into s, how far into p']])
+  + q(1,'We do not know how much x* eats. So what do we do?')
+  + cards([[2,'Move one: use it zero times','Skip the whole x*; s stays put','sky'],
+           [3,'Move two: eat one more','If this character of s matches x, eat it; x* stays in place and can keep eating','amber'],
+           [4,'Trying both moves reaches the same position again and again','The result depends only on the position, so compute it once and store it','coral']])
+  + big(5,'dp[i][j]','Can the first i characters of s be fully matched by the first j characters of p?'),
+  say:[
+  'A unit is one piece of p: a plain character, a dot, or a whole x star. A position is a pair of numbers: how far we are into s, and how far into p.',
+  'The question for this scene: we do not know how much x star eats, so what do we do?',
+  'We never decide all at once; we take one small step at a time. Move one: use it zero times, skip the whole x star, and s stays put.',
+  'Move two: eat one more. If this character of s matches x, eat it, and x star stays in place, so the next step can keep eating.',
+  'Trying both moves reaches the same position again and again. The result depends only on the position, so we compute it once and store it.',
+  'The stored table is dp of i j: can the first i characters of s be fully matched by the first j characters of p? The answer sits in dp of m n.'
+]});
+
+/* ===== 4 Rule one ===== */
+add({ch:4, title:'Rule one: <em>plain char and dot</em>', vis:
+  gloss(0,[['s[i−1]','The last of the first i characters of s'],['p[j−1]','The last of the first j characters of p'],['matches','The two characters are equal, or the p side is a dot']])
+  + q(1,'When the last character of p is a plain character or a dot, how do we compute dp[i][j]?')
+  + big(2,'dp[i][j] = matches and dp[i−1][j−1]','The last pair must match, and everything before must match too')
+  + cards([[3,'"ab" and "a."','. matches b; then "a" and "a": True, so True','mint'],
+           [4,'"aa" and "a"','a matches a; then "a" and "": False, so False','coral']]),
+  say:[
+  's of i minus 1 is the last of the first i characters of s. p of j minus 1 is the last of the first j characters of p. Matches means the two characters are equal, or the p side is a dot.',
+  'The question for this scene: when the last character of p is a plain character or a dot, how do we compute dp of i j?',
+  'There is no choice here: the last characters must match, then we drop both, and what comes before must match too. So dp of i j equals matches, and dp of i minus 1, j minus 1.',
+  'Example: a b and a dot. The dot matches b. Drop them and look at a and a, which is true, so the whole thing is true.',
+  'Now a a and a. The last a matches. Drop them and look at a against the empty pattern, which cannot cover it. False.'
+]});
+
+/* ===== 5 Rule two ===== */
+add({ch:5, title:'Rule two: <em>star</em>', vis:
+  gloss(0,[['x','The character before the star, that is p[j−2]'],['stays in place','j does not change: x* is still in the pattern and can keep eating']])
+  + q(1,'When the last two characters of p are x*, how do we compute dp[i][j]?')
+  + cards([[2,'Move one, zero times: dp[i][j−2]','Drop both characters of x*','sky'],
+           [3,'Move two, one more: x matches s[i−1] and dp[i−1][j]','s loses one character, j stays','amber'],
+           [4,'Either move working is enough','dp[i][j] = move one or move two','mint']])
+  + flow([[5,'dp[2][2]','eat 2nd a'],[5,'dp[1][2]','eat 1st a'],[5,'dp[0][2]','zero times'],[5,'dp[0][0]','True']]),
+  say:[
+  'x is the character before the star, that is p of j minus 2. Stays in place means j does not change: x star is still in the pattern and can keep eating.',
+  'The question for this scene: when the last two characters of p are x star, how do we compute dp of i j?',
+  'Move one, zero times: drop both characters of x star and look at dp of i, j minus 2. Minus 2, because x and the star go together.',
+  'Move two, eat one more: x must match the last character of s. Eat it, so s loses one and becomes i minus 1. But j stays, because x star can keep eating. So we look at dp of i minus 1, j.',
+  'If either move works, dp of i j is true.',
+  'Walk through a a and a star. dp of 2 2 takes move two and looks at dp of 1 2. dp of 1 2 takes move two again and looks at dp of 0 2. dp of 0 2 takes move one and lands on dp of 0 0, which is true. Eating two a characters means taking move two twice.'
+]});
+
+/* ===== 6 Start ===== */
+add({ch:6, title:'Start: <em>the empty-string row</em>', vis:
+  gloss(0,[['∅','Row 0 and column 0: the empty string'],['row 0','When s is empty, can each prefix of p match it?']])
+  + q(1,'When s is empty, which prefixes of "c*a*b" match it?')
+  + RX_grid({s:'aab', p:'c*a*b',
+    cells:[[0,0,true,2],[0,1,false,3],[0,2,true,4],[0,3,false,5],[0,4,true,5],[0,5,false,6],[1,0,false,6],[2,0,false,6],[3,0,false,6]],
+    cur:[[2,0,0],[3,0,1],[4,0,2],[5,0,4],[6,0,5]],
+    src:[[4,[[0,0]]],[5,[[0,2]]]],
+    notes:[[2,'dp[0][0] = <em>True</em>: empty vs empty'],[3,'"c": needs a character, s has none → F'],[4,'"c*" = dp[0][0] → <em>T</em>'],[5,'"c*a" F; "c*a*" = dp[0][2] → <em>T</em>'],[6,'"c*a*b" F; column 0: empty pattern covers nothing → F']]}),
+  say:[
+  'The empty set symbol means the empty string; row 0 and column 0 of the table both stand for it. Row 0 asks: when s is empty, can each prefix of p match it?',
+  'The question for this scene: when s is empty, which prefixes of c star a star b match it?',
+  'First fill dp of 0 0: the empty string against the empty pattern is true.',
+  'Prefix c: it needs one character to match, but s is empty. False.',
+  'Prefix c star: s is empty, so only move one is possible, zero times, which looks at dp of 0 0. True. So the rule for row 0 is: at a star, dp of 0 j equals dp of 0, j minus 2.',
+  'Prefix c star a ends with a plain character, so false. Prefix c star a star: zero times, look at dp of 0 2, true.',
+  'Prefix c star a star b ends with b, false. Column 0: s has characters but the pattern is empty, so it covers nothing. All false.'
+]});
+
+/* ===== 7 Fill the table ===== */
+add({ch:7, title:'Fill the table: <em>"aab" and "c*a*b"</em>', vis:
+  gloss(0,[['amber box','The cell being computed'],['blue box','The cells it looks at']])
+  + q(1,'Filling row by row, is the bottom-right dp[3][5] True or False?')
+  + RX_grid({s:'aab', p:'c*a*b',
+    cells:RX_cellsAt([[0,[0,1,2,3,4,5],0],[1,[0],0],[2,[0],0],[3,[0],0],[1,[1,2],2],[1,[3],3],[1,[4,5],4],[2,[1,2,3,4,5],5],[3,[1,2,3,4,5],6]]),
+    cur:[[2,1,2],[3,1,3],[4,1,4],[5,2,4],[6,3,5]],
+    src:[[2,[[1,0]]],[3,[[0,2]]],[4,[[1,2],[0,4]]],[5,[[1,4]]],[6,[[2,4]]]],
+    notes:[[2,'Row 1 "a": c ≠ a; c* only zero times → dp[1][0] F'],[3,'a matches a → dp[0][2] = <em>T</em>'],[4,'a*: zero dp[1][2] F; one more dp[0][4] <em>T</em> → <em>T</em>'],[5,'Row 2: a* eats one more → dp[1][4] <em>T</em>'],[6,'b matches b → dp[2][4] <em>T</em>: <b>dp[3][5] = True</b>']]}),
+  say:[
+  'The amber box is the cell being computed, and the blue boxes are the cells it looks at.',
+  'The question for this scene: filling row by row, is the bottom-right dp of 3 5 true or false?',
+  'Row 1: s is a single a. Prefix c: c is not a, false. Prefix c star: c does not match a, so move two is out; only zero times, which looks at dp of 1 0, false.',
+  'Prefix c star a ends with the plain character a, which matches a, so look up and to the left at dp of 0 2. True.',
+  'Prefix c star a star: move one, zero times, looks at dp of 1 2, false. Move two: a matches a, look straight up at dp of 0 4, true. So it is true. The b after it does not match a, false.',
+  'Row 2: s is a a. The key cell is dp of 2 4: a matches, so move two looks straight up at dp of 1 4, true. a star just ate another a. Every other cell in this row is false.',
+  'Row 3: s is a a b. The last cell, dp of 3 5: b matches b, look up and to the left at dp of 2 4, true. So a a b matches c star a star b, and the answer is true.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>two rules, two branches</em>', vis:
+  gloss(0,[['p[j − 2] in (s[i − 1], ".")','x matches: equal to this character, or a dot'],['range(2, n + 1)','Row 0 starts at j = 2: a star always has a character before it']])
+  + term('solution.py',[
+    [2,'o','def isMatch(s, p):'],
+    [2,'o','    m, n = len(s), len(p)'],
+    [2,'o','    dp = [[False] * (n + 1) for _ in range(m + 1)]'],
+    [2,'o','    dp[0][0] = True                      # empty vs empty'],
+    [3,'o','    for j in range(2, n + 1):            # row 0'],
+    [3,'o','        if p[j - 1] == "*":'],
+    [3,'o','            dp[0][j] = dp[0][j - 2]'],
+    [4,'o','    for i in range(1, m + 1):'],
+    [4,'o','        for j in range(1, n + 1):'],
+    [4,'o','            if p[j - 1] == "*":'],
+    [4,'hl','                dp[i][j] = dp[i][j - 2]      # move one: zero times'],
+    [4,'o','                if p[j - 2] in (s[i - 1], "."):'],
+    [4,'hl','                    dp[i][j] = dp[i][j] or dp[i - 1][j]   # move two'],
+    [5,'o','            elif p[j - 1] in (s[i - 1], "."):'],
+    [5,'hl','                dp[i][j] = dp[i - 1][j - 1]  # rule one'],
+    [5,'o','    return dp[m][n]']])
+  + q(1,'Which rule does each part of the code implement?'),
+  say:[
+  'p of j minus 2 in s of i minus 1 or dot means x matches: it equals this character, or it is a dot. Row 0 starts at j equals 2, because a star always has a character before it.',
+  'The question for this scene: which rule does each part of the code implement?',
+  'Part one builds the table: m plus 1 rows, n plus 1 columns, all false, then sets dp of 0 0 to true.',
+  'Part two fills row 0: at a star, copy the cell two to the left, which is zero times.',
+  'Part three is the star branch: first move one, dp of i, j minus 2. If x matches the last character of s, also or in move two, dp of i minus 1, j.',
+  'Last is rule one: if a plain character or dot matches, copy the cell up and to the left, dp of i minus 1, j minus 1; otherwise it stays false. Return the bottom-right cell, dp of m n.'
+]});
+
+/* ===== 9 Memoized recursion ===== */
+add({ch:9, title:'Another way: <em>memoized recursion</em>', vis:
+  gloss(0,[['top-down','Start from the whole problem and recurse into smaller ones'],['@cache','Each set of arguments is computed only once, and the result is stored'],['f(i, j)','Can the suffix of s from index i match the suffix of p from index j?']])
+  + q(1,'If we do not want a table, can we write the two moves directly as recursion?')
+  + term('solution.py',[
+    [2,'o','from functools import cache'],
+    [2,'o','def isMatch(s, p):'],
+    [2,'o','    @cache'],
+    [2,'o','    def f(i, j):'],
+    [2,'o','        if j == len(p):'],
+    [2,'o','            return i == len(s)'],
+    [3,'o','        first = i < len(s) and p[j] in (s[i], ".")'],
+    [3,'hl','        if j + 1 < len(p) and p[j + 1] == "*":'],
+    [3,'hl','            return f(i, j + 2) or (first and f(i + 1, j))'],
+    [4,'o','        return first and f(i + 1, j + 1)'],
+    [4,'o','    return f(0, 0)']]),
+  say:[
+  'Top-down means starting from the whole problem and recursing into smaller ones. At cache makes each set of arguments compute only once. f of i j asks: can the suffix of s from index i match the suffix of p from index j?',
+  'The question for this scene: if we do not want a table, can we write the two moves directly as recursion?',
+  'The exit: when the pattern is used up, s must be used up too for it to be true.',
+  'First compute first: s still has a character, and it matches. If the next pattern character is a star, there are two moves: f of i, j plus 2 is zero times; first and f of i plus 1, j is eat one more, with j staying put.',
+  'If it is not a star, it is rule one: first, and both sides step forward by one. Here we read front to back, so the star sits at j plus 1. The complexity is the same as the table.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['m, n','The lengths of s and p'],['O(m × n)','The table has m + 1 by n + 1 cells, constant time each']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(m × n), space O(m × n)','Each cell looks at two or three older cells','sky'],
+           [3,'Star looks at the character before it','Compare p[j−2], not p[j−1]','coral'],
+           [3,'One more is dp[i−1][j]','Not dp[i−1][j−2]: x* must stay in place to keep eating','coral'],
+           [4,'Forgetting row 0','"" and "a*b*" wrongly becomes False','coral'],
+           [5,'Check: "mississippi" and "mis*is*p*."','At "mississ" only p*. is left: p* cannot match i, . covers one → False','mint']]),
+  say:[
+  'm and n are the lengths of s and p. Big O of m times n means the table has m plus 1 by n plus 1 cells, with constant time per cell.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to slip?',
+  'Time and space are both big O of m times n.',
+  'Pitfall one: a star goes with the character before it, so compare p of j minus 2, not the star itself. Pitfall two: eating one more looks at dp of i minus 1, j, not j minus 2; x star has to stay in place to keep eating.',
+  'Pitfall three: forget to fill row 0, and the empty string against a star b star wrongly becomes false.',
+  'Finally, check a long example: mississippi against m i s star i s star p star dot. The two s stars each eat two s characters, up to m i s s i s s, and the pattern has only p star dot left. The rest, i p p i, starts with i, so p star can only be used zero times, the dot covers one i, and p p i is left uncovered. False.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code after the interviewer nods']])
+  + q(1,'The interviewer asks: "Why is the star branch dp[i−1][j] and not dp[i−1][j−2]?"')
+  + flow([[2,'No greedy','unknown count'],[2,'State','dp[i][j]'],[3,'Rule one','match and diagonal'],[3,'Rule two','zero or one more'],[4,'Start','dp[0][0], row 0'],[4,'Complexity','O(m × n)']])
+  + chips(4,['regular expression matching','dp[i][j]','zero occurrences','one more occurrence','memoization','O(m * n)']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer nods.',
+  'The question for this scene: the interviewer asks, why is the star branch dp of i minus 1, j, and not dp of i minus 1, j minus 2?',
+  'Start with why greedy fails: a star a against a a a is the counterexample. So I define dp of i j as whether the first i characters of s match the first j characters of p.',
+  'Rule one: a plain character or dot must match, then look up and to the left. Rule two: a star has two moves, zero times looks at dp of i, j minus 2, and one more looks at dp of i minus 1, j. j does not shrink because x star stays in place after eating this character and can keep eating.',
+  'Then add the start: dp of 0 0 is true, and in row 0 a star looks two cells to the left. The complexity is big O of m times n. Key phrases: zero occurrences and one more occurrence.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Greedy','unknown count'],[0,'Two moves','zero / one more'],[0,'dp[i][j]','first i vs first j'],[0,'Start','dp[0][0] = True'],[0,'O(m × n)','fill one table']])
+  + cards([[1,'1. x* is one unit with only two moves','Zero times dp[i][j−2]; one more dp[i−1][j]','amber'],
+           [2,'2. Plain char and dot: match, then look diagonally','dp[i][j] = matches and dp[i−1][j−1]','sky'],
+           [3,'3. Do not forget the empty-string row','dp[0][0] = True; at a star dp[0][j] = dp[0][j−2]','mint']]),
+  say:[
+  'The main thread: greedy cannot know how much a star eats; x star has only two moves; dp of i j records the first i against the first j; start from dp of 0 0 and fill the table.',
+  'One: x star is one unit with only two moves. Zero times looks at dp of i, j minus 2; one more looks at dp of i minus 1, j, and j stays in place.',
+  'Two: a plain character or dot must match, then look up and to the left at dp of i minus 1, j minus 1.',
+  'Three: do not forget the empty-string row. dp of 0 0 is true, and at a star, dp of 0 j equals dp of 0, j minus 2.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/70cfdfe696e8.mp3", "0-1": "a/b3e4262f3e68.mp3", "0-2": "a/fb0eaa9707ce.mp3", "0-3": "a/a430017c104b.mp3", "1-0": "a/329a5adaa89a.mp3", "1-1": "a/7fd88bf0f08a.mp3", "1-2": "a/ed936245f8d2.mp3", "1-3": "a/726dc58b705b.mp3", "1-4": "a/1891e1f89287.mp3", "1-5": "a/9f5c9141d384.mp3", "2-0": "a/66c0e75cbd25.mp3", "2-1": "a/b12e962bcc19.mp3", "2-2": "a/a1c27c74cf82.mp3", "2-3": "a/040a91e151e8.mp3", "2-4": "a/0be47df21548.mp3", "2-5": "a/6c8ff7f0c76f.mp3", "2-6": "a/7a5e0475ff15.mp3", "3-0": "a/aa2756f920b2.mp3", "3-1": "a/822acfa5b825.mp3", "3-2": "a/2edb72b9d81d.mp3", "3-3": "a/3f52ee8030ca.mp3", "3-4": "a/18547e1cec1b.mp3", "3-5": "a/2d56113e41d3.mp3", "4-0": "a/1e860cd9272e.mp3", "4-1": "a/9cda231a515a.mp3", "4-2": "a/2c683e1872b4.mp3", "4-3": "a/9b2ae69b1a3e.mp3", "4-4": "a/346858262233.mp3", "5-0": "a/e8b850eced55.mp3", "5-1": "a/166291b081d6.mp3", "5-2": "a/5913cf9ecfac.mp3", "5-3": "a/b3fbf10cccb5.mp3", "5-4": "a/3958569d321c.mp3", "5-5": "a/c3507f1a8a37.mp3", "6-0": "a/462ea8bd74e8.mp3", "6-1": "a/34c2cef3103d.mp3", "6-2": "a/a918d79b1327.mp3", "6-3": "a/e72fc548fde9.mp3", "6-4": "a/ddc347abf9b5.mp3", "6-5": "a/3ad482feca84.mp3", "6-6": "a/83baf8aa5859.mp3", "7-0": "a/3cdf5bb54cf0.mp3", "7-1": "a/fec3a598fe2f.mp3", "7-2": "a/d21dd1fcb2d4.mp3", "7-3": "a/cf61e9bf4120.mp3", "7-4": "a/930e45520f79.mp3", "7-5": "a/9e425462a00b.mp3", "7-6": "a/1b730314fd71.mp3", "8-0": "a/a8bad5425141.mp3", "8-1": "a/ce2592f7cc19.mp3", "8-2": "a/29dd71bd859a.mp3", "8-3": "a/75a8f78a12f9.mp3", "8-4": "a/1b14cfeef632.mp3", "8-5": "a/afd54f258424.mp3", "9-0": "a/0857cae2f085.mp3", "9-1": "a/86520363977d.mp3", "9-2": "a/e7fbdbe83a71.mp3", "9-3": "a/df5aba6699bc.mp3", "9-4": "a/dd444a237fc0.mp3", "10-0": "a/f27b35392978.mp3", "10-1": "a/681a557d92a6.mp3", "10-2": "a/02003820ac34.mp3", "10-3": "a/9f178d713392.mp3", "10-4": "a/47f54bc81482.mp3", "10-5": "a/fc341e8566b7.mp3", "11-0": "a/08a5f490c081.mp3", "11-1": "a/ff273155140a.mp3", "11-2": "a/1badda1a535a.mp3", "11-3": "a/851dc2e68bc3.mp3", "11-4": "a/083e7432541d.mp3", "12-0": "a/f697082bfe72.mp3", "12-1": "a/6935c65c835c.mp3", "12-2": "a/4f41f399c53d.mp3", "12-3": "a/ff9fc3f40453.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

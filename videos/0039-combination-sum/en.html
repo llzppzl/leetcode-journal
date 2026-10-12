@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Sum Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Sum Tree', template:'prep', lang:'en', sub:'LeetCode 39 Combination Sum · animated walkthrough', key:'lc39envid', doc:'LeetCode 39', blurb:'Start from the three moves of backtracking, choose, explore, un-choose: trying every number at every step lists [2, 2, 3] in several orders; pass a start index and only pick forward, and the path never decreases, so each combination appears once.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: make 7','The problem: numbers can repeat','The template: choose, explore, un-choose','Instinct: try every number each step','Key idea: the start index','Pruning: stop when too big','Walk through: [2, 3, 6, 7], target 7','Write the code','Verify two examples','Complexity and pitfalls','Compare with 377: does order count','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- decision tree: circle = remaining target, edge label = number picked, dashed red stub = pruned ---------- */
+const LC39_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lc39t{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.lc39t .s:not(.on){opacity:0}
+.lc39t .only.s{opacity:0!important} .lc39t .only.s.now{opacity:1!important}
+.lc39t line{stroke:var(--sky);stroke-width:2.5}
+.lc39t line.cut{stroke:var(--coral);stroke-width:2;stroke-dasharray:4 4}
+.lc39t circle{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.lc39t circle.ok{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.lc39t circle.ring{fill:none;stroke:var(--amber);stroke-width:3.5}
+.lc39t text{fill:var(--paper);font-family:var(--f-display);font-size:16px;text-anchor:middle;dominant-baseline:central}
+.lc39t text.e{font-family:var(--f-mono);font-size:12px;fill:var(--amber)}
+.lc39t text.x{font-family:var(--f-mono);font-size:12px;fill:var(--coral)}
+.lc39t text.ans{font-family:var(--f-mono);font-size:11px;fill:var(--mint)}
+.lc39r{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.lc39r .s{position:absolute;left:0;right:0}
+.lc39r .only.s{opacity:0!important} .lc39r .only.s.now{opacity:1!important}
+.lc39r b{color:var(--amber);font-weight:400} .lc39r em{font-style:normal;color:var(--mint)}
+.lc39s{display:grid;grid-template-columns:repeat(4,2.8em);gap:5px;justify-content:center;margin:0 auto}
+.lc39s>div{position:relative;display:grid;place-items:center;height:2.6em;border-radius:8px}
+.lc39s>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.lc39s>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.lc39s>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.lc39s i.dim.s{position:absolute;inset:0;border-radius:7px;background:rgba(0,0,0,.6);z-index:2;transform:none}
+.lc39s i.dim.s:not(.on){opacity:0}
+.lc39s i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);transform:none}
+.lc39s i.ring.s:not(.on){opacity:0}
+.lc39cap{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);margin-top:.5em}
+.lc39cap.s:not(.on){opacity:0}
+.lc39cap b{color:var(--amber);font-weight:400}
+</style>`;
+// node: [x, y, remain, parent, picked]
+const LC39_N = {r:[170,28,7], a:[100,93,5,'r',2], b:[55,158,3,'a',2], c:[25,223,1,'b',2], d:[85,223,0,'b',3],
+  e:[150,158,2,'a',3], f:[205,93,4,'r',3], g:[190,158,1,'f',3], h:[262,105,1,'r',6], k:[318,93,0,'r',7]};
+// pruned stub: [endX, endY, number tried]
+const LC39_CUT = {c:[25,262,2], b:[55,203,6], e:[150,203,3], a:[100,145,6], g:[190,203,3], f:[236,140,6], h:[262,150,6]};
+const LC39_ANS = {d:'[2,2,3]', k:'[7]'};
+// o: {rev:{id:step}, cut:{id:step}, ring:[[step,id]], st:[[step,html]]}
+function lc39_tree(o){
+  const R = 15;
+  let s = LC39_CSS + `<svg class="lc39t" viewBox="0 0 340 280" role="img" aria-label="decision tree">`;
+  Object.entries(LC39_CUT).forEach(([id,[ex,ey,v]])=>{
+    if(o.cut[id]==null) return; const [x,y]=LC39_N[id];
+    const L=Math.hypot(ex-x,ey-y), sx=x+(ex-x)/L*R, sy=y+(ey-y)/L*R;
+    s += `<g class="s" data-s="${o.cut[id]}"><line class="cut" x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}" x2="${ex}" y2="${ey}"/><text class="x" x="${ex}" y="${ey+8}">✗</text><text class="x" x="${((x+ex)/2+9).toFixed(1)}" y="${((y+ey)/2).toFixed(1)}">${v}</text></g>`;
+  });
+  Object.entries(LC39_N).forEach(([id,[x,y,rem,p,v]])=>{
+    if(o.rev[id]==null) return;
+    let g = '';
+    if(p){ const [px,py]=LC39_N[p], L=Math.hypot(x-px,y-py), ux=(x-px)/L, uy=(y-py)/L;
+      g += `<line x1="${(px+ux*R).toFixed(1)}" y1="${(py+uy*R).toFixed(1)}" x2="${(x-ux*R).toFixed(1)}" y2="${(y-uy*R).toFixed(1)}"/>`;
+      g += `<text class="e" x="${((px+x)/2+(x<px?-9:9)).toFixed(1)}" y="${((py+y)/2-3).toFixed(1)}">${v}</text>`; }
+    g += `<circle class="${rem===0?'ok':''}" cx="${x}" cy="${y}" r="${R}"/><text x="${x}" y="${y}">${rem}</text>`;
+    if(LC39_ANS[id]) g += `<text class="ans" x="${x}" y="${y+R+12}">${LC39_ANS[id]}</text>`;
+    s += `<g class="s" data-s="${o.rev[id]}">${g}</g>`;
+  });
+  (o.ring||[]).forEach(([st,id])=>{ const [x,y]=LC39_N[id]; s+=`<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+5}"/>`; });
+  s += `</svg>`;
+  if(o.st) s += `<div class="lc39r">${o.st.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return s;
+}
+// candidates strip: dim = not allowed any more, ring = just picked
+function lc39_strip(step, cap){
+  const arr=[2,3,6,7];
+  return LC39_CSS + `<div class="lc39s">` + arr.map((_,k)=>`<div class="ix">${k}</div>`).join('')
+    + arr.map((v,k)=>`<div class="v"><b>${v}</b>${k===0?`<i class="dim s" data-s="${step}"></i>`:''}${k===1?`<i class="ring s" data-s="${step}"></i>`:''}</div>`).join('')
+    + `</div><div class="lc39cap s" data-s="${step}">${cap}</div>`;
+}
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Sum Tree<br><em>LeetCode 39</em>', vis:
+  gloss(0,[['combination','Only which numbers you used and how many times; order does not matter'],['backtracking','Try one path all the way, then step back one move and try the next'],['pruning','Once you know a path cannot work, stop going down it'],['start index','At this level, you may only pick from this position onward']])
+  + flow([[1,'Template','choose, explore, un-choose'],[1,'Instinct','try every number each step'],[2,'Problem','same combination many times'],[2,'Key idea','pass start, only pick forward'],[3,'Pruning','too big, break'],[3,'Code','backtracking + sort']]),
+  say:[
+  'This lesson covers LeetCode 39, Combination Sum. First, four words. A combination only cares which numbers you used and how many times, not the order. Backtracking means trying one path all the way, then stepping back one move to try the next. Pruning means stopping once a path cannot work. A start index means this level may only pick from that position onward.',
+  'We will build the backtracking template from zero: choose, explore, un-choose. Then we write the most natural version, which tries every number at every step, and you will see the same combination pop up several times in different orders.',
+  'The fix is one extra argument, a start index. Only pick forward, so the path always goes from small to large, and each combination appears exactly once.',
+  'Finally we add pruning, draw the whole tree for 2, 3, 6, 7 with target 7, write the code, verify it, and compare with problem 377.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>numbers can repeat</em>', vis:
+  gloss(0,[['candidates','The numbers you may use; all distinct, all positive integers'],['target','The sum you need to reach']])
+  + q(1,'candidates = [2, 3, 6, 7], target = 7. Which combinations add up to 7?')
+  + cards([[2,'The same number can be reused','2 + 2 + 3 = 7: 2 is used twice','amber'],
+           [3,'A single number counts too','[7] is already 7','sky'],
+           [4,'Answer: [[2, 2, 3], [7]]','[3, 2, 2] and [2, 2, 3] are the same combination; list it only once','mint']]),
+  say:[
+  'Candidates are the numbers you may use; they are all distinct positive integers. Target is the sum you need to reach.',
+  'The question for this scene: with candidates 2, 3, 6, 7 and target 7, which combinations add up to 7?',
+  'The first unusual thing: the same number can be reused. 2 plus 2 plus 3 equals 7, using 2 twice, and that is allowed.',
+  'A single number counts as a combination too: 7 by itself is 7.',
+  'So the answer is two combinations: 2, 2, 3 and 7. Note that 3, 2, 2 and 2, 2, 3 are the same combination, so it may appear only once. That is the confusing part of this problem.'
+]});
+
+/* ===== 2 Template ===== */
+add({ch:2, title:'The template: <em>choose, explore, un-choose</em>', vis:
+  gloss(0,[['path','The numbers picked so far on the current path, like a scratch pad'],['recursion','A function calling itself to handle "pick the next one"']])
+  + q(1,'To list every combination, how do we try them all without missing any?')
+  + flow([[2,'choose','path.append(x)'],[2,'explore','dfs(...) keeps picking'],[2,'un-choose','path.pop()']])
+  + term('template.py',[
+    [3,'o','def dfs(...):'],
+    [4,'hl','    if enough: res.append(path[:])   # save a copy'],
+    [3,'o','    for x in choices_at_this_level:'],
+    [3,'o','        path.append(x)    # choose'],
+    [3,'o','        dfs(...)          # explore'],
+    [5,'hl','        path.pop()        # un-choose']]),
+  say:[
+  'The path is the list of numbers picked so far on the current path, like a scratch pad. Recursion means a function calls itself to handle picking the next one.',
+  'The question for this scene: to list every combination, how do we try them all without missing any?',
+  'Backtracking is just three moves. Choose: write a number on the scratch pad. Explore: keep picking with it in place. Un-choose: when you come back, erase it and try the next number.',
+  'In code that is one for loop: for each number you may pick at this level, append it to path, recurse, then pop it off.',
+  'When the sum is reached, save the path. Save a copy, because path keeps changing afterwards.',
+  'Why must we un-choose? There is only one scratch pad, and everyone shares it. If you do not erase, the next try still carries the number from the last one.'
+]});
+
+/* ===== 3 Instinct ===== */
+add({ch:3, title:'Instinct: <em>try every number each step</em>', vis:
+  gloss(0,[['duplicate','The same combination showing up several times in different orders']])
+  + q(1,'The most natural version tries all 4 numbers at every step. What does it return?')
+  + term('naive.py',[
+    [2,'o','def dfs(remain):'],
+    [2,'o','    if remain == 0: res.append(path[:]); return'],
+    [2,'o','    if remain < 0: return'],
+    [2,'e','    for c in candidates:      # always from the start'],
+    [2,'o','        path.append(c); dfs(remain - c); path.pop()']])
+  + cards([[3,'4 results','[2, 2, 3]　[2, 3, 2]　[3, 2, 2]　[7]','coral'],
+           [4,'One combination, 3 times','All three orders of 2, 2, 3 count as new answers','coral'],
+           [5,'Remove duplicates afterwards?','It works, but the duplicate branches were already explored','amber']]),
+  say:[
+  'A duplicate is the same combination showing up several times in different orders.',
+  'The question for this scene: the most natural version tries all four numbers at every step. What does it return?',
+  'The code is direct: if the remaining amount is zero, save it; if it is below zero, return; otherwise try 2, 3, 6, 7 from the beginning every time.',
+  'Run it and you get four results: 2, 2, 3; 2, 3, 2; 3, 2, 2; and 7.',
+  'Here is the problem: the combination 2, 2, 3 shows up three times. Picking 3 then 2 and picking 2 then 3 look like two different paths to this code.',
+  'Could we remove duplicates at the end? That works, but the duplicate branches were already explored for nothing. We want the duplicates never to grow in the first place.'
+]});
+
+/* ===== 4 Key idea: start ===== */
+add({ch:4, title:'Key idea: <em>only pick forward</em>', vis:
+  gloss(0,[['non-decreasing','Each number is not smaller than the one before: 2, 2, 3 is, 3, 2, 2 is not'],['start','At this level, only pick from candidates[start] onward']])
+  + duo(lc39_strip(3,'Just picked <b>3</b> (index 1) → next pick only from 3, 6, 7'),
+    q(1,'How do we make [2, 2, 3] appear only once?')
+    + cards([[2,'Each combination has one small-to-large spelling','2, 2, 3 is; 2, 3, 2 and 3, 2, 2 are not','sky'],
+             [4,'Recurse with i, not i + 1','Including i itself: after 2 you may pick 2 again; that is reuse','amber'],
+             [5,'Result: path never decreases','No 2 can follow a 3, so [3, 2, 2] never grows','mint']])),
+  say:[
+  'Non-decreasing means each number is not smaller than the one before. Start is the start index: at this level, you may only pick from candidates of start onward.',
+  'The question for this scene: how do we make 2, 2, 3 appear only once?',
+  'First a fact: every combination has exactly one small-to-large spelling. 2, 2, 3 is one; 2, 3, 2 and 3, 2, 2 are not. So we only walk the small-to-large path.',
+  'The rule: after picking the number at index i, the next pick comes from index i onward. For example, we just picked 3 at index 1, so the next pick is among 3, 6, 7, and 2 is blocked.',
+  'Note that it starts at i, including i itself. So we recurse with i, not i plus 1. After 2 you can pick 2 again, and that is how reuse works.',
+  'Now the path never decreases. No 2 can follow a 3, so 3, 2, 2 and 2, 3, 2 never grow at all, and each combination appears once.'
+]});
+
+/* ===== 5 Pruning ===== */
+add({ch:5, title:'Pruning: <em>stop when it is too big</em>', vis:
+  gloss(0,[['remain','How much is still missing: target minus the sum of path'],['break','End the whole for loop now; skip everything after']])
+  + q(1,'When can we stop early instead of going deeper?')
+  + cards([[2,'remain == 0','Exactly enough: save a copy of path, return','mint'],
+           [3,'next number > remain','Picking it overshoots; this path is dead','coral'],
+           [4,'Sort first, then break','Every later number is bigger and overshoots too; try none of them','amber'],
+           [5,'Example: [2, 2], 3 missing','6 > 3 → break; 7 is never even looked at','sky']]),
+  say:[
+  'Remain is how much is still missing: the target minus the sum of everything in path. Break ends the whole for loop right away and skips everything after.',
+  'The question for this scene: when can we stop early instead of going deeper?',
+  'If remain equals zero, we hit the target exactly. Save a copy of path and return.',
+  'If the next number you want is bigger than remain, picking it overshoots. That path is dead, so do not recurse into it.',
+  'One step further: sort the candidates from small to large first. If one number is bigger than remain, every number after it is bigger too and overshoots too. So we do not just skip it, we break.',
+  'For example, path is 2, 2 and 3 is missing. We reach 6, 6 is bigger than 3, so we break, and 7 is never even looked at.'
+]});
+
+/* ===== 6 Walk through ===== */
+add({ch:6, title:'Walk through: <em>[2, 3, 6, 7], target 7</em>', vis:
+  gloss(0,[['number in a circle','remain, what is still missing'],['number on an edge','the number picked at that step'],['red dashed line','a pruned branch']])
+  + duo(lc39_tree({rev:{r:2,a:2,b:3,c:4,d:5,e:6,f:8,g:8,h:9,k:10}, cut:{c:4,b:6,e:7,a:7,g:8,f:9,h:9},
+      ring:[[2,'a'],[3,'b'],[4,'c'],[5,'d'],[6,'e'],[7,'a'],[8,'g'],[9,'h'],[10,'k']],
+      st:[[2,'path = <b>[2]</b>　remain <em>5</em>'],[3,'path = <b>[2, 2]</b>　remain <em>3</em>'],[4,'<b>[2, 2, 2]</b> remain <em>1</em>: 2 &gt; 1 ✗'],
+          [5,'<b>[2, 2, 3]</b> remain <em>0</em>: save ✓'],[6,'path = <b>[2, 3]</b>　remain <em>2</em>'],[7,'<b>[2]</b> remain <em>5</em>: 6 &gt; 5 ✗'],
+          [8,'<b>[3, 3]</b> remain <em>1</em>: 3 &gt; 1 ✗'],[9,'<b>[6]</b> remain <em>1</em>: 6 &gt; 1 ✗'],[10,'<b>[7]</b> remain <em>0</em>: save ✓']]}),
+    q(1,'Candidates [2, 3, 6, 7], target 7: what does the tree look like, and which branches get pruned?')
+    + cards([[10,'Answer: [[2, 2, 3], [7]]','Each combination appears once','mint']])),
+  say:[
+  'The number in a circle is remain, what is still missing. The number on an edge is the number picked at that step. A red dashed line is a pruned branch.',
+  'The question for this scene: with candidates 2, 3, 6, 7 and target 7, what does the tree look like, and which branches get pruned?',
+  'Start at the root with 7 missing, from index 0. Pick 2, and 5 is missing.',
+  'The start is still index 0, so 2 can be picked again. Pick 2 again, and 3 is missing.',
+  'Pick 2 again, and 1 is missing. This level still starts at 2, and 2 is bigger than 1, so prune. The list is sorted and the rest are bigger, so break.',
+  'Undo the last 2 and go back to 3 missing. Pick 3 instead: exactly zero. Save 2, 2, 3.',
+  'At the 3-missing level the next number is 6, and 6 is bigger than 3, so break. Undo back to a single 2 with 5 missing, pick 3 instead, and 2 is missing.',
+  'Here we may only pick from 3 onward, and 3 is bigger than 2, so prune. Back at 5 missing, 6 is bigger than 5, so prune too. The branch starting with 2 is done.',
+  'Back at the root, pick 3, and 4 is missing. From here we may only pick from 3 onward, so 3, 2, 2 never grows. Pick 3 again, 1 is missing, and 3 is bigger than 1, so prune.',
+  'Back at 4 missing, the next one is 6, bigger than 4, so prune. Back at the root, pick 6, and 1 is missing; starting from 6, 6 is bigger than 1, so prune.',
+  'Finally pick 7: exactly zero, save 7. The answer is 2, 2, 3 and 7, each combination exactly once.'
+]});
+
+/* ===== 7 Code ===== */
+add({ch:7, title:'Code: <em>template + start + break</em>', vis:
+  gloss(0,[['path[:]','A copy of path, so later changes do not touch saved answers']])
+  + term('solution.py',[
+    [2,'o','def combinationSum(candidates, target):'],
+    [2,'hl','    candidates.sort()                  # sort so we can break'],
+    [2,'o','    res, path = [], []'],
+    [3,'o','    def dfs(start, remain):'],
+    [3,'o','        if remain == 0:'],
+    [3,'o','            res.append(path[:])          # save a copy'],
+    [3,'o','            return'],
+    [4,'hl','        for i in range(start, len(candidates)):'],
+    [4,'o','            c = candidates[i]'],
+    [4,'o','            if c > remain:'],
+    [4,'o','                break                    # the rest are bigger'],
+    [5,'o','            path.append(c)               # choose'],
+    [5,'hl','            dfs(i, remain - c)           # explore: pass i, reuse'],
+    [5,'o','            path.pop()                   # un-choose'],
+    [6,'o','    dfs(0, target)'],
+    [6,'o','    return res']])
+  + q(1,'Which move on the tree does each part of the code match?'),
+  say:[
+  'Path with an empty slice makes a copy of path. Changing path later does not touch the answers already saved.',
+  'The question for this scene: which move on the tree does each part of the code match?',
+  'Part one: sort first, and set up the result list res and the scratch pad path. Sorting is what lets us break later.',
+  'Part two is the exit of dfs: if remain is zero, save a copy of path and return.',
+  'Part three is the choices at this level: the for loop starts at start, not at zero. When a number is bigger than remain, break.',
+  'Part four is the three moves of the template: append is choose, the recursive call is explore, pop is un-choose. We pass i, not i plus 1, so the same number can be picked again.',
+  'Finally, start from index zero with the full target missing, and return res.'
+]});
+
+/* ===== 8 Verify ===== */
+add({ch:8, title:'Verify: <em>two new examples</em>', vis:
+  gloss(0,[['verify','Run the code step by step on new inputs and check the answer']])
+  + q(1,'What does [2, 3, 5] with target 8 return? And [2] with target 1?')
+  + tbl(['input','paths that reach 0','result'],[
+    [2,'[2, 3, 5], 8','2+2+2+2　2+3+3　3+5','[[2,2,2,2], [2,3,3], [3,5]]'],
+    [3,'same input, no start','also 3+2+3, 3+3+2, 5+3','6 results, with duplicates'],
+    [4,'[2], 1','2 &gt; 1, break at the first step','[ ]']]),
+  say:[
+  'To verify means to run the code step by step on new inputs and check the answer.',
+  'The question for this scene: what does 2, 3, 5 with target 8 return? And just 2 with target 1?',
+  '2, 3, 5 with target 8: keep picking 2, and 2, 2, 2, 2 hits zero; after 2, 2 pick 3, 1 is missing, prune; 2, 3, 3 hits zero; starting with 3 we may only go forward, and 3, 5 hits zero. Three combinations.',
+  'Without start, trying from the beginning every step, you also get 3, 2, 3; 3, 3, 2; and 5, 3. Six results in total, all with duplicates.',
+  'Just 2 with target 1: at the first step 2 is already bigger than 1, so we break. Nothing adds up, and we return an empty list.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>two pitfalls</em>', vis:
+  gloss(0,[['exponential','As the input grows, the count multiplies again and again'],['recursion depth','How tall the tree is, which is the longest path']])
+  + q(1,'How fast is it, how much space does it use, and where do people slip?')
+  + cards([[2,'Time: exponential','Proportional to the number of tree nodes; the answer itself can be huge','sky'],
+           [3,'Space: O(target ÷ smallest number)','The deepest path keeps picking the smallest number; output not counted','sky'],
+           [4,'Pitfall 1: dfs(i + 1)','Each number used at most once: [2, 3, 6, 7], 7 gives only [[7]]','coral'],
+           [5,'Pitfall 2: res.append(path)','Saves the same scratch pad, which is popped empty: [[], []]','coral']]),
+  say:[
+  'Exponential means that as the input grows, the count multiplies again and again. Recursion depth is how tall the tree is, which is the longest path.',
+  'The question for this scene: how fast is it, how much space does it use, and where do people slip?',
+  'Time is exponential, proportional to the number of nodes in the tree. The answer itself can contain a huge number of combinations, and each one has to be listed.',
+  'Space comes from recursion depth. The deepest path keeps picking the smallest number, so it is big O of target divided by the smallest number, not counting the output.',
+  'Pitfall one: recursing with i plus 1. Then each number can be used only once, and 2, 3, 6, 7 with target 7 returns only 7; 2, 2, 3 is lost.',
+  'Pitfall two: appending path itself without copying. Every saved entry is the same scratch pad, which ends up popped empty, so you get two empty lists.'
+]});
+
+/* ===== 10 Compare with 377 ===== */
+add({ch:10, title:'Compare with 377: <em>does order count</em>', vis:
+  gloss(0,[['permutation','Different order counts as different: [2, 3, 2] and [3, 2, 2] are two'],['problem 377','Also reach target, but only asks how many permutations']])
+  + q(1,'377 also adds numbers up to a target. Why is there no start index there?')
+  + cards([[2,'39: order does not count, list each one','Pass start, walk only non-decreasing paths','sky'],
+           [3,'377: order counts, just one number','[2, 2, 3], [2, 3, 2], [3, 2, 2] are 3 ways','amber'],
+           [4,'The instinct version from scene 3 is exactly 377','[2, 3, 6, 7], 7: 4 ways = 3 + 1','mint'],
+           [5,'Only a count → use dp','dp[t] = sum of all dp[t − x]; no listing needed','sky']]),
+  say:[
+  'A permutation means a different order counts as different. Problem 377 also adds up to a target, but only asks how many permutations there are.',
+  'The question for this scene: 377 also adds numbers up to a target, so why is there no start index there?',
+  'In 39, order does not count, and we must list every combination. So we pass start and walk only the non-decreasing path.',
+  'In 377, order counts: 2, 2, 3; 2, 3, 2; and 3, 2, 2 are three different answers.',
+  'Here is the fun part: the instinct version from scene three, the one with duplicates, counts exactly the answer to 377: three orders plus 7, four ways in total.',
+  '377 only needs a count, not a list, so it uses dynamic programming: the ways to make t equal the sum, over each x, of the ways to make t minus x.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first; code after the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can [3, 2, 2] never appear?"')
+  + flow([[2,'Template','choose, explore, un-choose'],[2,'No duplicates','pass start, pick forward'],[3,'Reuse','recurse with i'],[3,'Pruning','sort + break'],[4,'Complexity','exponential']])
+  + chips(4,['backtracking','choose / explore / un-choose','start index','pruning','non-decreasing','40 Combination Sum II','377 Combination Sum IV']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can 3, 2, 2 never appear?',
+  'First the approach: I use backtracking. Each step picks a number, recurses, and undoes it on the way back. To avoid duplicates I pass a start index, and each level only picks from there onward.',
+  'Then the why: after picking index i, the next level starts at i, so the path never decreases, and no 2 can follow a 3. I recurse with i, not i plus 1, because numbers can be reused.',
+  'Last, pruning and complexity: with the list sorted, once a number exceeds what is missing, break. Time is exponential, space is the recursion depth. The key words are backtracking and start index.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Template','choose, explore, un-choose'],[0,'No duplicates','start: pick forward'],[0,'Reuse','dfs(i)'],[0,'Pruning','sort + break']])
+  + cards([[1,'① Backtracking = choose, explore, un-choose','append → recurse → pop; save path[:]','amber'],
+           [2,'② Pass start, pick forward → each combination once','path never decreases; pass i, not i + 1, to allow reuse','sky'],
+           [3,'③ Sort, and break once it is too big','every later number is bigger and overshoots too','mint']]),
+  say:[
+  'One more pass over the main line: backtracking is choose, explore, un-choose; pass start and only pick forward to remove duplicates; recurse with i to allow reuse; sort, and break once it is too big.',
+  'Number one: backtracking is choose, explore, un-choose. Append, recurse, pop. When you save an answer, save a copy of path.',
+  'Number two: pass a start index and only pick forward, so each combination appears once, because the path never decreases. Pass i, not i plus 1, so the same number can be reused.',
+  'Number three: sort, and once the next number exceeds what is missing, break, because every number after it is bigger and overshoots too.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/04ae0c7bfaf3.mp3", "0-1": "a/cdff5378f242.mp3", "0-2": "a/9fe5ac5aee68.mp3", "0-3": "a/9d68a5388cc3.mp3", "1-0": "a/15f06a35b22f.mp3", "1-1": "a/998adbf9f1d4.mp3", "1-2": "a/ecabe4127cbd.mp3", "1-3": "a/6c629c77dd1b.mp3", "1-4": "a/0c80f92269fc.mp3", "2-0": "a/4bbbbd6682d5.mp3", "2-1": "a/35accbb61bbe.mp3", "2-2": "a/506f0ce7294f.mp3", "2-3": "a/db3103d78484.mp3", "2-4": "a/b21105e90669.mp3", "2-5": "a/371803f6e120.mp3", "3-0": "a/bccf91363d4e.mp3", "3-1": "a/6f01dad4ee30.mp3", "3-2": "a/876550cc7ecb.mp3", "3-3": "a/47b3bd1092d9.mp3", "3-4": "a/7faf07ab33c3.mp3", "3-5": "a/b0c586c82c93.mp3", "4-0": "a/777bd0078452.mp3", "4-1": "a/d58361f72c89.mp3", "4-2": "a/89445839aa1e.mp3", "4-3": "a/9b623cac5d11.mp3", "4-4": "a/5af08f8de3ab.mp3", "4-5": "a/e590a13340eb.mp3", "5-0": "a/2b277ae0bce3.mp3", "5-1": "a/d50f4bff13ce.mp3", "5-2": "a/0951799c7bc4.mp3", "5-3": "a/8124a3fb56d3.mp3", "5-4": "a/65a2cd20fc0f.mp3", "5-5": "a/9da8ae1c05f2.mp3", "6-0": "a/ce700d4b5926.mp3", "6-1": "a/9a9222a76aa3.mp3", "6-2": "a/856f9c046753.mp3", "6-3": "a/692cc1542950.mp3", "6-4": "a/5d8c92fca205.mp3", "6-5": "a/72c35b388bbd.mp3", "6-6": "a/00a28845bf1c.mp3", "6-7": "a/a07477e6f220.mp3", "6-8": "a/6e809f912e9e.mp3", "6-9": "a/09fed1e8aae9.mp3", "6-10": "a/179817b85ddd.mp3", "7-0": "a/c3a750884e36.mp3", "7-1": "a/857d5766e357.mp3", "7-2": "a/565409f3b4c7.mp3", "7-3": "a/c84f540787c5.mp3", "7-4": "a/83becbd313c8.mp3", "7-5": "a/7738c1e779ea.mp3", "7-6": "a/ad4c57d71ecc.mp3", "8-0": "a/41f6d5254b57.mp3", "8-1": "a/62a4f84709e8.mp3", "8-2": "a/19ce6650c06f.mp3", "8-3": "a/522ee0cab913.mp3", "8-4": "a/3b811560ab1a.mp3", "9-0": "a/ff85fd7b70c9.mp3", "9-1": "a/4d58d5ad8c1b.mp3", "9-2": "a/3ac0008190ed.mp3", "9-3": "a/783a40156e5c.mp3", "9-4": "a/94e0f3bb5ab0.mp3", "9-5": "a/c0e1ea3756b9.mp3", "10-0": "a/ee72fe427c49.mp3", "10-1": "a/d1c83320578e.mp3", "10-2": "a/daeb8af90e07.mp3", "10-3": "a/493f5eb3882a.mp3", "10-4": "a/63565653df32.mp3", "10-5": "a/69366f6ceffb.mp3", "11-0": "a/08a5f490c081.mp3", "11-1": "a/7277854ba845.mp3", "11-2": "a/5c55b8a280e6.mp3", "11-3": "a/882655636f1a.mp3", "11-4": "a/8c2271bd94f8.mp3", "12-0": "a/ff988f441b32.mp3", "12-1": "a/eaf8e2f52654.mp3", "12-2": "a/45aeda55cdd0.mp3", "12-3": "a/4284ab1ea0ac.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

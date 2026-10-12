@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>A Cycle in the Array</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'A Cycle in the Array', template:'prep', lang:'en', sub:'LeetCode 287 Find the Duplicate Number · animated walkthrough', key:'lc287envid', doc:'LeetCode 287', blurb:'Sorting edits the array and a set needs extra space, so both break the rules. Draw "index i points to nums[i]" as arrows, and the duplicate becomes the cycle entrance; then find it in two phases with fast and slow pointers.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of numbers','The problem: two rules','Instinct: sort and set','New view: index points to value','Phase 1: fast and slow meet','Why phase 2 works','Phase 2: walk to the entrance','Check two more examples','Code','Complexity and pitfalls','Another way: binary search on values','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- index graph: node i, arrow i → nums[i]; amber ring = slow, mint dashed ring = fast ---------- */
+const LC287_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.fg{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.fg .s:not(.on){opacity:0}
+.fg .only.s{opacity:0!important} .fg .only.s.now{opacity:1!important}
+.fg path{fill:none;stroke:var(--sky);stroke-width:3}
+.fg path.hot{stroke:var(--coral);stroke-width:4}
+.fg circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.fg circle.ent{fill:rgba(98,224,180,.35);stroke:var(--mint)}
+.fg circle.slow{fill:none;stroke:var(--amber);stroke-width:4}
+.fg circle.fast{fill:none;stroke:var(--mint);stroke-width:3;stroke-dasharray:6 4}
+.fg text{fill:var(--paper);font-family:var(--f-display);font-size:20px;text-anchor:middle;dominant-baseline:central}
+.fg text.lab{font-family:var(--f-mono);font-size:13px;fill:var(--amber)}
+.fqrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.fqrow .s{position:absolute;left:0;right:0}
+.fqrow .only.s{opacity:0!important} .fqrow .only.s.now{opacity:1!important}
+.fqrow b{color:var(--amber)} .fqrow em{font-style:normal;color:var(--mint)}
+.fa{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.fa>div{position:relative;display:grid;place-items:center;height:2.6em;border-radius:8px}
+.fa>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.fa>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.fa>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.fa .tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(255,184,77,.35);transform:none}
+.fa .tint.s:not(.on){opacity:0}
+</style>`;
+const LC287_R = 21;
+function LC287_edge([x1,y1],[x2,y2],bend=0,cls=''){
+  const R=LC287_R, dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const sx=x1+ux*R, sy=y1+uy*R, ex=x2-ux*(R+6), ey=y2-uy*(R+6);
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  return `<path class="${cls}" marker-end="url(#fah${cls?'-'+cls:''})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+const LC287_POS = {0:[35,60],1:[110,60],3:[185,60],2:[260,60],4:[260,160]};
+const LC287_E = [[0,1],[1,3],[3,2],[2,4,30],[4,2,30]];
+// o: {show:{edgeIdx:step}, hot:[[step,[idx]]], ent:step, lab:[[step,x,y,text]], st:[[step,slow,fast,text]]}
+function LC287_g(o){
+  const R=LC287_R, P=LC287_POS;
+  let s = LC287_CSS + `<svg class="fg" viewBox="0 0 340 205" role="img" aria-label="index graph"><defs>
+    <marker id="fah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sky);stroke:none"/></marker>
+    <marker id="fah-hot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--coral);stroke:none"/></marker></defs>`;
+  LC287_E.forEach(([a,b,bend],i)=>{ const e=LC287_edge(P[a],P[b],bend||0); s += (o.show&&o.show[i]!=null)?`<g class="s" data-s="${o.show[i]}">${e}</g>`:e; });
+  (o.hot||[]).forEach(([st,idx])=>idx.forEach(i=>{ const [a,b,bend]=LC287_E[i]; s+=`<g class="s" data-s="${st}">${LC287_edge(P[a],P[b],bend||0,'hot')}</g>`; }));
+  Object.entries(P).forEach(([id,[x,y]])=>{
+    s += `<circle cx="${x}" cy="${y}" r="${R}"/>`;
+    if(o.ent!=null && id==='2') s += `<g class="s" data-s="${o.ent}"><circle class="ent" cx="${x}" cy="${y}" r="${R}"/></g>`;
+    s += `<text x="${x}" y="${y}">${id}</text>`;
+  });
+  (o.lab||[]).forEach(([st,x,y,t])=>s+=`<text class="lab s" data-s="${st}" x="${x}" y="${y}">${t}</text>`);
+  (o.st||[]).forEach(([st,sl,fa])=>{
+    if(sl!=null){ const [x,y]=P[sl]; s+=`<circle class="slow only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+6}"/>`; }
+    if(fa!=null){ const [x,y]=P[fa]; s+=`<circle class="fast only s" data-s="${st}" cx="${x}" cy="${y}" r="${R+12}"/>`; }
+  });
+  s += `</svg>`;
+  if(o.st) s += `<div class="fqrow">${o.st.map(([st,,,txt])=>`<span class="only s" data-s="${st}">${txt}</span>`).join('')}</div>`;
+  return s;
+}
+// array strip: index row + value row; hi = {k: step}
+function LC287_arr(nums, hi={}){
+  let h = LC287_CSS + `<div class="fa" style="grid-template-columns:repeat(${nums.length},2.8em)">`;
+  h += nums.map((_,k)=>`<div class="ix">i = ${k}</div>`).join('');
+  h += nums.map((v,k)=>`<div class="v"><b>${v}</b>${hi[k]!=null?`<i class="tint s" data-s="${hi[k]}"></i>`:''}</div>`).join('');
+  return h + `</div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'A Cycle in the Array<br><em>LeetCode 287</em>', vis:
+  gloss(0,[['duplicate','The number that appears more than once in the array'],['O(1) extra space','Only a few variables; the amount does not grow with the array'],['fast and slow pointers','One moves 1 step at a time, the other 2; you saw this in 141']])
+  + flow([[1,'Read','no edits, no extra space'],[1,'Instinct','sort / set: against the rules'],[2,'New view','index i → nums[i]'],[2,'Cycle','entrance = duplicate'],[3,'Phase 1','fast and slow meet'],[3,'Phase 2','same speed to the entrance']]),
+  say:[
+  'This lesson covers LeetCode 287, Find the Duplicate Number. First, three words. The duplicate is the number that appears more than once. O of 1 extra space means only a few variables, no matter how long the array is. Fast and slow pointers: one moves one step at a time, the other moves two. You saw them in problem 141.',
+  'This problem has two rules: you may not modify the array, and you may not use extra space. So the handiest tools, sorting and a set, both break the rules.',
+  'The breakthrough is a new way of looking: draw an arrow from index i to nums of i. The array becomes a linked list, it always has a cycle, and the entrance of that cycle is the duplicate.',
+  'Finally we find the entrance with fast and slow pointers in two phases: in phase one they meet, and in phase two they walk together to the entrance.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>two rules</em>', vis:
+  gloss(0,[['n + 1 numbers','The array has length n + 1, and every number is between 1 and n'],['pigeonhole principle','Put 5 apples into 4 drawers, and some drawer gets at least 2']])
+  + LC287_arr([1,3,4,2,2],{3:2,4:2})
+  + q(1,'nums = [1, 3, 4, 2, 2]. Which number repeats? Why must something repeat?')
+  + cards([[2,'The answer is 2','Index 3 and index 4 both hold 2','mint'],
+           [3,'A repeat is guaranteed','5 numbers, but only 4 possible values, 1 to 4','sky'],
+           [4,'Two rules','① do not modify the array　② only O(1) extra space','coral']]),
+  say:[
+  'The array holds n plus 1 numbers, and each one is between 1 and n. The pigeonhole principle says: put five apples into four drawers, and at least one drawer gets two.',
+  'The question for this scene: in 1, 3, 4, 2, 2, which number repeats? And why must something repeat?',
+  'The answer is 2. Index 3 and index 4 both hold a 2.',
+  'A repeat is guaranteed, because there are five numbers but only four possible values, 1 to 4. By the pigeonhole principle, some value shows up twice. The problem promises only one number repeats, but it can repeat more than twice.',
+  'The hard part is the two rules: first, do not modify the array; second, use only O of 1 extra space.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Instinct: <em>sort and set both break the rules</em>', vis:
+  gloss(0,[['set','A "have I seen this?" notebook; each lookup is fast'],['O(n) space','Extra room as large as the array itself']])
+  + q(1,'How would you find the repeat yourself? Where does each idea get stuck?')
+  + cards([[2,'Idea 1: sort','It becomes [1, 2, 2, 3, 4]; equal neighbors give the answer, but it modifies the array','coral'],
+           [3,'Idea 2: a set','Record what you see; a second sighting is the answer, but the set needs O(n) space','coral'],
+           [4,'Idea 3: compare every pair','No edits, no extra room, but O(n²) is too slow','coral'],
+           [5,'Clue: every value is in 1 to n','And indexes run 0 to n: every value can be used as an index','mint']]),
+  say:[
+  'A set is a "have I seen this?" notebook, and each lookup is fast. O of n space means extra room as large as the array.',
+  'The question for this scene: how would you find the repeat yourself, and where does each idea get stuck?',
+  'Idea one, sort. You get 1, 2, 2, 3, 4, and two equal neighbors give the answer. But sorting changes the array, which breaks rule one.',
+  'Idea two, a set. Read left to right: record 1, record 3, record 4, record 2, then the second 2 is already there, so that is the answer. But the set can hold up to n numbers, which is O of n space and breaks rule two.',
+  'Idea three, compare every two numbers. No edits and no extra room, but that is O of n squared comparisons, too slow.',
+  'We need something that does not modify the array, uses a few variables, and is fast. The clue is in the values: every value is between 1 and n, and the indexes run from 0 to n, so every value can be used as an index.'
+]});
+
+/* ===== 3 New view ===== */
+add({ch:3, title:'A new view: <em>index points to value</em>', vis:
+  gloss(0,[['i → nums[i]','Draw an arrow from index i to index nums[i]'],['cycle entrance','The first cycle node you reach when walking in from outside']])
+  + duo(LC287_g({show:{0:2,1:2,2:3,3:4,4:4}, hot:[[4,[3,4]]], ent:6, lab:[[6,260,16,'entrance']]}),
+    q(1,'Draw [1, 3, 4, 2, 2] as "index points to value" arrows. What does it look like?')
+    + cards([[5,'Keep walking and you must loop','Every arrow lands in 1 to n, so you never leave','sky'],
+             [6,'2 has two arrows coming in','From 3 and from 4, because nums[3] = nums[4] = 2','amber'],
+             [7,'The entrance is the duplicate','Nothing points to 0, so the start 0 is always outside the cycle','mint']])),
+  say:[
+  'Here is how to draw the arrows: from index i, point to index nums of i. The cycle entrance is the first node on the cycle that you reach when walking in from outside.',
+  'The question for this scene: if we draw 1, 3, 4, 2, 2 as index-points-to-value arrows, what does it look like?',
+  'Start at index 0. nums of 0 is 1, so draw 0 to 1. nums of 1 is 3, so draw 1 to 3.',
+  'nums of 3 is 2, so draw 3 to 2.',
+  'nums of 2 is 4, so draw 2 to 4. And nums of 4 is 2 again, so draw 4 back to 2. These two red arrows form a cycle.',
+  'Why must there be a cycle? Every arrow points to an index between 1 and n, so you never leave the array. There are only n plus 1 nodes, so if you keep walking, you must come back to a node you have visited.',
+  'Now look at node 2. Two arrows come in, one from 3 and one from 4. Two arrows into the same node means nums of 3 equals nums of 4, both are 2.',
+  'Every value is at least 1, so nothing points to 0, and the start 0 is outside the cycle. The entrance has one arrow from outside and one from the cycle, so it is the duplicate. The problem becomes: find the cycle entrance.'
+]});
+
+/* ===== 4 Phase 1 ===== */
+add({ch:4, title:'Phase 1: <em>fast and slow meet</em>', vis:
+  gloss(0,[['slow pointer','Amber ring, 1 step at a time: slow = nums[slow]'],['fast pointer','Mint dashed ring, 2 steps at a time: fast = nums[nums[fast]]']])
+  + duo(LC287_g({st:[[2,0,0,'start: slow <b>0</b>　fast <em>0</em>'],[3,1,3,'round 1: slow <b>1</b>　fast <em>3</em>'],[4,3,4,'round 2: slow <b>3</b>　fast <em>4</em>'],[5,2,4,'round 3: slow <b>2</b>　fast <em>4</em>'],[6,4,4,'round 4: slow <b>4</b>　fast <em>4</em>　meet']]}),
+    q(1,'Just like 141, start slow and fast at 0. Where do they meet?')
+    + cards([[7,'They meet at 4, but the answer is 2','Meeting only proves a cycle; the meeting point is not always the entrance','coral']])),
+  say:[
+  'slow is the slow pointer, the amber ring, moving one step: slow equals nums of slow. fast is the fast pointer, the mint dashed ring, moving two steps: fast equals nums of nums of fast.',
+  'The question for this scene: just like problem 141, start slow and fast at 0. Where do they meet?',
+  'Start: both are at 0. As 141 showed, once inside a cycle, fast gains one step every round, so it is sure to catch up.',
+  'Round one: slow goes from 0 to 1. fast takes two steps, 0 to 1, then to 3.',
+  'Round two: slow goes from 1 to 3. fast goes from 3 to 2, then to 4.',
+  'Round three: slow goes from 3 to 2 and enters the cycle. fast goes from 4 to 2, then back to 4.',
+  'Round four: slow goes from 2 to 4. fast goes from 4 to 2, then to 4. Both are at 4, so they meet.',
+  'But the answer is 2, not 4. Meeting only proves there is a cycle, and the meeting point is not always the entrance. Finding the entrance takes phase two.'
+]});
+
+/* ===== 5 Why phase 2 works ===== */
+add({ch:5, title:'Why <em>phase 2 works</em>', vis:
+  gloss(0,[['a','Steps from the start to the entrance; here 0 → 1 → 3 → 2, so a = 3'],['b, c','b is steps from the entrance to the meeting point, b = 1; c is one lap, c = 2'],['k','How many more laps fast ran than slow']])
+  + duo(LC287_g({ent:2, st:[[2,4,4,'meeting point: <b>4</b>']], lab:[[2,148,98,'a = 3'],[3,312,110,'c = 2'],[3,205,115,'b = 1']]}),
+    q(1,'Put one pointer back at the start and move both 1 step at a time. Why must they meet at the entrance?')
+    + cards([[2,'slow walked a + b = 4 steps','fast walked twice as far: 8 steps','sky'],
+             [3,'fast\'s extra 4 steps are all laps','So a + b = k × c: 4 = 2 × 2','amber'],
+             [4,'From the meeting point, a more steps → entrance','On the cycle that is b + a in total: whole laps','mint'],
+             [5,'From the start, a steps → also the entrance','Same speed, same start time, they arrive together','mint']])),
+  say:[
+  'First, a few lengths. a is the steps from the start to the entrance: 0, 1, 3, 2, so a is 3. b is the steps from the entrance to the meeting point, b is 1. c is one lap of the cycle, c is 2. k is how many more laps fast ran than slow.',
+  'The question for this scene: put one pointer back at the start and move both one step at a time. Why must they meet at the entrance?',
+  'When they meet, slow has walked a plus b steps, 3 plus 1, which is 4 steps. fast is twice as fast, so it walked 8 steps.',
+  'They stand on the same node, yet fast walked 4 more steps. Those extra 4 steps can only be whole laps around the cycle. So a plus b equals k times c. Here 4 equals 2 times 2, two extra laps.',
+  'Now walk a more steps from the meeting point. Counting from the entrance, that is b plus a steps on the cycle, exactly k whole laps, so you land back on the entrance.',
+  'And walking a steps from the start lands on the entrance by definition. The two pointers start together at the same speed, so they reach the entrance at the same time and meet there.'
+]});
+
+/* ===== 6 Phase 2 ===== */
+add({ch:6, title:'Phase 2: <em>same speed to the entrance</em>', vis:
+  gloss(0,[['same speed','Both pointers move 1 step: slow = nums[slow], fast = nums[fast]']])
+  + duo(LC287_g({ent:5, lab:[[5,260,16,'entrance']], st:[[2,0,4,'slow back to <b>0</b>　fast stays at <em>4</em>'],[3,1,2,'step 1: slow <b>1</b>　fast <em>2</em>'],[4,3,4,'step 2: slow <b>3</b>　fast <em>4</em>'],[5,2,2,'step 3: both at <b>2</b>　meet']]}),
+    q(1,'slow goes back to 0, fast stays at the meeting point 4, and both move 1 step. Where do they meet?')
+    + cards([[6,'Return 2','Both walked a = 3 steps','mint']])),
+  say:[
+  'Same speed means both pointers move one step at a time. fast no longer takes two steps.',
+  'The question for this scene: slow goes back to 0, fast stays at the meeting point 4, and both move one step at a time. Where do they meet?',
+  'Start: slow is at 0, fast is at 4.',
+  'Step one: slow goes from 0 to 1. fast goes from 4 to 2.',
+  'Step two: slow goes from 1 to 3. fast goes from 2 to 4.',
+  'Step three: slow goes from 3 to 2. fast goes from 4 to 2. Both are at 2, they meet, and this is the entrance.',
+  'Return 2. Both walked exactly a, which is 3 steps, matching the reasoning in the last scene.'
+]});
+
+/* ===== 7 Two more examples ===== */
+add({ch:7, title:'Check <em>two more examples</em>', vis:
+  gloss(0,[['self-loop','A node whose arrow points back to itself; the cycle length is 1']])
+  + q(1,'[3, 1, 3, 4, 2] and [3, 3, 3, 3, 3]: do the two phases still work?')
+  + cards([[2,'[3, 1, 3, 4, 2]: 0 → 3 → 4 → 2 → 3','The cycle is 3 → 4 → 2 → 3; index 0 and index 2 both point to 3','sky'],
+           [3,'Phase 1: (3, 4) → (4, 3) → (2, 2)','They meet at 2 in round 3','amber'],
+           [4,'Phase 2: slow 0 → 3, fast 2 → 3','They meet after 1 step → return 3','mint'],
+           [5,'[3, 3, 3, 3, 3]: 0 → 3 → 3','They meet at 3 in round 1; phase 2 reaches 3 in 1 step → return 3','mint']]),
+  say:[
+  'A self-loop is a node whose arrow points back to itself. The cycle length is 1.',
+  'The question for this scene: for 3, 1, 3, 4, 2 and for 3, 3, 3, 3, 3, do the two phases still work?',
+  'First, 3, 1, 3, 4, 2. From 0: 0 to 3, 3 to 4, 4 to 2, and 2 back to 3. The cycle is 3, 4, 2, the entrance is 3, and index 0 and index 2 both point to it.',
+  'Phase one, with slow first and fast second in each pair: round one is 3 and 4, round two is 4 and 3, round three is 2 and 2. They meet at 2.',
+  'Phase two: slow goes back to 0 and steps to 3. fast steps from 2 to 3 as well. They meet after one step, return 3. Correct.',
+  'Now 3, 3, 3, 3, 3, five threes. 0 points to 3, and 3 points to itself, a self-loop. In round one, slow and fast are both at 3, so they meet. In phase two, slow steps from 0 to 3, fast stays at 3, return 3. Also correct.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>two phases, two loops</em>', vis:
+  gloss(0,[['while True','Move first, check after: both start at 0, so they must take a round before comparing']])
+  + term('solution.py',[
+    [2,'o','def findDuplicate(nums):'],
+    [2,'o','    slow = fast = 0                 # both start at index 0'],
+    [3,'o','    while True:                     # phase 1'],
+    [3,'o','        slow = nums[slow]           # 1 step'],
+    [3,'o','        fast = nums[nums[fast]]     # 2 steps'],
+    [3,'hl','        if slow == fast:            # met: inside the cycle'],
+    [3,'o','            break'],
+    [4,'o','    slow = 0                        # phase 2: back to start'],
+    [4,'o','    while slow != fast:'],
+    [4,'hl','        slow = nums[slow]           # both move 1 step'],
+    [4,'hl','        fast = nums[fast]'],
+    [5,'o','    return slow                     # entrance = duplicate']])
+  + q(1,'Which step of the animation does each part of the code match?'),
+  say:[
+  'while True means move first, check after. Both pointers start at 0, so they are equal at the start, and they must take a round before comparing.',
+  'The question for this scene: which step of the animation does each part of the code match?',
+  'First line: slow and fast both start at index 0.',
+  'Phase one: slow takes one step, fast takes two, then compare. If they are equal, they met inside the cycle, so break out of the loop.',
+  'Phase two: slow goes back to 0, fast stays at the meeting point. Both move one step until they are equal.',
+  'Finally return slow. It stops at the cycle entrance, and that index is the duplicated number.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n) time','The total number of steps grows in proportion to the array length']])
+  + q(1,'What are the time and space costs, and where is it easiest to slip?')
+  + cards([[2,'Time O(n), space O(1)','Neither phase runs more than n + 1 rounds; only two variables','sky'],
+           [3,'Starting with while slow != fast','Both are at 0, so the loop never runs','coral'],
+           [4,'fast still takes 2 steps in phase 2','They must move at the same speed to arrive together','coral'],
+           [4,'Taking the phase 1 meeting point as the answer','[1, 3, 4, 2, 2] meets at 4, but the answer is 2','coral']]),
+  say:[
+  'O of n time means the total number of steps grows in proportion to the array length.',
+  'The question for this scene: what are the time and space costs, and where is it easiest to slip?',
+  'Time is O of n: in phase one, slow takes a steps to enter the cycle and is caught within one lap; phase two takes a steps. Space is O of 1, just two variables, and the array is never modified.',
+  'Pitfall one: starting the loop with while slow is not equal to fast. Both are at 0, equal from the start, so the loop never runs. Pitfall two: fast still taking two steps in phase two. They must move at the same speed to reach the entrance together.',
+  'Pitfall three: taking the phase one meeting point as the answer. 1, 3, 4, 2, 2 meets at 4, but the answer is 2.'
+]});
+
+/* ===== 10 Alternative: binary search on values ===== */
+add({ch:10, title:'Another way: <em>binary search on values</em>', vis:
+  gloss(0,[['binary search','Cut the range in half every time'],['count(≤ mid)','How many numbers in the array are at most mid']])
+  + q(1,'The interviewer asks: "If you cannot think of fast and slow pointers, is there another O(1)-space way?"')
+  + cards([[2,'Guess a mid between 1 and n','Count the numbers that are at most mid','sky'],
+           [3,'count > mid → duplicate ≤ mid','1 to mid has only mid values but holds more numbers','amber'],
+           [4,'[1, 3, 4, 2, 2]','mid 2: 3 numbers > 2, keep [1, 2]; mid 1: 1 number, not more → answer 2','mint'],
+           [4,'O(n log n) time, O(1) space','A bit slower than fast and slow pointers, but easier to come up with','sky']]),
+  say:[
+  'Binary search means cutting the range in half every time. count of at most mid is how many numbers in the array are at most mid.',
+  'The question for this scene: the interviewer asks, if you cannot think of fast and slow pointers, is there another O of 1 space way?',
+  'Yes. Binary search on the values, not the indexes. Take the middle value mid between 1 and n, and count how many numbers in the array are at most mid.',
+  'If the count is greater than mid, then the mid values from 1 to mid hold more numbers than they have room for. That is the pigeonhole principle again, so the duplicate is in the left half. Otherwise it is in the right half.',
+  'On 1, 3, 4, 2, 2: the range is 1 to 4, mid is 2, and three numbers are at most 2, more than 2, so keep 1 to 2. mid is 1, only one number, not more, so keep 2. The answer is 2. Each count costs O of n, and there are log n rounds, so it is O of n log n time and O of 1 space.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the method out loud first; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why is the phase 2 meeting point the duplicate?"')
+  + flow([[2,'Ruled out','sort edits, set is O(n)'],[2,'Graph','i → nums[i]'],[3,'Cycle','entrance = duplicate'],[3,'Two phases','meet, then same speed'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['Floyd\'s cycle detection','tortoise and hare','cycle entrance','pigeonhole principle','142 Linked List Cycle II']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why is the phase two meeting point the duplicate?',
+  'First say why sorting and a set fail: one edits the array, the other uses O of n space. Then the graph: index i points to nums of i, and walking forever must loop.',
+  'Then the key point: the duplicated value has two indexes pointing to it, one arrow from outside the cycle and one from the cycle, so it is the cycle entrance. In phase one, fast and slow meet. Because a plus b equals k times c, walking a steps at the same speed from the start and from the meeting point lands both on the entrance.',
+  'Complexity is O of n time and O of 1 space. The English keyword is Floyd\'s cycle detection, and phase two is exactly problem 142, finding the cycle entrance.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Graph','i → nums[i]'],[0,'Entrance','= duplicate'],[0,'Phase 1','1 step / 2 steps, meet'],[0,'Phase 2','back to start, both 1 step']])
+  + cards([[1,'① Index i points to nums[i]: the array becomes a linked list with a cycle','Two indexes point to the same value, and that value is the cycle entrance','amber'],
+           [2,'② Phase 1: slow takes 1 step, fast takes 2, until they meet','The meeting point is not the answer; it only proves you are in the cycle','sky'],
+           [3,'③ Phase 2: slow back to 0, both take 1 step; where they meet is the answer','Because a + b = k × c, walking a more steps lands back on the entrance','mint']]),
+  say:[
+  'The main thread: index i points to nums of i; the duplicate is the cycle entrance; in phase one, fast and slow meet; in phase two, go back to the start and walk at the same speed.',
+  'Number one: index i points to nums of i, so the array becomes a linked list with a cycle. Two indexes point to the same value, and that value is the cycle entrance.',
+  'Number two: in phase one, slow takes one step and fast takes two, until they meet. The meeting point is not the answer; it only proves you are inside the cycle.',
+  'Number three: in phase two, slow goes back to 0, both take one step at a time, and where they meet is the answer. Because a plus b equals k times c, walking a more steps from the meeting point lands right back on the entrance.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/8a73e0fcd0f6.mp3", "0-1": "a/bacbec22db80.mp3", "0-2": "a/a1a3553c7092.mp3", "0-3": "a/e2bfb3310de8.mp3", "1-0": "a/62fd3b444852.mp3", "1-1": "a/81225b2243c1.mp3", "1-2": "a/8e9f59f5f545.mp3", "1-3": "a/3817d0a19e25.mp3", "1-4": "a/c6af82273b8e.mp3", "2-0": "a/5a0c941f7bcf.mp3", "2-1": "a/2d3b04c43733.mp3", "2-2": "a/a6a861be5278.mp3", "2-3": "a/2c318ce082b0.mp3", "2-4": "a/31616b2b99be.mp3", "2-5": "a/58067afe0f7c.mp3", "3-0": "a/505d9b8a2c9a.mp3", "3-1": "a/1f324c9f1b28.mp3", "3-2": "a/f9914cbc39f7.mp3", "3-3": "a/7e22463421be.mp3", "3-4": "a/b3747c08931d.mp3", "3-5": "a/2a4f626a3ce5.mp3", "3-6": "a/b86c1d2b7b40.mp3", "3-7": "a/fba480960399.mp3", "4-0": "a/6511cc924b3c.mp3", "4-1": "a/044db2524f05.mp3", "4-2": "a/b979ac879a0f.mp3", "4-3": "a/b79b65be40ed.mp3", "4-4": "a/72688246c021.mp3", "4-5": "a/89bfaa62b0d9.mp3", "4-6": "a/3abddcef7b95.mp3", "4-7": "a/716c9933ad50.mp3", "5-0": "a/c2f4344c08f2.mp3", "5-1": "a/5083a2efaea7.mp3", "5-2": "a/77f23b90e269.mp3", "5-3": "a/26896655b5dc.mp3", "5-4": "a/4720e4693c5a.mp3", "5-5": "a/7d66e8a08332.mp3", "6-0": "a/4539dd4f4896.mp3", "6-1": "a/4b9eb5b41fc5.mp3", "6-2": "a/82a34a774abe.mp3", "6-3": "a/9fe978c2690e.mp3", "6-4": "a/0900ee3bcf94.mp3", "6-5": "a/b137c10a4eb5.mp3", "6-6": "a/bf888c6bc3da.mp3", "7-0": "a/5d18ca829b97.mp3", "7-1": "a/341af7a4a8b1.mp3", "7-2": "a/9deae65aa433.mp3", "7-3": "a/0d81c830b713.mp3", "7-4": "a/4c5f729e32a2.mp3", "7-5": "a/3f7c3aaed037.mp3", "8-0": "a/bb4d81ee718c.mp3", "8-1": "a/49a350dcfd7f.mp3", "8-2": "a/108105e57148.mp3", "8-3": "a/8cc7f06ae9e1.mp3", "8-4": "a/adec4fffdac8.mp3", "8-5": "a/4c83473e698f.mp3", "9-0": "a/a90447568077.mp3", "9-1": "a/681a557d92a6.mp3", "9-2": "a/8215b241b816.mp3", "9-3": "a/85b21da6458f.mp3", "9-4": "a/52f988f8091f.mp3", "10-0": "a/bf03e1615c2b.mp3", "10-1": "a/ee2d2f8c729e.mp3", "10-2": "a/458284b390f5.mp3", "10-3": "a/6e30a80d3eae.mp3", "10-4": "a/ceefdb3ed0b3.mp3", "11-0": "a/1d238990ef15.mp3", "11-1": "a/ce92144a9e60.mp3", "11-2": "a/68be3ff73888.mp3", "11-3": "a/d0e9961506d3.mp3", "11-4": "a/6d2c467b1b70.mp3", "12-0": "a/049f9e61a4c0.mp3", "12-1": "a/cdabfbd5fe0b.mp3", "12-2": "a/380907e19fd2.mp3", "12-3": "a/26548846112f.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

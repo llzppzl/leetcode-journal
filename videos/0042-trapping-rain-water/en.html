@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Water Between Bars</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Water Between Bars', template:'prep', lang:'en', sub:'LeetCode 42 Trapping Rain Water · animated walkthrough', key:'lc42envid', doc:'LeetCode 42', blurb:'Look at one bar first: its water level is the lower of the tallest walls on each side; then go from scanning both ways for every bar, to storing two arrays, to two pointers that keep only two numbers, where the side with the lower wall is already decided.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of bars','The problem: how much water','Look at just one bar','Instinct: scan both ways','Store two arrays first','The key: the lower side is decided','Walk through: first six steps','Walk through: L meets R','Check again: [4, 2, 0, 3, 2, 5]','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- bars + water: amber = left side / left_max, mint = right side / right_max, white frame = column being decided ---------- */
+const LC42_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.rw{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.rw .s{transform:none}
+.rw .s:not(.on){opacity:0}
+.rw .only.s{opacity:0!important} .rw .only.s.now{opacity:1!important}
+.rw rect.bar{fill:rgba(170,182,215,.28);stroke:rgba(170,182,215,.75);stroke-width:1.5}
+.rw rect.wat{fill:var(--sky);fill-opacity:.6}
+.rw line.gr{stroke:var(--line);stroke-width:2}
+.rw rect.mk{fill:none;stroke-width:2.5}
+.rw rect.mk.cur{stroke:var(--paper)}
+.rw rect.mk.lw{stroke:var(--amber)}
+.rw rect.mk.rw2{stroke:var(--mint)}
+.rw rect.mk.scan{fill:rgba(255,255,255,.09);stroke:none}
+.rw line.lv{stroke-width:2;stroke-dasharray:5 4}
+.rw line.lv.l{stroke:var(--amber)} .rw line.lv.r{stroke:var(--mint)}
+.rw text{fill:var(--paper);font-family:var(--f-mono);font-size:12px;text-anchor:middle;dominant-baseline:central}
+.rw text.ix{fill:var(--dim);font-size:11px}
+.rw text.mx{font-size:13px} .rw text.mx.l{fill:var(--amber);text-anchor:start} .rw text.mx.r{fill:var(--mint);text-anchor:end}
+.rw text.pt{font-family:var(--f-display);font-size:15px} .rw text.pt.l{fill:var(--amber)} .rw text.pt.r{fill:var(--mint)}
+.rw text.rl{fill:var(--dim);text-anchor:end;font-family:var(--f-body)}
+.rw text.rv.l{fill:var(--amber)} .rw text.rv.r{fill:var(--mint)} .rw text.rv.w{fill:var(--sky)}
+.lc42q{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.lc42q .s{position:absolute;left:0;right:0}
+.lc42q .only.s{opacity:0!important} .lc42q .only.s.now{opacity:1!important}
+.lc42q b{color:var(--paper)} .lc42q em{font-style:normal;color:var(--sky)}
+</style>`;
+// o: water {col: step}, marks [[step, col, cls, only]], lv [[step, level, fromCol, toCol, cls]], rows [[step, label, vals, cls]],
+//    st [[step, L, R, left_max, right_max, cur|null, msg]]
+function lc42_rain(h, o={}){
+  const n = h.length, mx = Math.max(...h, 1), lab = o.rows ? 52 : 0;
+  const cw = Math.min((330-lab)/n, 44), x0 = lab + (340-lab-n*cw)/2;
+  const u = Math.min(36, 120/mx), top = 30, base = top + mx*u;
+  const X = i => x0 + i*cw, Y = v => base - v*u;
+  const W = h.map((v,i) => Math.min(Math.max(...h.slice(0,i+1)), Math.max(...h.slice(i))) - v);
+  const nr = (o.rows||[]).length;
+  const H = base + 20 + (nr ? 12 + nr*18 : 0) + (o.st ? 22 : 0);
+  const f = v => v.toFixed(1);
+  let s = LC42_CSS + `<svg class="rw" viewBox="0 0 340 ${f(H)}" role="img" aria-label="bars and trapped water">`;
+  Object.entries(o.water||{}).forEach(([i,st]) => { i = +i; if(W[i] > 0) s += `<rect class="wat s" data-s="${st}" x="${f(X(i)+1)}" y="${f(Y(h[i]+W[i]))}" width="${f(cw-2)}" height="${f(W[i]*u)}"/>`; });
+  (o.marks||[]).filter(m=>m[2]==='scan').forEach(([st,i,cls,only]) => s += `<rect class="mk scan s ${only?'only':''}" data-s="${st}" x="${f(X(i))}" y="${top-4}" width="${f(cw)}" height="${f(base-top+4)}" rx="4"/>`);
+  h.forEach((v,i) => { if(v > 0) s += `<rect class="bar" x="${f(X(i)+2)}" y="${f(Y(v))}" width="${f(cw-4)}" height="${f(v*u)}" rx="2"/>`; s += `<text class="ix" x="${f(X(i)+cw/2)}" y="${f(base+11)}">${i}</text>`; });
+  s += `<line class="gr" x1="${f(x0)}" x2="${f(x0+n*cw)}" y1="${f(base)}" y2="${f(base)}"/>`;
+  (o.marks||[]).filter(m=>m[2]!=='scan').forEach(([st,i,cls,only]) => s += `<rect class="mk ${cls} s ${only?'only':''}" data-s="${st}" x="${f(X(i))}" y="${top-4}" width="${f(cw)}" height="${f(base-top+4)}" rx="4"/>`);
+  (o.lv||[]).forEach(([st,v,a,b,cls]) => s += `<line class="lv ${cls} s" data-s="${st}" x1="${f(X(a))}" x2="${f(X(b)+cw)}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`);
+  (o.rows||[]).forEach(([st,lb,vals,cls],r) => { const y = base + 32 + r*18;
+    s += `<g class="s" data-s="${st}"><text class="rl" x="${lab-4}" y="${f(y)}">${lb}</text>${vals.map((v,i)=>`<text class="rv ${cls}" x="${f(X(i)+cw/2)}" y="${f(y)}">${v}</text>`).join('')}</g>`; });
+  (o.st||[]).forEach(([st,L,R,lm,rm,cur]) => {
+    const g = `class="only s" data-s="${st}"`;
+    s += `<g ${g}>`;
+    s += `<text class="mx l" x="${f(x0)}" y="12">left_max = ${lm}</text><text class="mx r" x="${f(x0+n*cw)}" y="12">right_max = ${rm}</text>`;
+    s += `<line class="lv l" x1="${f(X(0))}" x2="${f(X(L)+cw)}" y1="${f(Y(lm))}" y2="${f(Y(lm))}"/>`;
+    s += `<line class="lv r" x1="${f(X(R))}" x2="${f(X(n-1)+cw)}" y1="${f(Y(rm))}" y2="${f(Y(rm))}"/>`;
+    if(cur != null) s += `<rect class="mk cur" x="${f(X(cur))}" y="${top-4}" width="${f(cw)}" height="${f(base-top+4)}" rx="4"/>`;
+    if(L === R) s += `<text class="pt l" x="${f(X(L)+cw/2-6)}" y="${f(base+30)}">L</text><text class="pt r" x="${f(X(R)+cw/2+6)}" y="${f(base+30)}">R</text>`;
+    else s += `<text class="pt l" x="${f(X(L)+cw/2)}" y="${f(base+30)}">L</text><text class="pt r" x="${f(X(R)+cw/2)}" y="${f(base+30)}">R</text>`;
+    s += `</g>`;
+  });
+  s += `</svg>`;
+  if(o.st) s += `<div class="lc42q">${o.st.map(([st,,,,,,msg])=>`<span class="only s" data-s="${st}">${msg}</span>`).join('')}</div>`;
+  return s;
+}
+const H1 = [0,1,0,2,1,0,1,3,2,1,2,1];
+const H2 = [4,2,0,3,2,5];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Water Between Bars<br><em>LeetCode 42</em>', vis:
+  gloss(0,[['height[i]','The height of bar i; every bar is 1 wide'],['trapped water','Water left in the dips between bars after the rain'],['two pointers','Two indexes, one on each end, walking toward the middle']])
+  + flow([[1,'The problem','how much water'],[1,'One bar','min(left max, right max) − height'],[2,'Instinct','scan both ways, O(n²)'],[2,'Two arrays','O(n) time, O(n) space'],[3,'Two pointers','the lower side is decided'],[3,'Code','O(1) space']]),
+  say:[
+  'This lesson is LeetCode 42, Trapping Rain Water. Three words first: height of i is the height of bar i. Trapped water is the water left in the dips between bars. Two pointers are two indexes, one on each end, walking toward the middle.',
+  'We will not think about the whole row at first. We just look at one bar and ask how much water sits on top of it. The answer is one sentence: take the lower of the tallest bar on the left and the tallest bar on the right, then subtract the bar itself.',
+  'Then we start from the most direct approach: scan left and right for every bar, which is slow. Storing two arrays ahead of time is fast, but uses extra space.',
+  'Finally the trick: two pointers that remember only two numbers. Whichever side has the lower tallest wall, the water on that side is already decided. We walk it through on the bar chart, then write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>how much water</em>', vis:
+  gloss(0,[['one unit of water','A block of water 1 wide and 1 tall'],['wall','A bar that keeps the water from flowing away']])
+  + duo(lc42_rain(H1, {water:{2:2,4:2,5:2,6:2,9:2}}),
+    q(1,'height = [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1]. After the rain, how many units of water are trapped?')
+    + cards([[2,'Answer: 6','Column 2 holds 1, column 4 holds 1, column 5 holds 2, column 6 holds 1, column 9 holds 1','sky'],
+             [3,'You need a wall on both sides','Column 0 has no wall on its left, column 11 none on its right: the water runs off','amber']])),
+  say:[
+  'One unit of water is a block of water one wide and one tall. A wall is a bar that keeps the water from flowing away.',
+  'The question for this scene: the heights are 0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1. After the rain, how many units of water are trapped?',
+  'The answer is 6. The blue is water: column 2 holds 1, column 4 holds 1, column 5 holds 2, column 6 holds 1, and column 9 holds 1. That adds up to 6.',
+  'To hold water, a column needs a wall on both sides. Column 0 has no wall on its left, and column 11 has none on its right, so water runs off. A program has to work column by column, so next we look at just one bar.'
+]});
+
+/* ===== 2 One bar ===== */
+add({ch:2, title:'Look at <em>just one bar</em>', vis:
+  gloss(0,[['left max','The tallest bar among this one and everything to its left'],['right max','The tallest bar among this one and everything to its right'],['min','The smaller of two numbers']])
+  + duo(lc42_rain(H1, {water:{5:5}, marks:[[2,5,'cur'],[3,3,'lw'],[4,7,'rw2']], lv:[[3,2,0,5,'l'],[4,3,5,11,'r']]}),
+    q(1,'Look only at column 5, which has height 0. How much water sits on top of it?')
+    + cards([[3,'Left wall 2, right wall 3','The left max is column 3, the right max is column 7','amber'],
+             [5,'water = min(2, 3) − 0 = 2','The level follows the lower wall; a taller wall does not help','sky'],
+             [6,'Every column: min(left max, right max) − height[i]','Count the bar itself in each max, so the result is never negative','mint']])),
+  say:[
+  'Left max is the tallest bar among this one and everything to its left. Right max is the same idea, looking right. Min means the smaller of two numbers.',
+  'The question for this scene: look only at column 5, which has height 0. How much water sits on top of it?',
+  'The white frame marks column 5. Which way the water spills depends on how tall the walls are on each side.',
+  'Look left first: the tallest bar on the left is column 3, with height 2. The orange dashed line is the height of that left wall.',
+  'Now look right: the tallest bar on the right is column 7, with height 3. The green dashed line is the height of the right wall.',
+  'Any water above 2 spills over the left wall, so the level is the lower of the two walls, which is 2. Subtract the bar height 0, and column 5 holds 2 units.',
+  'That is the formula for the whole problem: water at each column is min of left max and right max, minus height of i. Count the bar itself in each max, and the result is never negative.'
+]});
+
+/* ===== 3 Instinct: scan both ways ===== */
+add({ch:3, title:'Instinct: <em>scan both ways for every bar</em>', vis:
+  gloss(0,[['brute force','No shortcut: look at everything you need to look at'],['O(n²)','n columns, each looking at about n columns: roughly n times n steps']])
+  + duo(lc42_rain(H1, {marks:[[2,5,'cur'],[2,0,'scan'],[2,1,'scan'],[2,2,'scan'],[2,3,'scan'],[2,4,'scan'],[3,6,'scan'],[3,7,'scan'],[3,8,'scan'],[3,9,'scan'],[3,10,'scan'],[3,11,'scan']]}),
+    q(1,'Follow the formula directly: for every column, scan left for the max and scan right for the max. Where is it slow?')
+    + cards([[4,'12 columns, each looks at the other 11','12 times 11 is 132 looks → O(n²)','coral'],
+             [5,'The same stretch gets rescanned','Column 5 scans 0 to 4; column 6 scans 0 to 5 all over again','amber'],
+             [6,'Idea: remember what you scanned','The left max can carry over from the previous column','mint']])),
+  say:[
+  'Brute force means no shortcut: look at everything you need to look at. Big O of n squared means n columns, each looking at about n columns, so roughly n times n steps.',
+  'The question for this scene: follow the formula directly, scanning left and right for every column. Where is it slow?',
+  'Take column 5. Scan left over columns 0 to 4, and the tallest is 2.',
+  'Then scan right over columns 6 to 11, and the tallest is 3. One column means looking at every other column.',
+  'With 12 columns, each looking at the other 11, that is 132 looks. Double the columns and the work goes up four times. That is big O of n squared.',
+  'It is slow because the same stretch gets rescanned: column 5 scans 0 to 4, then column 6 scans 0 to 5 all over again.',
+  'So remember what you already scanned: the left max of column 6 is just the larger of column 5\'s left max and column 6 itself.'
+]});
+
+/* ===== 4 Two arrays ===== */
+add({ch:4, title:'Store <em>two arrays</em> first', vis:
+  gloss(0,[['left_max[i]','The tallest bar from column 0 to column i'],['right_max[i]','The tallest bar from column i to the last column'],['O(n) space','Extra arrays as long as the input']])
+  + duo(lc42_rain(H1, {water:{2:4,4:4,5:4,6:4,9:4}, rows:[[2,'L max',[0,1,1,2,2,2,2,3,3,3,3,3],'l'],[3,'R max',[3,3,3,3,3,3,3,3,2,2,2,1],'r'],[4,'water',[0,0,1,0,1,2,1,0,0,1,0,0],'w']]}),
+    q(1,'If we store the left max and right max ahead of time, how many passes do we need? What does it cost?')
+    + cards([[5,'O(n) time: three passes','One from the left, one from the right, one for the water','sky'],
+             [6,'Cost: two arrays of length n','Could two plain numbers do the job?','amber']])),
+  say:[
+  'Left max of i is the tallest bar from column 0 to column i. Right max of i is the tallest from column i to the end. O of n space means extra arrays as long as the input.',
+  'The question for this scene: if we store the left max and right max ahead of time, how many passes do we need, and what does it cost?',
+  'Sweep left to right: each left max is the larger of the previous value and the bar itself. 0, 1, 1, 2, then at column 7 it becomes 3, and stays 3.',
+  'Sweep right to left for right max the same way: the last one is 1, then it becomes 2, then 3 at column 7, and stays 3 further left.',
+  'In the third pass, each column takes the smaller of its two values and subtracts its height. The total is 6, matching the answer.',
+  'Three passes in all, so the time is big O of n, much faster than n squared.',
+  'The cost is two extra arrays of length n. The interviewer will ask: can you do it with just two numbers, in O of 1 space?'
+]});
+
+/* ===== 5 The key: the lower side is decided ===== */
+add({ch:5, title:'The key: <em>the lower side is decided</em>', vis:
+  gloss(0,[['L, R','Left and right pointers, walking in from both ends'],['left_max','The tallest bar seen so far on the L side, including L'],['right_max','The tallest bar seen so far on the R side, including R'],['bottleneck','The lower of the two walls; it sets the water level']])
+  + q(1,'With only two numbers, left_max and right_max, how can we know the water at any column?')
+  + cards([[2,'Say left_max < right_max; look at column L','','sky'],
+           [3,'Left wall of L: exactly left_max','Everything left of L has been seen, so this number is exact','amber'],
+           [4,'Right wall of L: at least right_max','A wall that tall already stands right of R; unseen bars can only raise it','mint'],
+           [5,'So the min must be left_max','water at L = left_max − height[L], then move L right','sky']])
+  + big(6,'The side with the smaller max: count it, move it','On a tie, count the R side; that works too'),
+  say:[
+  'L and R are the left and right pointers, walking in from both ends. Left max is the tallest bar seen on the L side, and right max is the tallest seen on the R side. The bottleneck is the lower of the two walls.',
+  'The question for this scene: with only two numbers, left max and right max, how can we know the water at any column?',
+  'Suppose left max is less than right max right now. Look at column L.',
+  'The left wall of L: everything to the left of L has been seen, so its left max is exactly left max. That number is exact.',
+  'The right wall of L: we do not know its exact value, but a wall as tall as right max already stands to the right of R. Unseen bars in between can only raise it, so the right wall is at least right max.',
+  'The right wall is bigger than left max, so the smaller of the two must be left max. The water at L is decided: left max minus height of L, then move L right.',
+  'The other way around, when right max is smaller, count R and move R left. In one line: whichever side has the smaller max, count that side and move it. On a tie, count R; it works just as well.'
+]});
+
+/* ===== 6 Walk through: first six steps ===== */
+add({ch:6, title:'Walk through: <em>the first six steps</em>', vis:
+  gloss(0,[['orange dashes','The height of left_max'],['green dashes','The height of right_max'],['white frame','The column whose water we count this step']])
+  + duo(lc42_rain(H1, {water:{2:5,9:7}, st:[
+      [1,0,11,0,0,null,'start: L = 0, R = 11, total <em>0</em>'],
+      [2,0,11,0,1,0,'left lower → col <b>0</b> +0, total <em>0</em>'],
+      [3,1,11,1,1,11,'tie → col <b>11</b> +0, total <em>0</em>'],
+      [4,1,10,1,2,1,'left lower → col <b>1</b> +0, total <em>0</em>'],
+      [5,2,10,1,2,2,'left lower → col <b>2</b> +1, total <em>1</em>'],
+      [6,3,10,2,2,10,'tie → col <b>10</b> +0, total <em>1</em>'],
+      [7,3,9,2,2,9,'tie → col <b>9</b> +1, total <em>2</em>'],
+      [8,3,8,2,2,null,'after six steps: L = 3, R = 8, total <em>2</em>']]}),
+    q(1,'On [0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1], how do L and R move? How much water does each step add?')
+    + cards([[8,'After six steps: 2 units','Column 2 holds 1, column 9 holds 1','sky']])),
+  say:[
+  'The orange dashed line is the height of left max, the green dashed line is the height of right max, and the white frame is the column we count this step.',
+  'The question for this scene: how do L and R move, and how much water does each step add? L starts at column 0 and R at column 11.',
+  'Step one: update both maxes first. Left max is 0, right max is 1. The left is lower, so column 0 adds 0, and L moves right.',
+  'Step two: left max becomes 1, tied with right max, so we count the right side, column 11: 1 minus 1, add 0, and R moves left.',
+  'Step three: right max becomes 2. The left side, 1, is lower, so column 1 is 1 minus 1, add 0, and L moves right.',
+  'Step four: column 2 has height 0, and left max is still 1, the lower one. 1 minus 0, add 1, total 1.',
+  'Step five: L reaches column 3, left max becomes 2, and the two sides tie. Count the right side, column 10, add 0, and R moves left.',
+  'Step six: column 9 has height 1, both maxes are still 2, so count the right: 2 minus 1, add 1, total 2.',
+  'After six steps, L is at column 3, R is at column 8, and we have 2 units of water.'
+]});
+
+/* ===== 7 Walk through: L meets R ===== */
+add({ch:7, title:'Walk through: <em>L meets R</em>', vis:
+  gloss(0,[['meet','L equals R: every column has been counted, so the loop ends']])
+  + duo(lc42_rain(H1, {water:{2:0,9:0,4:4,5:5,6:6}, st:[
+      [1,3,8,2,2,null,'continue: L = 3, R = 8, total <em>2</em>'],
+      [2,3,8,2,2,8,'tie → col <b>8</b> +0, total <em>2</em>'],
+      [3,3,7,2,3,3,'left lower → col <b>3</b> +0, total <em>2</em>'],
+      [4,4,7,2,3,4,'left lower → col <b>4</b> +1, total <em>3</em>'],
+      [5,5,7,2,3,5,'left lower → col <b>5</b> +2, total <em>5</em>'],
+      [6,6,7,2,3,6,'left lower → col <b>6</b> +1, total <em>6</em>'],
+      [7,7,7,2,3,null,'L = R = 7: done, total <em>6</em>']]}),
+    q(1,'Continuing from L = 3 and R = 8, do we end up with 6?')
+    + cards([[7,'6 units in total ✓','Same as we counted at the start; column 7, where they meet, is the tallest bar and holds no water','mint']])),
+  say:[
+  'Meet means L equals R. Every column has been counted, so the loop ends.',
+  'The question for this scene: continuing from L equals 3 and R equals 8, do we end up with 6?',
+  'Step seven: column 8 has height 2, the sides tie, so count the right, add 0, and R moves left.',
+  'Step eight: R reaches column 7, and right max becomes 3. Now the left side, 2, is lower, so column 3 is 2 minus 2, add 0, and L moves right.',
+  'Step nine: column 4 has height 1, left max is 2, less than 3. 2 minus 1, add 1, total 3.',
+  'Step ten: column 5 has height 0, add 2, total 5. The right wall is 3, but the lower left wall, 2, is the bottleneck.',
+  'Step eleven: column 6 is 2 minus 1, add 1, total 6. L moves right to column 7.',
+  'L equals R, the loop ends, and the total is 6. Column 7, where they meet, is the tallest bar, and holds no water.'
+]});
+
+/* ===== 8 Check again ===== */
+add({ch:8, title:'Check again: <em>[4, 2, 0, 3, 2, 5]</em>', vis:
+  gloss(0,[['verify','Try different data and see if the result is right']])
+  + duo(lc42_rain(H2, {water:{1:3,2:4,3:5,4:6}, st:[
+      [1,0,5,0,0,null,'start: L = 0, R = 5, total <em>0</em>'],
+      [2,0,5,4,5,0,'left lower → col <b>0</b> +0, total <em>0</em>'],
+      [3,1,5,4,5,1,'left lower → col <b>1</b> +2, total <em>2</em>'],
+      [4,2,5,4,5,2,'left lower → col <b>2</b> +4, total <em>6</em>'],
+      [5,3,5,4,5,3,'left lower → col <b>3</b> +1, total <em>7</em>'],
+      [6,4,5,4,5,4,'left lower → col <b>4</b> +2, total <em>9</em>'],
+      [7,5,5,4,5,null,'L = R = 5: done, total <em>9</em>']]}),
+    q(1,'height = [4, 2, 0, 3, 2, 5], and the answer should be 9. What do two pointers give?')
+    + cards([[7,'9 ✓','The right end is already the tallest, 5, so R never moves','mint']])),
+  say:[
+  'To verify means to try different data and see if the result is right.',
+  'The question for this scene: the heights are 4, 2, 0, 3, 2, 5, and the answer should be 9. What do two pointers give?',
+  'Step one: left max is 4, right max is 5. The left is lower, so count column 0: 4 minus 4, add 0.',
+  'Step two: column 1 has height 2, and left max is still 4, less than 5. 4 minus 2, add 2, total 2.',
+  'Step three: column 2 has height 0. 4 minus 0, add 4, total 6.',
+  'Step four: column 3 has height 3. 4 minus 3, add 1, total 7.',
+  'Step five: column 4 has height 2. 4 minus 2, add 2, total 9. L moves to column 5, meets R, and we are done.',
+  'The result is 9, which is correct. The right end is already the tallest bar, 5, so R never moves, and every column is set by the left wall of 4.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>two pointers, two maxes</em>', vis:
+  gloss(0,[['water','The running total of water'],['while left < right','Keep going until the two pointers meet']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def trap(self, height: list[int]) -> int:'],
+    [2,'o','        left, right = 0, len(height) - 1'],
+    [2,'o','        left_max = right_max = 0'],
+    [2,'o','        water = 0'],
+    [3,'o','        while left < right:'],
+    [3,'hl','            left_max = max(left_max, height[left])     # update first'],
+    [3,'hl','            right_max = max(right_max, height[right])'],
+    [4,'o','            if left_max < right_max:                   # left is the bottleneck'],
+    [4,'o','                water += left_max - height[left]'],
+    [4,'o','                left += 1'],
+    [5,'o','            else:                                      # right is the bottleneck'],
+    [5,'o','                water += right_max - height[right]'],
+    [5,'o','                right -= 1'],
+    [6,'hl','        return water']])
+  + q(1,'Which part of the code matches which step of the animation?'),
+  say:[
+  'Water is the running total. While left is less than right means keep going until the two pointers meet.',
+  'The question for this scene: which part of the code matches which step of the animation?',
+  'Setup: left starts at column 0, right at the last column, and both maxes and the water start at 0.',
+  'Inside the loop, first update both maxes with the two current bars. Update first, then count water, and you never subtract into a negative.',
+  'If left max is smaller, the left side is the bottleneck: add left max minus height of left, then left plus 1.',
+  'Otherwise the right side is the bottleneck, ties included: add right max minus height of right, then right minus 1.',
+  'When the pointers meet, return water. The code is the animation, copied line by line.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(1) space','However long the input, only a fixed handful of variables']])
+  + q(1,'What does each of the three approaches cost? Where do two pointers usually go wrong?')
+  + tbl(['Approach','Time','Space'],[
+    [2,'Scan both ways per column','O(n²)','O(1)'],
+    [2,'Two arrays','O(n)','O(n)'],
+    [2,'Two pointers','O(n)','O(1)']])
+  + cards([[3,'Counting water before updating the max','A bar taller than the old max gives a negative','coral'],
+           [4,'Writing max instead of min','The level follows the lower wall, not the taller one','coral'],
+           [4,'Losing track of the bottleneck','Count the side with the smaller max, and move that same side','coral']]),
+  say:[
+  'O of 1 space means that however long the input is, we only use a fixed handful of variables.',
+  'The question for this scene: what does each of the three approaches cost, and where do two pointers usually go wrong?',
+  'Scanning both ways per column is n squared time and O of 1 space. Two arrays are O of n time and O of n space. Two pointers count each column once: O of n time, O of 1 space.',
+  'Pitfall one: counting water before updating the max. When the current bar is taller than the old max, you subtract into a negative. Always update first, then count.',
+  'Pitfall two: thinking max instead of min; the level follows the lower wall. Pitfall three: the wrong side. Count the side with the smaller max and move that same side, never count left and move right.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud, and write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why can you settle the water at L by looking only at left_max?"')
+  + flow([[2,'One column','min(left max, right max) − height'],[2,'Brute force','O(n²)'],[3,'Two arrays','O(n) / O(n)'],[3,'Two pointers','the lower side is decided'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['trapping rain water','two pointers','prefix max','suffix max','bottleneck','O(1) space']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why can you settle the water at L by looking only at left max?',
+  'Start with the formula: water at a column is the lower of the left and right maxes, minus its height. Scanning both ways per column is n squared.',
+  'Then the improvement: two stored arrays cost O of n space. With two pointers, when left max is smaller, it is exactly the left wall of L, and the right wall is at least right max, so the level is left max.',
+  'Complexity: O of n time, O of 1 space. The English keywords are two pointers and bottleneck.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'One column','min(left max, right max) − height'],[0,'Arrays','store both maxes'],[0,'Two pointers','the lower side is decided'],[0,'Update first','then count']])
+  + cards([[1,'① water = min(left max, right max) − height[i]','The lower wall sets the level','sky'],
+           [2,'② The side with the smaller max is already decided','The other side\'s wall can only be taller, never shorter','amber'],
+           [3,'③ Update the max, count the water, then move','Stop when they meet: O(n) time, O(1) space','mint']]),
+  say:[
+  'The main thread: the water level at one column is the lower of the left and right maxes. Scanning both ways is slow, so store two arrays. Then drop the arrays with two pointers, where the lower side is decided first.',
+  'One: water at each column is min of left max and right max, minus height of i. The lower wall sets the level.',
+  'Two: whichever side has the smaller max, the water at that column is already decided, because the other side\'s wall can only be taller, never shorter.',
+  'Three: in the loop, update the max, count the water, then move the pointer, and stop when the pointers meet. O of n time, O of 1 space.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/cd53f5d0e0b1.mp3", "0-1": "a/0d23589bfa9d.mp3", "0-2": "a/7c47c6689491.mp3", "0-3": "a/542339577341.mp3", "1-0": "a/5acfb45250ab.mp3", "1-1": "a/dc9ff56de620.mp3", "1-2": "a/fd07d80eb875.mp3", "1-3": "a/ad60d58c60c5.mp3", "2-0": "a/32ba350c34b4.mp3", "2-1": "a/e5b34445bbf8.mp3", "2-2": "a/bbad47bbc68c.mp3", "2-3": "a/57dded2846ce.mp3", "2-4": "a/da864f6a2827.mp3", "2-5": "a/136301968bfc.mp3", "2-6": "a/3f5dd76bfeac.mp3", "3-0": "a/dacfe8752c85.mp3", "3-1": "a/748fa9aeb306.mp3", "3-2": "a/e39f495e1b08.mp3", "3-3": "a/e1c647623d48.mp3", "3-4": "a/43e9bf25e975.mp3", "3-5": "a/ee8d3d86f262.mp3", "3-6": "a/8f3d0c6dd9e2.mp3", "4-0": "a/ed95e1fb23f1.mp3", "4-1": "a/b5c45eb97603.mp3", "4-2": "a/57305961e20f.mp3", "4-3": "a/52f8a8acab15.mp3", "4-4": "a/4e7a778633d5.mp3", "4-5": "a/79a610529b3c.mp3", "4-6": "a/8259ca1db89a.mp3", "5-0": "a/3a0349ac3b74.mp3", "5-1": "a/493533e5e40e.mp3", "5-2": "a/903ebada9213.mp3", "5-3": "a/a83772029434.mp3", "5-4": "a/f269e8eb417b.mp3", "5-5": "a/a6d342662eed.mp3", "5-6": "a/9fc5cc7c6a05.mp3", "6-0": "a/a53c0411a46c.mp3", "6-1": "a/29c951c7f574.mp3", "6-2": "a/4c06b6c0bda1.mp3", "6-3": "a/676dacb52c31.mp3", "6-4": "a/e0d621f91c68.mp3", "6-5": "a/3a391ab2b96a.mp3", "6-6": "a/623d6b8b5415.mp3", "6-7": "a/8083305d8fcf.mp3", "6-8": "a/03d9c04d180c.mp3", "7-0": "a/2471ca5bfdb5.mp3", "7-1": "a/b52df864c961.mp3", "7-2": "a/71dc8efd1ed5.mp3", "7-3": "a/2c315b81509e.mp3", "7-4": "a/5e6a0b17f895.mp3", "7-5": "a/abd21c9f031d.mp3", "7-6": "a/dc9f359f06be.mp3", "7-7": "a/5e25bf3300a1.mp3", "8-0": "a/2f10c5ec6da3.mp3", "8-1": "a/d3819864342c.mp3", "8-2": "a/2ec7b6bec942.mp3", "8-3": "a/835a4a657791.mp3", "8-4": "a/0eed35efeeec.mp3", "8-5": "a/90ece40c9ed9.mp3", "8-6": "a/8b2a558c0ece.mp3", "8-7": "a/83ae4293ee96.mp3", "9-0": "a/2c52a37ad538.mp3", "9-1": "a/1fa6b4de4b69.mp3", "9-2": "a/9229a9a0f5fa.mp3", "9-3": "a/b19dfe673f9b.mp3", "9-4": "a/f203cbd7c0f1.mp3", "9-5": "a/dae5827d1994.mp3", "9-6": "a/4d58e733cc9d.mp3", "10-0": "a/ba27e2b6af0c.mp3", "10-1": "a/6486c70a93db.mp3", "10-2": "a/a05b752de87d.mp3", "10-3": "a/fb7c6cd995b4.mp3", "10-4": "a/346e4c894d75.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/315340e819d3.mp3", "11-2": "a/76551306ce07.mp3", "11-3": "a/6fe36d4fd95f.mp3", "11-4": "a/836afad440b2.mp3", "12-0": "a/9b3efbb67a67.mp3", "12-1": "a/b23261ecb6a7.mp3", "12-2": "a/e52f42271296.mp3", "12-3": "a/a19c9f4a1f82.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

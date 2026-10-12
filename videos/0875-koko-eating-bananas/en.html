@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Koko Eats Bananas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Koko Eats Bananas', template:'prep', lang:'en', sub:'LeetCode 875 Koko Eating Bananas · animated walkthrough', key:'lc875envid', doc:'LeetCode 875', blurb:'Start from the rule "one pile per hour", try k = 1, 2, 3 to see where it gets slow, then use "faster means fewer hours" to split speeds into too slow and fast enough, and binary search the speed for the first k that is fast enough.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a banana-eating monkey','The problem: one pile per hour','Hours per pile: round up','Instinct: try k = 1 and up','Where it gets slow: 10 to the 9th','Key: faster means fewer hours','Binary search on the answer','Animation: [3, 6, 7, 11], h = 8','Check again: h = 5 and h = 6','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- speed number line: top row = speed k, bottom row = hours(k); lo / mid / hi markers per step ---------- */
+const KK_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.kl{display:grid;gap:3px;justify-content:center;margin:0 auto}
+.kl>div{position:relative;display:grid;place-items:center;border-radius:6px}
+.kl>.k{height:2.3em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.kl>.k b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.1em}
+.kl>.hr{height:1.7em;font-family:var(--f-mono);font-size:.8em;color:var(--amber)}
+.kl>.hr .s:not(.on){opacity:0}
+.kl i.t.s{position:absolute;inset:0;border-radius:5px;transform:none}
+.kl i.t.s:not(.on){opacity:0}
+.kl i.slow{background:rgba(255,122,107,.38)} .kl i.ok{background:rgba(98,224,180,.35)}
+.kl i.dim.s{position:absolute;inset:0;border-radius:5px;background:rgba(10,17,36,.85);transform:none;z-index:2}
+.kl i.dim.s:not(.on){opacity:0}
+.kl i.ans.s{position:absolute;inset:-4px;border-radius:8px;box-shadow:0 0 0 3px var(--mint);transform:none;z-index:3}
+.kl i.ans.s:not(.on){opacity:0}
+.kl>.mk{height:2.7em;align-items:start}
+.kl .mk span.s{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;line-height:1.05;font-family:var(--f-mono);font-size:.66em;font-weight:700;opacity:0!important;transform:none}
+.kl .mk span.s.now{opacity:1!important}
+.kl .mk .lo{color:var(--sky)} .kl .mk .mid{color:var(--amber)} .kl .mk .hi{color:var(--coral)}
+.kl-cap{text-align:center;font-size:.75em;color:var(--dim);margin-top:.3em}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:.4em}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow i{font-style:normal;color:var(--coral)}
+.kp{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.kp>div{border:1px solid var(--line);border-radius:8px;padding:.3em .5em;background:rgba(10,17,36,.85);text-align:center;min-width:4.2em}
+.kp>div small{display:block;color:var(--dim);font-size:.7em}
+.kp>div span{font-size:1.1em;letter-spacing:2px;color:var(--amber)}
+.kp>div span u{text-decoration:none;color:var(--line)}
+</style>`;
+// o: {ks, hours:[...], hoursStep, zone:[step, firstOk], st:[[step, lo, hi, mid|null]], test:[[step, k, ok]], ans:[step,k], txt:[[step, html]], cap}
+function KK_line(o){
+  const ks = o.ks, n = ks.length;
+  let h = KK_CSS + `<div class="kl" style="grid-template-columns:repeat(${n},1.6em)">`;
+  h += ks.map((k,i)=>{
+    let x = `<b>${k}</b>`;
+    if(o.zone) x += `<i class="t s ${k<o.zone[1]?'slow':'ok'}" data-s="${o.zone[0]}"></i>`;
+    (o.test||[]).filter(t=>t[1]===k).forEach(([s,,ok])=>x+=`<i class="t s ${ok?'ok':'slow'}" data-s="${s}"></i>`);
+    const out = (o.st||[]).find(([,l,r])=>k<l||k>r);
+    if(out) x += `<i class="dim s" data-s="${out[0]}"></i>`;
+    if(o.ans&&o.ans[1]===k) x += `<i class="ans s" data-s="${o.ans[0]}"></i>`;
+    return `<div class="k">${x}</div>`;
+  }).join('');
+  if(o.hours) h += o.hours.map(v=>`<div class="hr"><span class="s" data-s="${o.hoursStep}">${v}</span></div>`).join('');
+  if(o.st) h += ks.map(k=>`<div class="mk">${o.st.map(([s,l,r,m])=>{
+    const t = [k===l?'<em class="lo">lo</em>':'', k===m?'<em class="mid">mid</em>':'', k===r?'<em class="hi">hi</em>':''].filter(Boolean).join('');
+    return t?`<span class="s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div>`;
+  if(o.cap) h += `<div class="kl-cap">${o.cap}</div>`;
+  if(o.txt) h += `<div class="qrow">${o.txt.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const KK_KS = [1,2,3,4,5,6,7,8,9,10,11];
+const KK_H = [27,15,10,8,8,6,5,5,5,5,4];
+// one pile eaten hour by hour: groups = bananas eaten each hour, k = speed
+const KK_pile = (s, groups, k, lab) => KK_CSS + `<div class="kp s" data-s="${s}">${groups.map((g,i)=>`<div><small>${lab(i+1)}</small><span>${'●'.repeat(g)}<u>${'○'.repeat(k-g)}</u></span></div>`).join('')}</div>`;
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Koko Eats Bananas<br><em>LeetCode 875</em>', vis:
+  gloss(0,[['speed k','The most bananas eaten per hour'],['ceil (round up)','Any fraction bumps it up: 2.3 becomes 3'],['monotonic','When one value grows, the other only moves in one direction'],['binary search on the answer','Binary search over the possible answer values, not over an array']])
+  + flow([[1,'Read','one pile per hour'],[1,'Instinct','try k from 1'],[2,'Too slow','10 to the 9th'],[2,'Monotonic','faster, fewer hours'],[3,'Binary search','over the speed'],[3,'Code','O(n log max)']]),
+  say:[
+  'This lesson covers LeetCode 875, Koko Eating Bananas. Four words first. Speed k is the most bananas she eats per hour. Rounding up, or ceil, means any fraction bumps the number up. Monotonic means when one value grows, the other only moves in one direction. Binary search on the answer means binary searching over the possible answer values.',
+  'First we read the rule carefully: she eats from only one pile per hour. Then we use the most direct approach and try k equals 1, 2, 3, one at a time.',
+  'Next we see where that gets slow on big inputs, and rescue it with one observation: the faster she eats, the fewer hours she needs.',
+  'With that monotonic property, we can binary search over the speed. Finally we walk through the animation step by step and write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>one pile per hour</em>', vis:
+  gloss(0,[['piles','The number of bananas in each pile, for example [3, 6, 7, 11]'],['h','Hours until the guards return; she must finish before then'],['k','The speed Koko picks; it stays the same the whole time']])
+  + q(1,'piles = [3, 6, 7, 11], h = 8. What is the smallest k?')
+  + cards([[2,'Rule: each hour, pick one pile, eat up to k','If the pile has fewer than k, she finishes it and rests for the rest of the hour','amber'],
+           [3,'k = 4: 1 + 2 + 2 + 3 = 8 hours','Uses exactly 8 hours, just in time','mint'],
+           [4,'k = 3: 1 + 2 + 3 + 4 = 10 hours','More than 8, too late; so the answer is 4','coral']]),
+  say:[
+  'piles is the number of bananas in each pile. h is the number of hours until the guards come back, and Koko must finish before then. k is the speed she picks, and it never changes.',
+  'The question for this scene: four piles of 3, 6, 7, and 11, with h equal to 8. What is the smallest k?',
+  'There is only one rule: each hour she picks one pile and eats up to k bananas. If that pile has fewer than k, she finishes it and the hour is over. She does not move on to another pile.',
+  'Try k equals 4. The pile of 3 takes one hour, 6 takes two, 7 takes two, and 11 takes three. That adds up to exactly 8, so she makes it.',
+  'Try k equals 3. One plus two plus three plus four is 10 hours, more than 8, so she is too late. The smallest k is 4.'
+]});
+
+/* ===== 2 Round up ===== */
+add({ch:2, title:'Hours per pile: <em>round up</em>', vis:
+  gloss(0,[['//','Integer division, drop the fraction: 9 // 3 = 3, 8 // 3 = 2'],['remainder','What is left when it does not divide evenly: 7 divided by 3 leaves 1']])
+  + q(1,'At speed k = 3, how many hours does a pile of 7 take?')
+  + KK_pile(2,[3,3,1],3,i=>`hour ${i}`)
+  + cards([[3,'hours = ceil(p / k)','7 / 3 = 2.33…, any fraction rounds up: 3 hours','sky'],
+           [4,'No floats: (p + k − 1) // k','(7 + 2) // 3 = 3; when it divides evenly, (6 + 2) // 3 = 2','mint']]),
+  say:[
+  'Double slash is integer division, which drops the fraction. The remainder is what is left over when it does not divide evenly; 7 divided by 3 leaves 1.',
+  'The question for this scene: at speed 3, how many hours does a pile of 7 bananas take?',
+  'Hour one eats 3, hour two eats 3, and 1 is left. Hour three eats just that 1, and the rest of the hour is wasted, because she cannot move to another pile. So it takes 3 hours.',
+  'As a formula, that is p divided by k, rounded up. 7 divided by 3 is 2 point 33, any fraction rounds up, so we get 3.',
+  'In code we avoid floats and write p plus k minus 1, integer divided by k. Whenever there is a remainder, the extra k minus 1 pushes it past the next multiple. 7 plus 2, divided by 3, is 3. 6 divides evenly, and 6 plus 2, divided by 3, is still 2.'
+]});
+
+/* ===== 3 Instinct ===== */
+add({ch:3, title:'Instinct: <em>try k from 1</em>', vis:
+  gloss(0,[['enumerate','Try every value from small to large, skipping none'],['total hours','The hours for every pile, added up']])
+  + q(1,'The most direct approach: try k = 1, 2, 3, one by one. Is the first one that fits the answer?')
+  + tbl(['k','hours per pile','total','≤ 8?'],[
+    [2,'1','3, 6, 7, 11','27','✗'],
+    [3,'2','2, 3, 4, 6','15','✗'],
+    [3,'3','1, 2, 3, 4','10','✗'],
+    [4,'4','1, 2, 2, 3','8','✓']])
+  + cards([[5,'Yes, and it is always the smallest','Every smaller speed was tried, and all were too slow','mint']]),
+  say:[
+  'To enumerate means to try every value from small to large, skipping none. Total hours is the hours for every pile, added up.',
+  'The question for this scene: with the most direct approach, trying k from 1 upward, is the first speed that fits the answer?',
+  'k equals 1 is one banana per hour, 27 hours in total, way over 8.',
+  'k equals 2 takes 15 hours, and k equals 3 takes 10 hours. Both are still too slow.',
+  'k equals 4 takes 8 hours. That fits, so we stop.',
+  'This answer is correct, and it is always the smallest, because every smaller speed was already tried and all were too slow. There is only one problem: is it fast?'
+]});
+
+/* ===== 4 Where it gets slow ===== */
+add({ch:4, title:'Where it gets slow: <em>10 to the 9th</em>', vis:
+  gloss(0,[['constraints','The input ranges the problem guarantees: up to 10⁹ bananas per pile, up to 10⁴ piles'],['O(max · n)','Try up to max speeds, and add up n piles each time']])
+  + q(1,'piles = [10⁹], h = 1. Trying from k = 1, how many tries does it take?')
+  + cards([[2,'Only k = 10⁹ fits','Finishing a whole pile in one hour needs a speed of at least the pile size','coral'],
+           [3,'That is 10⁹ speeds to try','And each try adds up all n piles: O(max · n)','amber'],
+           [4,'Worst case 10⁹ × 10⁴ = 10¹³ steps','Python does about 10⁷ per second: more than ten days','coral']]),
+  say:[
+  'The constraints say each pile has up to 10 to the 9th bananas, and there are up to 10 to the 4th piles. So enumeration is big O of max times n: try up to max speeds, and add up n piles each time.',
+  'The question for this scene: a single pile of 10 to the 9th bananas, with h equal to 1. Trying from k equals 1, how many tries does it take?',
+  'She has to finish the whole pile in one hour, so the speed must be at least the pile size. Only k equals 10 to the 9th fits.',
+  'Counting up from 1 to it means trying 10 to the 9th speeds. And every try adds up all the piles again.',
+  'The worst case is 10 to the 9th times 10 to the 4th, which is 10 to the 13th steps. Python does about ten million per second, so it would run for more than ten days. It is slow because we try speeds one at a time and use no pattern at all.'
+]});
+
+/* ===== 5 Monotonic ===== */
+add({ch:5, title:'Key: <em>faster means fewer hours</em>', vis:
+  gloss(0,[['hours(k)','Total hours to finish every pile at speed k'],['non-increasing','As k grows, hours(k) only drops or stays the same, never rises']])
+  + duo(KK_line({ks:KK_KS, hours:KK_H, hoursStep:2, zone:[3,4], ans:[4,4], cap:'top: speed k　bottom: total hours'}),
+    q(1,'Write out the total hours for k = 1 to 11. What pattern do you see?')
+    + cards([[2,'Bigger k, total hours only drop or stay','No pile\'s ceil(p / k) ever grows','sky'],
+             [3,'Two zones: too slow | fast enough','1 to 3 exceed 8; 4 to 11 are all ≤ 8','amber'],
+             [4,'Answer = the first fast-enough k','k = 4: find the boundary instead of trying one by one','mint']])),
+  say:[
+  'hours of k is the total hours to finish every pile at speed k. Non-increasing means that as k grows, it only drops or stays the same, and never rises.',
+  'The question for this scene: write out the total hours for k from 1 to 11. What pattern do you see?',
+  '27, 15, 10, 8, 8, 6, 5, 5, 5, 5, 4. The faster the speed, the total only drops or stays the same, because no single pile ever takes more hours.',
+  'Compare with h equals 8, and the speeds split into two zones. 1 to 3 are red, too slow. 4 to 11 are green, all fast enough. Once green starts, it never turns red again.',
+  'What we want is the first green, k equals 4. The problem becomes finding the boundary between red and green, and finding a boundary is exactly what binary search does best.'
+]});
+
+/* ===== 6 Binary search on the answer ===== */
+add({ch:6, title:'Binary search <em>on the speed</em>', vis:
+  gloss(0,[['lo, hi','The answer is always between lo and hi'],['mid','The speed in the middle: (lo + hi) // 2']])
+  + q(1,'What range do we search? How do we throw away half each step?')
+  + cards([[2,'Range [1, max(piles)]','At k = max every pile takes 1 hour, n hours total ≤ h, always fast enough','sky'],
+           [3,'hours(mid) ≤ h → hi = mid','mid is fast enough and could still be the answer, so keep it','mint'],
+           [4,'hours(mid) > h → lo = mid + 1','mid is too slow and cannot be the answer; anything slower is worse','coral'],
+           [5,'The same rule as problem 153','"Can mid still be the answer?" Yes → keep it; no → plus 1, drop it','amber']]),
+  say:[
+  'lo and hi are the two ends of the range, and the answer is always between them. mid is the speed in the middle, lo plus hi, integer divided by 2.',
+  'The question for this scene: what range do we search, and how do we throw away half each step?',
+  'The slowest speed is 1. The fastest we need is the size of the biggest pile. At that speed every pile takes one hour, n hours in total. The problem guarantees h is at least n, so it is always fast enough, and going faster cannot save any more hours.',
+  'Compute hours of mid. If it is at most h, mid is fast enough, green. It could be the first green, so we cannot drop it: hi equals mid.',
+  'If it is more than h, mid is too slow, red. It cannot be the answer, and anything slower is even worse, so we drop mid too: lo equals mid plus 1.',
+  'This is the same rule as problem 153: can mid still be the answer? If yes, keep it. If no, add 1 and drop it. The loop runs while lo is less than hi, and when the two ends meet, that is the answer.'
+]});
+
+/* ===== 7 Animation ===== */
+add({ch:7, title:'Walk through: <em>[3, 6, 7, 11], h = 8</em>', vis:
+  gloss(0,[['green / red','Speeds already tried: fast enough / too slow; dimmed cells are out of range']])
+  + duo(KK_line({ks:KK_KS,
+      st:[[2,1,11,6],[3,1,6,3],[4,4,6,5],[5,4,5,4],[6,4,4,null]],
+      test:[[2,6,true],[3,3,false],[4,5,true],[5,4,true]],
+      ans:[6,4],
+      txt:[[2,'mid=6: 1+1+2+2 = <b>6</b> ≤ 8 → <em>hi = 6</em>'],
+           [3,'mid=3: 1+2+3+4 = <b>10</b> &gt; 8 → <i>lo = 4</i>'],
+           [4,'mid=5: 1+2+2+3 = <b>8</b> ≤ 8 → <em>hi = 5</em>'],
+           [5,'mid=4: 1+2+2+3 = <b>8</b> ≤ 8 → <em>hi = 4</em>'],
+           [6,'lo = hi = 4　answer <em>4</em>']]}),
+    q(1,'Range [1, 11]. What is mid each round, what are the total hours, and how does the range shrink?')),
+  say:[
+  'Green means a speed we tried that is fast enough, and red means one we tried that is too slow. Dimmed cells have already been thrown out of the range.',
+  'The question for this scene: with the range from 1 to 11, what is mid each round, what are the total hours, and how does the range shrink?',
+  'Round one: lo is 1, hi is 11, and mid is 6. The four piles take one, one, two, and two hours, 6 in total. That is within 8, so it is fast enough. 6 could be the answer, so hi equals 6.',
+  'Round two: the range is 1 to 6, and mid is 3. One plus two plus three plus four is 10 hours, more than 8, too slow. 3 cannot be the answer, so lo equals 4.',
+  'Round three: the range is 4 to 6, and mid is 5. One plus two plus two plus three is exactly 8 hours, fast enough, so hi equals 5.',
+  'Round four: the range is 4 to 5, and mid is 4. Still 8 hours, fast enough, so hi equals 4.',
+  'Now lo equals hi equals 4, the loop ends, and the answer is 4. This small example hides the gap. But when the speed range reaches 10 to the 9th, enumeration tries a billion speeds, while binary search needs only about 30 rounds.'
+]});
+
+/* ===== 8 Check again ===== */
+add({ch:8, title:'Check again: <em>h = 5 and h = 6</em>', vis:
+  gloss(0,[['n','The number of piles, 5 here']])
+  + q(1,'piles = [30, 11, 23, 4, 20]. What is the answer for h = 5, and for h = 6?')
+  + term('mid and total hours each round',[
+    [2,'o','h = 5   range [1, 30]'],
+    [2,'o','mid=15 → 8 > 5   lo = 16'],
+    [2,'o','mid=23 → 6 > 5   lo = 24'],
+    [2,'o','mid=27 → 6 > 5   lo = 28'],
+    [2,'o','mid=29 → 6 > 5   lo = 30'],
+    [3,'hl','answer 30'],
+    [4,'o','h = 6   range [1, 30]'],
+    [4,'o','mid=15 → 8 > 6   lo = 16'],
+    [4,'o','mid=23 → 6 ≤ 6   hi = 23'],
+    [4,'o','mid=19 → 8 > 6   lo = 20'],
+    [4,'o','mid=21 → 7 > 6   lo = 22'],
+    [4,'o','mid=22 → 7 > 6   lo = 23'],
+    [5,'hl','answer 23']]),
+  say:[
+  'n is the number of piles, which is 5 in this example.',
+  'The question for this scene: five piles of 30, 11, 23, 4, and 20. What is the answer when h equals 5, and when h equals 6?',
+  'First, h equals 5. mid goes 15, 23, 27, 29, with total hours 8, 6, 6, 6. All of them exceed 5, so lo keeps moving right, all the way to 30.',
+  'The answer is 30. The reason is simple: h equals the number of piles, so each pile gets just one hour, and the speed must be the biggest pile, 30 bananas.',
+  'Now h equals 6. At mid equals 15 it takes 8 hours, too slow. At 23 it takes exactly 6 hours, fast enough, so hi equals 23. After that, 19, 21, and 22 take 8, 7, and 7 hours, all too slow.',
+  'The answer is 23. Here the pile of 30 takes two hours and every other pile takes one, 6 in total. At 22, the pile of 23 also needs two hours, which makes 7, too late.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>binary search plus total hours</em>', vis:
+  gloss(0,[['sum(… for p in piles)','Add up the hours for every pile']])
+  + term('solution.py',[
+    [2,'o','def minEatingSpeed(piles, h):'],
+    [2,'hl','    lo, hi = 1, max(piles)'],
+    [3,'o','    while lo < hi:'],
+    [3,'o','        mid = (lo + hi) // 2'],
+    [3,'hl','        hours = sum((p + mid - 1) // mid for p in piles)'],
+    [4,'o','        if hours <= h:          # fast enough: mid could be the answer'],
+    [4,'hl','            hi = mid'],
+    [4,'o','        else:                   # too slow: mid cannot be the answer'],
+    [4,'hl','            lo = mid + 1'],
+    [5,'o','    return lo']])
+  + q(1,'Where do the range, the rounding up, and the two updates show up in the code?'),
+  say:[
+  'sum with a for inside means adding up the hours for every pile.',
+  'The question for this scene: where do the range, the rounding up, and the two updates show up in the code?',
+  'The first line sets the range: lo is 1, and hi is the size of the biggest pile.',
+  'The loop runs while lo is less than hi. Each round takes mid, computes each pile\'s hours as p plus mid minus 1, integer divided by mid, and adds them up.',
+  'If that is at most h, mid is fast enough and could be the answer, so hi equals mid. Otherwise mid is too slow, so lo equals mid plus 1. Every round, the range strictly shrinks.',
+  'When the two ends meet, lo is the first speed that is fast enough, so we return lo.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n log max)','log max rounds of binary search, n piles each round'],['infinite loop','The range stops shrinking and the loop never ends']])
+  + q(1,'How much work is it now? Where is it easiest to slip?')
+  + cards([[2,'Time O(n log max), space O(1)','log₂ 10⁹ ≈ 30 rounds × 10⁴ piles = 3 × 10⁵ steps','sky'],
+           [3,'Writing hours < h','"Exactly on time" counts as too late: [3, 6, 7, 11] returns 6, not 4','coral'],
+           [4,'Starting lo at 0','mid can be 0, and dividing by 0 crashes; the slowest speed is 1','coral'],
+           [4,'Mixing templates','while lo <= hi with hi = mid: when lo == hi the range never shrinks, infinite loop','coral']]),
+  say:[
+  'Big O of n log max means log max rounds of binary search, adding up n piles each round. An infinite loop is when the range stops shrinking and the loop never ends.',
+  'The question for this scene: how much work is it now, and where is it easiest to slip?',
+  'Log base 2 of 10 to the 9th is about 30 rounds, with 10 to the 4th piles each round, about three hundred thousand steps. That finishes in a blink. Space is just a few variables, big O of 1.',
+  'Pitfall one: writing less than h. Using exactly h hours still counts as on time. Get it wrong, and 3, 6, 7, 11 returns 6 instead of 4.',
+  'Pitfall two: starting lo at 0. mid can become 0, dividing by 0 crashes, and the slowest speed is 1 anyway. Pitfall three: mixing templates. while lo is at most hi, paired with hi equals mid, leaves the range unchanged when the two ends meet, which is an infinite loop.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud first, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can you binary search on the speed?"')
+  + flow([[2,'Rule','ceil(p / k)'],[2,'Brute force','O(max · n)'],[3,'Monotonic','k ↑ hours ↓'],[3,'Binary search','[1, max]'],[4,'Update','hi = mid / lo = mid + 1'],[4,'Complexity','O(n log max)']])
+  + chips(4,['binary search on the answer','monotonic','feasibility check','ceiling division','O(n log max)','1011 Ship Packages']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can you binary search on the speed?',
+  'First explain the rule and the brute force: each pile takes p divided by k, rounded up, hours. Trying every speed from 1 is big O of max times n, and with max up to 10 to the 9th, that is too slow.',
+  'Then explain why binary search works: the faster the speed, the total hours only drop or stay the same. So speeds split into a too slow zone and a fast enough zone, and the answer is the first fast enough one.',
+  'For the update, ask whether mid can still be the answer: fast enough means hi equals mid, too slow means lo equals mid plus 1. The complexity is big O of n log max. The key phrase is binary search on the answer, and problem 1011, shipping packages, uses the same template.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Rule','one pile per hour'],[0,'Monotonic','faster, fewer'],[0,'Search','first fast enough'],[0,'Update','keep mid / drop mid']])
+  + cards([[1,'① A pile takes (p + k − 1) // k hours','One pile per hour, so even one leftover banana fills an hour','amber'],
+           [2,'② Faster means fewer hours → binary search the answer','Speeds split into too slow | fast enough; find the boundary in [1, max]','sky'],
+           [3,'③ Fast enough: hi = mid; too slow: lo = mid + 1','Ask "can mid still be the answer?", just like problem 153','mint']]),
+  say:[
+  'Let\'s review the main thread: one pile per hour. The faster the speed, the fewer the hours. Binary search the speed for the first one that is fast enough. Fast enough keeps mid, too slow drops mid.',
+  'Number one: a pile takes p plus k minus 1, integer divided by k, hours. She eats one pile per hour, so even one leftover banana fills a whole hour.',
+  'Number two: the faster the speed, the fewer the total hours, so we can binary search the answer. Speeds split into too slow and fast enough, and we find the boundary between 1 and the biggest pile.',
+  'Number three: fast enough means hi equals mid, too slow means lo equals mid plus 1. The test is the same as in problem 153: ask whether mid can still be the answer.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/b849f6436674.mp3", "0-1": "a/67f947a6de40.mp3", "0-2": "a/297fefb7d94d.mp3", "0-3": "a/c37201f81513.mp3", "1-0": "a/86aecc17c00b.mp3", "1-1": "a/296d27bcfee7.mp3", "1-2": "a/8e135066b5fd.mp3", "1-3": "a/eac645dd983a.mp3", "1-4": "a/d8177e1c6938.mp3", "2-0": "a/47de5a760647.mp3", "2-1": "a/dac7cd83a051.mp3", "2-2": "a/d238964076b1.mp3", "2-3": "a/ee919e286132.mp3", "2-4": "a/8b929f9570ef.mp3", "3-0": "a/6e30c92513d0.mp3", "3-1": "a/fc94afd14f5c.mp3", "3-2": "a/0db37d8c3736.mp3", "3-3": "a/17f7738a69c6.mp3", "3-4": "a/f1a2ed76957b.mp3", "3-5": "a/bd8d33ba4603.mp3", "4-0": "a/d92aa02d5f4c.mp3", "4-1": "a/4453fbd68c42.mp3", "4-2": "a/350ebb5c2ece.mp3", "4-3": "a/fb1d2b8e0f75.mp3", "4-4": "a/0ba749b6edb6.mp3", "5-0": "a/89633067c0ea.mp3", "5-1": "a/975d818ba877.mp3", "5-2": "a/f00250826a12.mp3", "5-3": "a/fa98a550a0ec.mp3", "5-4": "a/24495216bcfe.mp3", "6-0": "a/a5e5537c2a75.mp3", "6-1": "a/b03285c168fa.mp3", "6-2": "a/92dc398cc024.mp3", "6-3": "a/53a2703b5ef6.mp3", "6-4": "a/fb4b390ce073.mp3", "6-5": "a/19f2b87da1a9.mp3", "7-0": "a/44a4102b289f.mp3", "7-1": "a/206a2620acb0.mp3", "7-2": "a/21529dcfa4e4.mp3", "7-3": "a/712f3d40e435.mp3", "7-4": "a/2bdea1b08328.mp3", "7-5": "a/014969f99ccf.mp3", "7-6": "a/23bbd51415c0.mp3", "8-0": "a/95af328f966c.mp3", "8-1": "a/e2c888b3653f.mp3", "8-2": "a/46cd8c0f8596.mp3", "8-3": "a/2b0ef06f8352.mp3", "8-4": "a/7cd8f2a2c46b.mp3", "8-5": "a/cadc64368a25.mp3", "9-0": "a/c20d8fa9b5be.mp3", "9-1": "a/3d1626451fe1.mp3", "9-2": "a/67bdbb75e1a1.mp3", "9-3": "a/bce741f3e0d5.mp3", "9-4": "a/c8a8995e6b3a.mp3", "9-5": "a/7f7b2cc3292b.mp3", "10-0": "a/387c57c5457a.mp3", "10-1": "a/e9fc3b788645.mp3", "10-2": "a/39087cea8fe6.mp3", "10-3": "a/01722093de9a.mp3", "10-4": "a/ef7d32499704.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/4688df83832d.mp3", "11-2": "a/c1f95fc1e4a8.mp3", "11-3": "a/6596ef4a2f71.mp3", "11-4": "a/99f224b26bd9.mp3", "12-0": "a/68e4a7f841a7.mp3", "12-1": "a/6aeb1214362f.mp3", "12-2": "a/0cd141d9aa29.mp3", "12-3": "a/3be6e0113131.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

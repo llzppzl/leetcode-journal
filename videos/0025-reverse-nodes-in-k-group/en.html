@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Flip in Groups of K</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Flip in Groups of K', template:'prep', lang:'en', sub:'LeetCode 25 Reverse Nodes in k-Group · animated walkthrough', key:'lc25envid', doc:'LeetCode 25', blurb:'First a from-zero recap of reversing a linked list from 206: save, flip, advance. Then see that the real difficulty is the wiring around each group: with a dummy head and group_prev, every group takes five steps: count, save, reverse, reconnect, move on.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: flip k at a time','The problem: two small examples','Recap: reverse a whole list','First idea: apply 206 to each group','Key insight: four nodes per group','Animation: the first group','Animation: the second group and the tail','Now with k = 3','Write the code','Check: k = 1 and [1, 2]','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- linked-list frames: each frame is a full picture shown at its own steps (.only + .now) ---------- */
+const KG_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ll{width:100%;max-width:460px;margin:0 auto;display:block;overflow:visible}
+.ll .s:not(.on){opacity:0}
+.ll .only.s{opacity:0!important} .ll .only.s.now{opacity:1!important}
+.ll rect{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.ll rect.grp{fill:rgba(255,184,77,.25);stroke:var(--amber)}
+.ll rect.done{fill:rgba(98,224,180,.3);stroke:var(--mint)}
+.ll rect.dum{stroke:var(--dim);stroke-dasharray:4 3}
+.ll path{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ll path.new{stroke:var(--mint);stroke-width:3}
+.ll path.bad{stroke:var(--coral);stroke-width:3}
+.ll path.miss{stroke:var(--coral);stroke-width:2.5;stroke-dasharray:5 4}
+.ll text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.ll text.dl{font-family:var(--f-mono);font-size:14px;fill:var(--dim)}
+.ll text.nil{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.ll text.ptr{font-family:var(--f-mono);font-size:11px;fill:var(--amber)}
+.cap{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.cap .s{position:absolute;left:0;right:0}
+.cap .only.s{opacity:0!important} .cap .only.s.now{opacity:1!important}
+.cap b{color:var(--amber)} .cap em{font-style:normal;color:var(--mint)}
+</style>`;
+const KG_W = 30, KG_H = 30;
+let KG_N = 0;
+const KG_half = k => k[0]==='N' ? [16,8] : [KG_W/2, KG_H/2];
+function KG_cut(u, v, [hw, hh]){ return Math.min(Math.abs(u)>1e-6?hw/Math.abs(u):1e9, Math.abs(v)>1e-6?hh/Math.abs(v):1e9); }
+function KG_arrow(f, a, b, cls, bend, uid){
+  const [x1,y1]=f.n[a], [x2,y2]=f.n[b];
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const t1=KG_cut(ux,uy,KG_half(a))+2, t2=KG_cut(ux,uy,KG_half(b))+6;
+  const sx=x1+ux*t1, sy=y1+uy*t1, ex=x2-ux*t2, ey=y2-uy*t2;
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  const mk = cls==='miss' ? 'bad' : cls;
+  return `<path class="${cls}" marker-end="url(#${uid}${mk?'-'+mk:''})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+// f = {s:[steps], n:{key:[x,y,cls]}, e:[[from,to,cls,bend]], p:[[label,key,'u'|'d']], cap}
+// keys starting with N are drawn as "None"; key D is the dummy node
+function KG_frame(f, uid){
+  let g = '';
+  (f.e||[]).forEach(([a,b,cls,bend])=> g += KG_arrow(f,a,b,cls||'',bend||0,uid));
+  Object.entries(f.n).forEach(([k,[x,y,cls]])=>{
+    if(k[0]==='N') g += `<text class="nil" x="${x}" y="${y}">None</text>`;
+    else g += `<rect class="${cls||''}" x="${x-KG_W/2}" y="${y-KG_H/2}" width="${KG_W}" height="${KG_H}" rx="7"/><text class="${k==='D'?'dl':''}" x="${x}" y="${y}">${k}</text>`;
+  });
+  const used = {};
+  (f.p||[]).forEach(([lab,k,side])=>{
+    const [x,y]=f.n[k], id=k+side, m=used[id]=(used[id]||0)+1, hh=KG_half(k)[1];
+    const yy = side==='d' ? y+hh+11+(m-1)*13 : y-hh-10-(m-1)*13;
+    g += `<text class="ptr" x="${x}" y="${yy}">${lab}</text>`;
+  });
+  return g;
+}
+function KG_ll(frames, h, label){
+  const uid = 'kgm'+(KG_N++);
+  const mk = (id, col) => `<marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--${col});stroke:none"/></marker>`;
+  let s = KG_CSS + `<svg class="ll" viewBox="-8 0 368 ${h}" role="img" aria-label="${label||'linked list'}"><defs>${mk(uid,'sky')}${mk(uid+'-new','mint')}${mk(uid+'-bad','coral')}</defs>`;
+  let caps = '';
+  frames.forEach(f => f.s.forEach(st => {
+    s += `<g class="only s" data-s="${st}">${KG_frame(f,uid)}</g>`;
+    if(f.cap) caps += `<span class="only s bare" data-s="${st}">${f.cap}</span>`;
+  }));
+  return s + `</svg>` + (caps ? `<div class="cap">${caps}</div>` : '');
+}
+// layout helpers: a row of slots, and a plain chain of arrows
+const KX = [30,82,134,186,238,290,338], KY = 62;
+const KG_row = (str, cls={}, y=KY) => { const n={}; str.split(' ').forEach((k,i)=>n[k]=[KX[i],y,cls[k]||(k==='D'?'dum':'')]); return n; };
+const KG_chain = (str, hot={}) => { const a=str.split(' '); return a.slice(0,-1).map((k,i)=>[k,a[i+1],hot[k]||'']); };
+const KG_cls = (keys, c) => Object.fromEntries(keys.split(' ').map(k=>[k,c]));
+const H = 140;
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Flip in groups of k<br><em>LeetCode 25</em>', vis:
+  gloss(0,[['linked list','a chain of nodes, each pointing to the next with a next arrow'],['reverse','turn every arrow in a stretch of the list around'],['dummy head','a fake node placed before head, so the first group also has a "node before"'],['group_prev','the node right before the current group']])
+  + flow([[1,'Recap','206 reverse: save, flip, advance'],[1,'First idea','apply 206 to each group'],[2,'Broken','groups not linked'],[2,'Five steps','count, save, reverse, link, move'],[3,'Animation','k = 2 and k = 3'],[3,'Code','dummy + group_prev']]),
+  say:[
+  'This lesson covers LeetCode 25, Reverse Nodes in k-Group. A linked list is a chain of nodes joined by next arrows. Reversing turns every arrow around. A dummy is a fake node before head, and group_prev is the node right before the current group.',
+  'First we recap reversing a list from problem 206, from zero: save, flip, advance. Then we try the most natural idea: apply 206 to every group.',
+  'You will see every group comes out right, but the groups are no longer linked. The real difficulty is the wiring, and five steps keep it under control.',
+  'Finally we animate 1 to 5 with k equals 2 and k equals 3, then write the code and check the edge cases.'
+]});
+
+/* ===== 1 The problem ===== */
+const O5 = {n:KG_row('1 2 3 4 5 NE'), e:KG_chain('1 2 3 4 5 NE')};
+add({ch:1, title:'The problem: <em>flip every k nodes</em>', vis:
+  gloss(0,[['k','the number of nodes in each group'],['tail','the last few nodes that do not make a full group; they stay as they are']])
+  + duo(KG_ll([{...O5, s:[0,1], p:[['head','1','u']]},
+              {n:KG_row('2 1 4 3 5 NE',KG_cls('2 1 4 3','grp')), e:KG_chain('2 1 4 3 5 NE'), s:[2], cap:'k = 2: <b>2 → 1 → 4 → 3 → 5</b>'},
+              {n:KG_row('3 2 1 4 5 NE',KG_cls('3 2 1','grp')), e:KG_chain('3 2 1 4 5 NE'), s:[3,4], cap:'k = 3: <b>3 → 2 → 1 → 4 → 5</b>'}], 100),
+    q(1,'1 → 2 → 3 → 4 → 5. What is the result for k = 2, and for k = 3?')
+    + cards([[2,'k = 2 → 2 → 1 → 4 → 3 → 5','(1 2) and (3 4) each flip; 5 alone is fewer than 2, so it stays','sky'],
+             [3,'k = 3 → 3 → 2 → 1 → 4 → 5','(1 2 3) flips; 4 and 5 are fewer than 3, so they stay','amber'],
+             [4,'Change next only, never val','really re-link the nodes','coral']])),
+  say:[
+  'k is the number of nodes in each group. The tail is the last few nodes that do not make a full group, and they stay as they are.',
+  'The question for this scene: for the list 1, 2, 3, 4, 5, what is the result when k equals 2, and when k equals 3?',
+  'k equals 2: groups of two. 1, 2 flips to 2, 1, and 3, 4 flips to 4, 3. Only 5 is left, fewer than two, so it stays. The result is 2, 1, 4, 3, 5.',
+  'k equals 3: 1, 2, 3 is one group and flips to 3, 2, 1. 4 and 5 are left, fewer than three, so they stay. The result is 3, 2, 1, 4, 5.',
+  'One more rule: no cheating by changing the values inside nodes. You may only change next arrows and really re-link the nodes.'
+]});
+
+/* ===== 2 Recap: 206 ===== */
+const RV = (s, e, p, cap) => ({s, n:{NL:[30,62],'1':[110,62],'2':[190,62],'3':[270,62],NR:[338,62]}, e, p, cap});
+add({ch:2, title:'Recap: <em>reverse a whole list</em>', vis:
+  gloss(0,[['prev','the first node of the part already turned around; starts as None'],['cur','the node being handled now'],['nxt','before changing an arrow, save the node cur used to point to']])
+  + duo(KG_ll([RV([0,1,2],[['1','2'],['2','3'],['3','NR']],[['prev','NL','u'],['cur','1','u']],'prev = None, cur = 1'),
+              RV([3],[['1','2'],['2','3'],['3','NR']],[['prev','NL','u'],['cur','1','u'],['nxt','2','d']],'<b>nxt = cur.next</b>: save 2 first'),
+              RV([4],[['1','NL','new'],['2','3'],['3','NR']],[['prev','NL','u'],['cur','1','u'],['nxt','2','d']],'<b>cur.next = prev</b>: 1 turns around'),
+              RV([5],[['1','NL'],['2','3'],['3','NR']],[['prev','1','u'],['cur','2','u']],'prev = cur, cur = nxt: both step'),
+              RV([6],[['1','NL'],['2','1','new'],['3','2','new']],[['prev','3','u'],['cur','NR','u']],'2 and 3 turn too; cur is None, <em>done</em>')], 110),
+    q(1,'How does 1 → 2 → 3 become 3 → 2 → 1 without losing a node?')
+    + cards([[3,'Save, then flip, then advance','three moves, always in this order','amber'],
+             [6,'At the end, prev is the new head','3 → 2 → 1 → None','mint']])),
+  say:[
+  'prev is the first node of the part already turned around, and starts as None. cur is the node being handled. nxt saves the node cur used to point to.',
+  'The question for this scene: how does 1, 2, 3 become 3, 2, 1 without losing a single node?',
+  'At the start, prev is None and cur is 1.',
+  'Move one, save: nxt holds 2. Without it, once we change the arrow of 1, we can never find 2 again.',
+  'Move two, flip: set cur dot next to prev, so 1 turns around and points to None.',
+  'Move three, advance: prev moves to 1, and cur moves to 2.',
+  'Do the same for 2 and 3. When cur becomes None we stop, and prev sits on 3, which is the new head.'
+]});
+
+/* ===== 3 First idea: apply 206 per group ===== */
+const FR = {'2':[30,40],'1':[82,40],N1:[134,40],'4':[200,40],'3':[252,40],N3:[304,40],'5':[30,112],NE:[82,112]};
+const FRe = [['2','1'],['1','N1'],['4','3'],['3','N3'],['5','NE']];
+add({ch:3, title:'First idea: <em>apply 206 to each group</em>', vis:
+  gloss(0,[['fragment','a short piece of list that is linked inside but cut off from the rest']])
+  + duo(KG_ll([{...O5, s:[0,1], p:[['head','1','u']]},
+              {s:[2], n:{'2':[30,62],'1':[82,62],N1:[134,62],'3':[186,62],'4':[238,62],'5':[290,62],NE:[338,62]},
+               e:[['2','1','new'],['1','N1'],['3','4'],['4','5'],['5','NE']], p:[['head','1','u']], cap:'first group done: <b>2 → 1 → None</b>'},
+              {s:[3], n:FR, e:FRe, p:[['head','1','u']], cap:'three fragments: 2 → 1, 4 → 3, 5'},
+              {s:[4], n:FR, e:[...FRe,['1','4','miss',-26],['3','5','miss']], p:[['head','1','u']], cap:'red dashes: nobody links <b>1 → 4</b> or <b>3 → 5</b>'},
+              {s:[5], n:FR, e:[...FRe,['1','4','miss',-26],['3','5','miss']], p:[['head','1','u'],['new head?','2','d']], cap:'head still points to 1, but the new head is 2'}], 140),
+    q(1,'Every k nodes, just run the 206 reversal. Does that work?')
+    + cards([[3,'Every group is flipped right','206 itself is fine','mint'],
+             [4,'It breaks between groups','1 must link to 4, 3 to 5, and we need the new head 2','coral'],
+             [5,'The hard part is wiring, not reversing','each group must remember who is before it and who is after it','amber']])),
+  say:[
+  'A fragment is a short piece of list that is linked inside but cut off from everything else.',
+  'The question for this scene: every time we count k nodes, we run the 206 reversal once. Does that work?',
+  'Try it with k equals 2. Take 1, 2 on its own and flip it: 2 points to 1, and 1 points to None.',
+  'Flip 3, 4 and get 4 pointing to 3. Now we hold three fragments: 2, 1, then 4, 3, then 5. Every group is right.',
+  'But the answer needs 1 linked to 4, and 3 linked to 5. Look at the red dashes: nobody links them, and 1 has no idea where 4 is.',
+  'Also, the new head is 2, yet our head still points to 1. So the hard part is wiring: each group must remember who is before it and who is after it.'
+]});
+
+/* ===== 4 Key insight: four nodes ===== */
+const D5 = 'D 1 2 3 4 5 NE';
+const KD = {n:KG_row(D5,KG_cls('1 2','grp')), e:KG_chain(D5)};
+add({ch:4, title:'Key insight: <em>four nodes per group</em>', vis:
+  gloss(0,[['dummy (D in the picture)','a fake node before head; its value does not matter'],['group_prev','the node right before this group'],['kth, group_next','the k-th node of this group, and the node after it'],['first','the original first node of this group']])
+  + duo(KG_ll([{...KD, s:[0,1]},
+              {...KD, s:[2], p:[['group_prev','D','u']], cap:'nothing before group one → make a <b>dummy</b>'},
+              {...KD, s:[3], p:[['group_prev','D','u'],['kth','2','u'],['group_next','3','d']], cap:'kth = the k-th node, <b>group_next = kth.next</b>'},
+              {...KD, s:[4,5], p:[['group_prev','D','u'],['first','1','d'],['kth','2','u'],['group_next','3','d']], cap:'after flipping: kth is the new head, first the new tail'}], H),
+    q(1,'To flip one group and link it back, which nodes must we hold at least?')
+    + cards([[2,'dummy: group one has a "node before" too','return dummy.next at the end: that is the new head','sky'],
+             [3,'Save group_next before reversing','afterwards kth.next points back into the group','coral']]))
+  + flow([[5,'1 Count','walk k steps'],[5,'2 Save','kth, group_next'],[5,'3 Reverse','206'],[5,'4 Link','before → kth, first → after'],[5,'5 Move','group_prev = first']]),
+  say:[
+  'dummy is a fake node before head, drawn as D. group_prev is the node before the group. kth is the k-th node of the group, and group_next is the one after it. first is the group\'s original first node.',
+  'The question for this scene: to flip one group and link it back, which nodes must we hold at least?',
+  'Look before the group: after flipping, the node before it must point to the new head, so we hold group_prev. Group one has nothing before it, so we make a dummy, and return dummy dot next at the end.',
+  'Look after the group: walk k steps from group_prev to reach kth; the node after it is group_next. Save it before reversing, because afterwards kth dot next points back into the group.',
+  'Last is first: after flipping, kth becomes the new head and first becomes the new tail, so first is the one that links to group_next.',
+  'Together, each group takes five steps: count, save, reverse, link, and move group_prev to first.'
+]});
+
+/* ===== 5 Animation: the first group ===== */
+add({ch:5, title:'Animation: <em>the first group, k = 2</em>', vis:
+  gloss(0,[['green arrow','a link made in this step'],['red arrow','a link that is wrong for now and about to change'],['orange box','the current group']])
+  + duo(KG_ll([{n:KG_row(D5), e:KG_chain(D5), s:[0,1], p:[['group_prev','D','u']], cap:'group_prev = dummy'},
+              {...KD, s:[2], p:[['group_prev','D','u'],['kth','2','u']], cap:'1: 2 steps from D: 1, 2, no None → <b>enough</b>'},
+              {...KD, s:[3], p:[['group_prev','D','u'],['first','1','d'],['kth','2','u'],['group_next','3','d']], cap:'2: group_next = 3, first = 1'},
+              {s:[4], n:{D:[30,62,'dum'],'2':[82,62,'grp'],'1':[134,62,'grp'],N1:[134,122],'3':[186,62],'4':[238,62],'5':[290,62],NE:[338,62]},
+               e:[['D','1','bad',44],['2','1','new'],['1','N1'],['3','4'],['4','5'],['5','NE']],
+               p:[['group_prev','D','u'],['kth','2','u'],['first','1','u'],['group_next','3','d']], cap:'3: reverse: 2 → 1 → None; D still points to 1'},
+              {s:[5], n:KG_row('D 2 1 3 4 5 NE',KG_cls('2 1','grp')), e:KG_chain('D 2 1 3 4 5 NE',{D:'new','1':'new'}),
+               p:[['group_prev','D','u'],['kth','2','u'],['first','1','u'],['group_next','3','d']], cap:'4: D.next = 2, 1.next = 3'},
+              {s:[6], n:KG_row('D 2 1 3 4 5 NE',KG_cls('2 1','done')), e:KG_chain('D 2 1 3 4 5 NE'), p:[['group_prev','1','u']], cap:'5: group_prev = first = <b>1</b>'}], H),
+    q(1,'D → 1 → 2 → 3 → 4 → 5. Walking the first group through five steps, where is every pointer?')
+    + cards([[4,'Red link: D still points to the old head 1','reversal only handles the inside; outside links are on us','coral'],
+             [6,'Group one done: 2 → 1 → 3 → 4 → 5','group_prev now sits right before the next group','mint']])),
+  say:[
+  'A green arrow is a link made in this step, a red one is wrong for now and about to change, and the orange boxes are the current group.',
+  'The question for this scene: walking the first group through five steps, where is every pointer? group_prev starts at dummy.',
+  'Step one, count: kth walks two steps from D and lands on 2 without hitting None. Enough nodes.',
+  'Step two, save: group_next is 3, and first is 1.',
+  'Step three, reverse: 2 points to 1, and 1 points to None. See the red link: D still points to the old head 1, because reversal only handles the inside.',
+  'Step four, link: D links to kth, which is 2, and first links to group_next, so 1 links to 3. The list is one chain again.',
+  'Step five, group_prev moves to first, which is 1, right before the next group. The list is now 2, 1, 3, 4, 5.'
+]});
+
+/* ===== 6 Animation: second group and tail ===== */
+const G2 = 'D 2 1 4 3 5 NE';
+add({ch:6, title:'Animation: <em>the second group, and the tail</em>', vis:
+  gloss(0,[['return dummy.next','whatever hangs after dummy is the head of the whole new list']])
+  + duo(KG_ll([{n:KG_row('D 2 1 3 4 5 NE',KG_cls('2 1','done')), e:KG_chain('D 2 1 3 4 5 NE'), s:[0,1], p:[['group_prev','1','u']], cap:'group_prev = 1'},
+              {n:KG_row('D 2 1 3 4 5 NE',{...KG_cls('2 1','done'),...KG_cls('3 4','grp')}), e:KG_chain('D 2 1 3 4 5 NE'), s:[2],
+               p:[['group_prev','1','u'],['first','3','d'],['kth','4','u'],['group_next','5','d']], cap:'1, 2: kth = 4, group_next = 5, first = 3'},
+              {s:[3], n:{D:[30,62,'dum'],'2':[82,62,'done'],'1':[134,62,'done'],'4':[186,62,'grp'],'3':[238,62,'grp'],N3:[238,122],'5':[290,62],NE:[338,62]},
+               e:[['D','2'],['2','1'],['1','3','bad',44],['4','3','new'],['3','N3'],['5','NE']],
+               p:[['group_prev','1','u'],['kth','4','u'],['first','3','u'],['group_next','5','d']], cap:'3: reverse: 4 → 3 → None; 1 still points to 3'},
+              {n:KG_row(G2,KG_cls('2 1 4 3','done')), e:KG_chain(G2,{'1':'new','3':'new'}), s:[4], p:[['group_prev','3','u']], cap:'4: 1.next = 4, 3.next = 5   5: group_prev = 3'},
+              {n:KG_row(G2,KG_cls('2 1 4 3','done')), e:KG_chain(G2), s:[5], p:[['group_prev','3','u'],['kth','NE','d']], cap:'1: from 3: 5, then None → <b>not enough</b>'},
+              {n:KG_row(G2,KG_cls('2 1 4 3','done')), e:KG_chain(G2), s:[6], p:[['dummy.next','2','d']], cap:'return: <em>2 → 1 → 4 → 3 → 5</em>'}], H),
+    q(1,'How does the second group 3, 4 go? And what happens when only 5 is left?')
+    + cards([[5,'Fewer than k: return right away','count before flipping, so the tail 5 is never touched','amber'],
+             [6,'k = 2 → 2 → 1 → 4 → 3 → 5','matches the answer from the problem','mint']])),
+  say:[
+  'Whatever hangs after dummy is the head of the whole new list, so at the end we return dummy dot next.',
+  'The question for this scene: how does the second group go, and what happens when only 5 is left? group_prev is now 1.',
+  'Count: kth walks two steps from 1 to 4. Save group_next as 5, and first as 3.',
+  'Reverse: 4 points to 3, and 3 points to None. The red link is 1 still pointing to the old head 3.',
+  'Link: 1 links to 4, and 3 links to 5. Then group_prev moves to 3.',
+  'Next round, kth walks from 3 to 5, and the next step is None. Fewer than two, so we return right away, and 5 is never touched.',
+  'The result is 2, 1, 4, 3, 5, the same as the answer from the problem.'
+]});
+
+/* ===== 7 k = 3 ===== */
+const G3 = 'D 3 2 1 4 5 NE';
+add({ch:7, title:'Now with <em>k = 3</em>', vis:
+  gloss(0,[['same five steps','only the number of steps in the count changes with k']])
+  + duo(KG_ll([{n:KG_row(D5), e:KG_chain(D5), s:[0,1], p:[['group_prev','D','u']], cap:'k = 3, group_prev = dummy'},
+              {n:KG_row(D5,KG_cls('1 2 3','grp')), e:KG_chain(D5), s:[2], p:[['group_prev','D','u'],['first','1','d'],['kth','3','u'],['group_next','4','d']], cap:'1, 2: kth = 3, group_next = 4, first = 1'},
+              {s:[3], n:{D:[30,62,'dum'],'3':[82,62,'grp'],'2':[134,62,'grp'],'1':[186,62,'grp'],N1:[186,122],'4':[238,62],'5':[290,62],NE:[338,62]},
+               e:[['D','1','bad',50],['3','2','new'],['2','1','new'],['1','N1'],['4','5'],['5','NE']],
+               p:[['group_prev','D','u'],['kth','3','u'],['first','1','u'],['group_next','4','d']], cap:'3: reverse: 3 → 2 → 1 → None'},
+              {n:KG_row(G3,KG_cls('3 2 1','done')), e:KG_chain(G3,{D:'new','1':'new'}), s:[4], p:[['group_prev','1','u']], cap:'4: D.next = 3, 1.next = 4   5: group_prev = 1'},
+              {n:KG_row(G3,KG_cls('3 2 1','done')), e:KG_chain(G3), s:[5], p:[['group_prev','1','u'],['kth','NE','d']], cap:'1: from 1: 4, 5, None → <b>only 2</b>'},
+              {n:KG_row(G3,KG_cls('3 2 1','done')), e:KG_chain(G3), s:[6], p:[['dummy.next','3','d']], cap:'return: <em>3 → 2 → 1 → 4 → 5</em>'}], H),
+    q(1,'Same list, k = 3. How do the five steps go?')
+    + cards([[5,'4 and 5 are fewer than 3 → untouched','not enough nodes, no flipping','amber'],
+             [6,'k = 3 → 3 → 2 → 1 → 4 → 5','same five steps; kth just walks one step further','mint']])),
+  say:[
+  'Same five steps. When k changes, only the number of steps in the count changes.',
+  'The question for this scene: with k equals 3, how do the five steps go? group_prev starts at dummy again.',
+  'Count: kth walks three steps from D to 3. Save group_next as 4, and first as 1.',
+  'Reverse: 3 points to 2, 2 points to 1, and 1 points to None. The red link is D still pointing to 1.',
+  'Link: D links to 3, and 1 links to 4. group_prev moves to 1.',
+  'Next round, starting from 1, we pass 4 and 5 and hit None on the third step. Fewer than three, so we return.',
+  'The result is 3, 2, 1, 4, 5. The five steps did not change; kth just walked one step further.'
+]});
+
+/* ===== 8 Code ===== */
+add({ch:8, title:'Code: <em>the five steps, written down</em>', vis:
+  gloss(0,[['ListNode(0, head)','make a node with value 0 whose next is head: that is the dummy'],['is not','checks whether two names are the same node, not equal values']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def reverseKGroup(self, head, k):'],
+    [2,'o','        dummy = ListNode(0, head)'],
+    [2,'o','        group_prev = dummy'],
+    [2,'o','        while True:'],
+    [2,'o','            kth = group_prev           # 1 count k nodes'],
+    [2,'o','            for _ in range(k):'],
+    [2,'o','                kth = kth.next'],
+    [2,'o','                if kth is None:'],
+    [2,'hl','                    return dummy.next  # short: keep tail'],
+    [3,'hl','            group_next = kth.next      # 2 save before flip'],
+    [3,'o','            first = group_prev.next'],
+    [4,'o','            prev, cur = None, first    # 3 reverse, as in 206'],
+    [4,'o','            while cur is not group_next:'],
+    [4,'o','                nxt = cur.next'],
+    [4,'o','                cur.next = prev'],
+    [4,'o','                prev, cur = cur, nxt'],
+    [5,'hl','            group_prev.next = kth      # 4 link'],
+    [5,'hl','            first.next = group_next'],
+    [5,'o','            group_prev = first         # 5 move to next group']])
+  + q(1,'Which lines of code is each of the five steps?'),
+  say:[
+  'ListNode of 0 comma head makes a node whose next is head: that is the dummy. is not checks whether two names are the same node.',
+  'The question for this scene: which lines of code is each of the five steps?',
+  'Step one: kth walks k steps from group_prev. The moment it hits None, there are not enough nodes, so return dummy dot next.',
+  'Step two: before reversing, save group_next and first.',
+  'Step three is the three lines from 206. The only change is the stop condition: cur reaches group_next, not None.',
+  'Step four links: group_prev to kth, and first to group_next. Step five: group_prev becomes first, and we handle the next group.'
+]});
+
+/* ===== 9 Check ===== */
+add({ch:9, title:'Check: <em>k = 1 and [1, 2]</em>', vis:
+  gloss(0,[['edge case','the smallest or strangest input, the one most likely to expose a bug']])
+  + duo(KG_ll([{n:KG_row(D5), e:KG_chain(D5), s:[0,1], cap:'k = 1'},
+              {n:KG_row(D5,KG_cls('1','grp')), e:KG_chain(D5), s:[2], p:[['group_prev','D','u'],['kth','1','u'],['first','1','d'],['group_next','2','d']], cap:'kth = first = 1, one node per group'},
+              {n:KG_row(D5,KG_cls('1 2 3 4 5','done')), e:KG_chain(D5), s:[3], cap:'all five groups done: <em>1 → 2 → 3 → 4 → 5</em>'},
+              {n:KG_row('D 1 2 NE',KG_cls('1 2','grp')), e:KG_chain('D 1 2 NE'), s:[4], p:[['group_prev','D','u'],['first','1','d'],['kth','2','u'],['group_next','NE','d']], cap:'[1, 2], k = 2: group_next = None'},
+              {n:KG_row('D 2 1 NE',KG_cls('2 1','done')), e:KG_chain('D 2 1 NE',{D:'new','1':'new'}), s:[5], p:[['group_prev','1','u']], cap:'D.next = 2, 1.next = None'},
+              {n:KG_row('D 2 1 NE',KG_cls('2 1','done')), e:KG_chain('D 2 1 NE'), s:[6], p:[['group_prev','1','u'],['kth','NE','d']], cap:'from 1: None → return <em>[2, 1]</em>'}], H),
+    q(1,'Does k = 1 break anything? What about two nodes with k = 2?')
+    + cards([[3,'k = 1 → unchanged','one node per group; flipping it does nothing','sky'],
+             [6,'[1, 2], k = 2 → [2, 1]','group_next is None: 1 links to None, a proper end','mint']])),
+  say:[
+  'An edge case is the smallest or strangest input, the one most likely to expose a bug.',
+  'The question for this scene: does k equals 1 break anything? And what about two nodes with k equals 2?',
+  'k equals 1: kth reaches 1 in one step, the same node as first. Flipping one node does nothing.',
+  'Linking puts D to 1 and 1 to 2, right back where they were. After five groups, it is still 1, 2, 3, 4, 5.',
+  'Now 1, 2 with k equals 2: kth reaches 2, enough nodes, and group_next is None.',
+  'Flip to 2 pointing to 1, link D to 2, and 1 to None, a proper end. group_prev moves to 1.',
+  'Next round hits None on the very first step, so we return. The result is 2, 1. Correct.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','the number of steps grows in proportion to the number of nodes n'],['O(1) extra space','only a few pointer variables, no matter how long the list is']])
+  + q(1,'What are the time and space? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), extra space O(1)','each node is counted once and flipped once; a few pointers only','sky'],
+           [3,'Pitfall one: flip, then count','a short tail gets flipped too; always count first','coral'],
+           [4,'Pitfall two: reading kth.next after the flip','by then it points into the group; save group_next first','coral'],
+           [5,'Pitfall three: group_prev = kth','kth moved to the front; the node before the next group is first','coral']]),
+  say:[
+  'Big O of n means the steps grow in proportion to the number of nodes n. Big O of 1 extra space means only a few pointer variables.',
+  'The question for this scene: what are the time and space, and where is it easiest to go wrong?',
+  'Time is big O of n: every node is counted once and flipped once. Extra space is big O of 1, just a few pointers.',
+  'Pitfall one: flipping before counting. Halfway through you find too few nodes, and the tail is already scrambled. Always count first.',
+  'Pitfall two: reading kth dot next after the flip. By then it points into the group, and the rest of the list is lost.',
+  'Pitfall three: setting group_prev to kth. After the flip kth is at the front; the node before the next group is first.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud, and code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why use a dummy? And why does group_prev end up as first?"')
+  + flow([[2,'dummy','group one has a node before'],[3,'Count','short → return'],[3,'Save','kth, group_next'],[3,'Flip + link','before → kth, first → after'],[4,'Move','group_prev = first'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['dummy node','reverse linked list','k-group','pointer bookkeeping','in place','O(1) extra space','206']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and start coding once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why use a dummy, and why does group_prev end up as first?',
+  'First the dummy: after each flip, the node before the group must point to the new head. Group one has nothing before it, so a dummy makes every group the same.',
+  'Then the steps: count k nodes and return if short; save kth and group_next; reverse; link group_prev to kth and first to group_next.',
+  'After the flip, first is the last node of the group, right before the next one. Complexity is big O of n and big O of 1. Keywords: dummy node.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'1 Count','short → return'],[0,'2 Save','kth, group_next'],[0,'3 Reverse','206'],[0,'4 Link','before → kth, first → after'],[0,'5 Move','group_prev = first']])
+  + cards([[1,'1. Reversing is three moves: save, flip, advance','nxt = cur.next, cur.next = prev, prev, cur = cur, nxt','amber'],
+           [2,'2. The hard part is wiring: dummy + group_prev','group_prev.next = kth, first.next = group_next','sky'],
+           [3,'3. Count before flipping; save group_next first','too few nodes → return, the tail stays','mint']]),
+  say:[
+  'The main line once more: five steps per group: count, save, reverse, link, and move group_prev to first.',
+  'Number one: reversing is three moves, save, flip, advance, always in that order.',
+  'Number two: the hard part is wiring. With dummy and group_prev, after the flip, group_prev links to kth and first links to group_next.',
+  'Number three: count before flipping, and save group_next first. Too few nodes means return, and the tail stays.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/fa342fa520da.mp3", "0-1": "a/f0bf15ebb08a.mp3", "0-2": "a/d75bef6dfad4.mp3", "0-3": "a/e18febd83f40.mp3", "1-0": "a/752401774cf9.mp3", "1-1": "a/2ff443a7ce82.mp3", "1-2": "a/688e85313dff.mp3", "1-3": "a/82d5109f0aa6.mp3", "1-4": "a/a728e7880537.mp3", "2-0": "a/df9c8b9f168d.mp3", "2-1": "a/fb88e050e5c3.mp3", "2-2": "a/ff73b4283d3f.mp3", "2-3": "a/9415bee6ca75.mp3", "2-4": "a/0d93b8b481c6.mp3", "2-5": "a/3b0396fbb541.mp3", "2-6": "a/9d5a4b55db70.mp3", "3-0": "a/b7d0b09f29db.mp3", "3-1": "a/6cbf9815b9c0.mp3", "3-2": "a/ce0824896856.mp3", "3-3": "a/c13205d90053.mp3", "3-4": "a/0f3c014f4d21.mp3", "3-5": "a/2e31bbc2282f.mp3", "4-0": "a/414ac91c5065.mp3", "4-1": "a/05d419b8c4cc.mp3", "4-2": "a/773d96fecea6.mp3", "4-3": "a/3fab41b61dc9.mp3", "4-4": "a/5e158d0ca31d.mp3", "4-5": "a/44aa81dfc404.mp3", "5-0": "a/cb7c7cb4e0a1.mp3", "5-1": "a/e7f009b03d22.mp3", "5-2": "a/2092bd25d1aa.mp3", "5-3": "a/4c331acb2b26.mp3", "5-4": "a/df3ad637e5df.mp3", "5-5": "a/2a2582a443a2.mp3", "5-6": "a/fbcf2eb0a985.mp3", "6-0": "a/bdfa7fc10947.mp3", "6-1": "a/d3433cbd53f4.mp3", "6-2": "a/07141b0d814f.mp3", "6-3": "a/36959f1f4bd0.mp3", "6-4": "a/c3452227a8b6.mp3", "6-5": "a/4ddac119b9d3.mp3", "6-6": "a/34af9386ccc8.mp3", "7-0": "a/cccbc4b54aec.mp3", "7-1": "a/b715c5dbd071.mp3", "7-2": "a/28ea9079b08f.mp3", "7-3": "a/ee665875c5ab.mp3", "7-4": "a/ff1ae6c57452.mp3", "7-5": "a/afd89f37bf3c.mp3", "7-6": "a/262eafa62669.mp3", "8-0": "a/e798029e4aef.mp3", "8-1": "a/1daaea9113ec.mp3", "8-2": "a/8ede6a6636f7.mp3", "8-3": "a/b2f4d521a63c.mp3", "8-4": "a/fec81c49374f.mp3", "8-5": "a/3ed074a99df3.mp3", "9-0": "a/506d22c64d78.mp3", "9-1": "a/43efe191d4ac.mp3", "9-2": "a/5f3a27c7b025.mp3", "9-3": "a/8d3e72e63cfb.mp3", "9-4": "a/05e0fa25e343.mp3", "9-5": "a/c8deb3ee905e.mp3", "9-6": "a/1730cd348785.mp3", "10-0": "a/09feb48f90d5.mp3", "10-1": "a/3b394bf662cc.mp3", "10-2": "a/2425c0c38ebe.mp3", "10-3": "a/f216eeee39e3.mp3", "10-4": "a/5f1da08dcafa.mp3", "10-5": "a/f96740ba5d72.mp3", "11-0": "a/7227622d4094.mp3", "11-1": "a/d23d099ba0f3.mp3", "11-2": "a/a651fec59d75.mp3", "11-3": "a/ba7b8ecacfad.mp3", "11-4": "a/cbece660cb7e.mp3", "12-0": "a/a1eb1c9ebe03.mp3", "12-1": "a/b15c83e90795.mp3", "12-2": "a/6397631848b7.mp3", "12-3": "a/fd3efe8e02e4.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Rotting Oranges Spread</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Rotting Oranges Spread', template:'prep', lang:'en', sub:'LeetCode 994 Rotting Oranges · animated walkthrough', key:'lc994envid', doc:'LeetCode 994', blurb:'Start from rescanning the whole grid every minute, notice that only freshly rotten oranges can spread, then put every rotten orange in one queue so each level is one minute, and finally check whether any fresh orange is left.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a box of oranges','The problem: 0, 1, 2 and four neighbors','Three kinds of answers','First idea: scan every minute','Where it gets slow','Key: only fresh rot spreads','One level is one minute','Animation: 4 minutes to rot','Animation: one is never reached','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- orange grid: 0 empty, 1 fresh, 2 rotten; overlays turn cells rotten step by step ---------- */
+const G1 = [[2,1,1],[1,1,0],[0,1,1]];
+const G2 = [[2,1,1],[0,1,1],[1,0,1]];
+const RO_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.rg{display:grid;gap:6px;justify-content:center;margin:0 auto}
+.rc{position:relative;width:3.3em;height:3.3em;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line)}
+.rc>b,.rc .ov b{font-family:var(--f-display);font-size:1.5em;font-weight:400}
+.rc.v0{border-style:dashed;background:transparent} .rc.v0>b{color:var(--dim)}
+.rc.v1{background:rgba(255,184,77,.22)} .rc.v1>b{color:var(--amber)}
+.rc.v2{background:rgba(255,122,107,.5)} .rc.v2>b{color:var(--paper)}
+.rc .ov{position:absolute;inset:0;border-radius:9px;display:grid;place-items:center;font-style:normal}
+.rc .ov.s:not(.on){opacity:0}
+.rc .ov.only.s{opacity:0!important} .rc .ov.only.s.now{opacity:1!important}
+.rc .ov sup{position:absolute;top:3px;right:6px;font-family:var(--f-mono);font-size:.62em;color:var(--paper)}
+.rc .ov.rot{background:rgb(120,58,52)} .rc .ov.rot b{color:var(--paper)}
+.rc .ov.new{box-shadow:inset 0 0 0 3px var(--amber),0 0 14px rgba(255,184,77,.45)}
+.rc .ov.nb{box-shadow:inset 0 0 0 3px var(--sky)} .rc .ov.nb sup{color:var(--sky);font-size:.8em}
+.rc .ov.x{box-shadow:inset 0 0 0 3px var(--coral)} .rc .ov.x sup{color:var(--coral);font-size:.8em;font-weight:700}
+.rc .ov.bad{background:rgb(120,58,52);box-shadow:inset 0 0 0 3px var(--coral)} .rc .ov.bad sup{color:var(--coral);font-size:.8em;font-weight:700}
+.rq{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:3em;position:relative;margin-top:8px}
+.rq .s{position:absolute;left:0;right:0}
+.rq .only.s{opacity:0!important} .rq .only.s.now{opacity:1!important}
+.rq b{color:var(--amber)} .rq em{font-style:normal;color:var(--mint)} .rq i{font-style:normal;color:var(--coral)}
+</style>`;
+// ov: [[step, r, c, cls, sup]] ; cls rot = turns rotten (stays), new = ring for this step only, nb / x = marker rings
+function RO_grid(G, ov=[], st=[]){
+  const n = G[0].length;
+  let h = RO_CSS + `<div class="rg" style="grid-template-columns:repeat(${n},3.3em)">`;
+  G.forEach((row,r)=>row.forEach((v,c)=>{
+    h += `<div class="rc v${v}"><b>${v}</b>${ov.filter(o=>o[1]===r&&o[2]===c).map(([s,,,k,t])=>{
+      const only = k==='new' ? 'only ' : '';
+      const body = (k==='rot'||k==='bad') ? '<b>2</b>' : '';
+      return `<i class="ov ${only}s ${k}" data-s="${s}">${body}${t!=null&&t!==''?`<sup>${t}</sup>`:''}</i>`;
+    }).join('')}</div>`;
+  }));
+  h += `</div>`;
+  if(st.length) h += `<div class="rq">${st.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+// minute at which each cell rots (from the Python trace), and the step it shows at
+const RO_rot = (list, base) => list.flatMap(([t,r,c])=>[[base+t,r,c,'rot',String(t)],[base+t,r,c,'new','']]);
+const M1 = [[1,1,0],[1,0,1],[2,1,1],[2,0,2],[3,2,1],[4,2,2]];
+const M2 = [[1,0,1],[2,1,1],[2,0,2],[3,1,2],[4,2,2]];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Rotting Oranges<br><em>LeetCode 994</em>', vis:
+  gloss(0,[['grid','a table with rows and columns, one number in each cell'],['BFS','breadth-first search: spreads out ring by ring, like a ripple'],['queue','a waiting line: in at the back, out at the front'],['multi-source','several starting points that set off at the same time']])
+  + flow([[1,'Read','rot spreads to 4 neighbors'],[1,'First idea','scan every minute'],[2,'Insight','only fresh rot spreads'],[2,'Method','multi-source BFS, one level per minute'],[3,'Finish','fresh left → -1'],[3,'Code','complexity and pitfalls']]),
+  say:[
+  'This lesson covers LeetCode 994, Rotting Oranges. Four words first. A grid is a table with rows and columns. BFS is breadth-first search, which spreads out ring by ring like a ripple. A queue is in at the back, out at the front. Multi-source means several starting points set off at the same time.',
+  'Here is the route. First we read the rule: every minute, a rotten orange rots its four neighbors, up, down, left and right. Then we try the most natural idea: scan the whole grid once every minute.',
+  'Then we find the key: only oranges that just turned rotten can spread. So we put every rotten orange into one queue, and each level of the queue is one minute.',
+  'At the end we check whether any fresh orange is left, and if so we return minus 1. Then we write the code and cover complexity and the easy pitfalls.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>0, 1, 2 and four neighbors</em>', vis:
+  gloss(0,[['0','an empty cell, no orange'],['1','a fresh orange'],['2','a rotten orange'],['adjacent','up, down, left, right; diagonals do not count']])
+  + duo(RO_grid(G1,[[3,0,1,'nb','→'],[3,1,0,'nb','↓'],[4,1,1,'x','✕']]),
+    q(1,'The top-left orange is rotten. After one minute, which cells does it rot?')
+    + cards([[2,'Rule: every minute','each rotten orange rots the fresh oranges up, down, left and right','amber'],
+             [3,'Right and below: they rot','left and above are outside the grid, there are no cells','sky'],
+             [4,'Diagonal: it does not','only four directions count; an empty 0 never changes','coral']])),
+  say:[
+  'Each cell of the grid holds a number. 0 is an empty cell with no orange. 1 is a fresh orange. 2 is a rotten orange. Adjacent means the four directions up, down, left and right, never diagonal.',
+  'The question for this scene: the top-left orange is rotten. After one minute, which cells does it rot?',
+  'There is only one rule: every minute, each rotten orange rots the fresh oranges directly up, down, left and right of it.',
+  'To the right of the top-left cell and below it are fresh oranges, so after one minute both rot. Its left and its top are outside the grid, so there is nothing to worry about.',
+  'The orange in the middle sits diagonally from it, so it does not rot this minute, because diagonals are not neighbors. And an empty 0 never changes.'
+]});
+
+/* ===== 2 Three kinds of answers ===== */
+add({ch:2, title:'What to return: <em>three kinds of answers</em>', vis:
+  gloss(0,[['minimum minutes','how many minutes pass from now until no fresh orange is left'],['-1','minus 1: some fresh orange can never be reached']])
+  + q(1,'What number does the problem want? When is it 4, when is it -1, and when is it 0?')
+  + cards([[2,'[[2,1,1],[1,1,0],[0,1,1]] → 4','rot spreads ring by ring; the last orange rots in minute 4','amber'],
+           [3,'[[2,1,1],[0,1,1],[1,0,1]] → -1','the bottom-left 1 is surrounded by empty cells and edges, never reached','coral'],
+           [4,'[[0,2]] → 0','there is no fresh orange at the start, nothing to wait for','mint']]),
+  say:[
+  'The minimum minutes is how many minutes pass from now until no fresh orange is left in the grid. Minus 1 means some fresh orange can never be reached.',
+  'The question for this scene: what number does the problem want? When is it 4, when is it minus 1, and when is it 0?',
+  'The first example is the grid from the last scene. The rot spreads ring by ring, and the last orange rots in minute 4, so we return 4.',
+  'In the second example, the fresh orange in the bottom-left corner has empty cells above it and to its right, and the grid edge to its left and below. It can never rot, so we return minus 1.',
+  'The third example is 0, 2: one empty cell and one rotten orange. There is no fresh orange at the start, nothing to wait for, so we return 0.'
+]});
+
+/* ===== 3 First idea ===== */
+add({ch:3, title:'First idea: <em>scan every minute</em>', vis:
+  gloss(0,[['a scan','look at every cell once, from top-left to bottom-right'],['in place','change the numbers in the grid while you are still scanning']])
+  + duo(RO_grid(G1,[[3,0,1,'rot','1'],[3,0,2,'bad','?']]),
+    q(1,'Every minute, scan the grid and turn each fresh orange next to a rotten one into 2. What goes wrong on the first row?')
+    + cards([[2,'The natural idea','each minute, a 1 next to a 2 becomes 2; stop when a scan changes nothing','sky'],
+             [3,'Bug: changing while scanning','(0,1) just became 2, so (0,2) also counts as touching rot','coral'],
+             [4,'Fix: write down first, change after','store this minute\'s victims, change them after the full scan','mint']])),
+  say:[
+  'A scan means looking at every cell once, from top-left to bottom-right. In place means changing the numbers in the grid while you are still scanning.',
+  'The question for this scene: every minute, scan the grid, and turn each fresh orange next to a rotten one into 2. What goes wrong on the first row?',
+  'The natural idea goes like this: every minute, scan the grid, and every 1 that has a 2 next to it becomes 2. Keep scanning until a scan changes nothing.',
+  'But if you change cells while scanning, row 0 column 1 just became 2, and when you move right to row 0 column 2, it already has a 2 next to it, so it changes too. It should really rot in minute 2. One scan changes all 6 oranges, the answer becomes 1, and that is wrong.',
+  'The fix: write this minute\'s oranges down on a list first, and only after the whole grid is scanned, change them all to 2. Then it is correct.'
+]});
+
+/* ===== 4 Where it gets slow ===== */
+add({ch:4, title:'Correct, <em>but where is it slow</em>', vis:
+  gloss(0,[['m, n','the number of rows and columns; there are m times n cells'],['complexity','how fast the work grows as the input grows, written in big O']])
+  + q(1,'With the fix, we scan once per minute. How many cells does this example scan in total? What is the worst case?')
+  + tbl(['Scan','Cells','Newly rotten'],[[2,'1','9','(0,1) (1,0)'],[2,'2','9','(0,2) (1,1)'],[2,'3','9','(2,1)'],[2,'4','9','(2,2)'],[2,'5','9','none, stop']])
+  + cards([[3,'Out of 45 cells, only 6 changes','most cells are checked for nothing every scan','coral'],
+           [4,'Worst case O((m×n)²)','a snake-shaped path: about m×n minutes, each scanning m×n cells','coral']]),
+  say:[
+  'm and n are the number of rows and columns, so there are m times n cells. Complexity describes how fast the work grows as the input grows.',
+  'The question for this scene: with the fix, we scan once per minute. How many cells does this example scan in total? What is the worst case?',
+  'Each of the first four scans rots one or two oranges. The fifth scan changes nothing, and only then do we know to stop. Five scans of nine cells is forty-five cells.',
+  'Of those forty-five, only six are real changes. In the third scan, for example, all nine cells are checked and just one orange rots. Most cells are checked for nothing every time.',
+  'The worst case is a long snake-shaped path: the number of minutes approaches m times n, and each minute scans m times n cells, so it is m times n, squared. This problem caps the grid at 10 by 10, so brute force passes, but the interviewer wants something faster.'
+]});
+
+/* ===== 5 Key insight ===== */
+add({ch:5, title:'Key: <em>only fresh rot spreads</em>', vis:
+  gloss(0,[['just rotten','an orange that turned into 2 in the previous minute'],['level','a batch of cells that set off together in BFS']])
+  + q(1,'In minute 3, who is actually spreading the rot? Do we need to look at oranges that rotted long ago?')
+  + cards([[2,'Old rotten oranges are done','one minute after an orange rots, all its fresh neighbors have rotted','sky'],
+           [3,'Only look at the just rotten ones','line them up in a queue; next minute spreads only from them','amber'],
+           [4,'Start: every rotten orange enters together','this is multi-source BFS, like the whole coastline flooding at once in 417','mint']]),
+  say:[
+  'Just rotten means an orange that turned into 2 in the previous minute. A level is a batch of cells that set off together in BFS.',
+  'The question for this scene: in minute 3, who is actually spreading the rot? Do we need to look at oranges that rotted long ago?',
+  'No. If an orange rots in minute k, then by minute k plus 1 all of its fresh neighbors have been rotted by it, and after that it can never rot anyone again.',
+  'So each minute, we only need the oranges that just rotted in the previous minute. Line them up in a queue, and next minute spread only from them.',
+  'At the very start, every rotten orange in the grid is a starting point, so they all go into the queue together and spread at the same time. That is multi-source BFS, the same idea as the whole Pacific coastline flooding the island at once in problem 417.'
+]});
+
+/* ===== 6 One level is one minute ===== */
+add({ch:6, title:'One level <em>is one minute</em>', vis:
+  gloss(0,[['len(q)','how many items are in the queue right now'],['fresh','how many fresh oranges are left; count them first']])
+  + q(1,'All rotten oranges share one queue. How do we know which ones belong to this minute and which to the next?')
+  + flow([[2,'Note the length','len(q) when the minute starts'],[3,'Take only that many','each rots its four neighbors'],[3,'New rot goes to the back','saved for next minute'],[4,'Minutes plus 1','until fresh is 0']])
+  + cards([[5,'Finally check fresh','fresh is 0 → return the minutes; otherwise → return -1','mint']]),
+  say:[
+  'len of q is how many items are in the queue right now. fresh is how many fresh oranges are left, and we count them first with one scan of the grid.',
+  'The question for this scene: all rotten oranges share one queue. How do we know which ones belong to this minute and which to the next?',
+  'The trick: at the start of each minute, write down the current length of the queue. Those are exactly the oranges that just rotted.',
+  'Then take only that many from the front. For each one, look up, down, left and right. Each fresh neighbor becomes 2, fresh goes down by 1, and it goes to the back of the queue. Those at the back set off next minute.',
+  'When this batch is done, add 1 to the minutes. Repeat until fresh reaches 0 or the queue is empty.',
+  'Finally look at fresh. If it is 0, return the minutes. If not, some orange can never be reached, so return minus 1.'
+]});
+
+/* ===== 7 Animation: 4 ===== */
+add({ch:7, title:'Animation: <em>4 minutes to rot</em>', vis:
+  gloss(0,[['corner number','the minute when this cell rots'],['orange frame','rotted just now, so it is next minute\'s queue']])
+  + duo(RO_grid(G1, RO_rot(M1,2), [
+      [2,'minute 0　queue <b>[(0,0)]</b><br>fresh <em>6</em>'],
+      [3,'minute 1　queue <b>[(1,0) (0,1)]</b><br>fresh <em>4</em>'],
+      [4,'minute 2　queue <b>[(1,1) (0,2)]</b><br>fresh <em>2</em>'],
+      [5,'minute 3　queue <b>[(2,1)]</b><br>fresh <em>1</em>'],
+      [6,'minute 4　queue <b>[(2,2)]</b><br>fresh <em>0</em> → stop'],
+      [7,'fresh <em>0</em> → return <b>4</b>']]),
+    q(1,'Run [[2,1,1],[1,1,0],[0,1,1]] minute by minute. Who is in the queue each minute?')
+    + cards([[7,'Return 4','only 6 oranges processed, each enters the queue once','mint']])),
+  say:[
+  'The small corner number is the minute when this cell rots. The orange frame marks the oranges that rotted just now, which is next minute\'s queue.',
+  'The question for this scene: run the first example minute by minute. Who is in the queue each minute?',
+  'Minute 0: one scan finds a single rotten orange, at row 0 column 0, and it goes into the queue. We count 6 fresh oranges.',
+  'Minute 1: take out row 0 column 0. Below it, row 1 column 0 rots, and to its right, row 0 column 1 rots. Both join the queue. fresh is 4.',
+  'Minute 2: take out those two. Row 1 column 0 rots row 1 column 1 to its right. Row 0 column 1 rots row 0 column 2 to its right. fresh is 2.',
+  'Minute 3: row 1 column 1 rots row 2 column 1 below it. Below row 0 column 2 is an empty cell, so nothing spreads there. fresh is 1.',
+  'Minute 4: row 2 column 1 rots row 2 column 2 to its right. fresh becomes 0, and the loop stops.',
+  'fresh is 0, so we return 4, matching the expected answer. Each orange entered the queue exactly once.'
+]});
+
+/* ===== 8 Animation: -1 ===== */
+add({ch:8, title:'Animation: <em>one is never reached</em>', vis:
+  gloss(0,[['red frame','a fresh orange that can never rot'],['queue empty','no just-rotten oranges left, the spreading stops']])
+  + duo(RO_grid(G2, [...RO_rot(M2,2),[7,2,0,'x','✕']], [
+      [2,'minute 0　queue <b>[(0,0)]</b><br>fresh <em>6</em>'],
+      [3,'minute 1　queue <b>[(0,1)]</b><br>fresh <em>5</em>'],
+      [4,'minute 2　queue <b>[(1,1) (0,2)]</b><br>fresh <em>3</em>'],
+      [5,'minute 3　queue <b>[(1,2)]</b><br>fresh <em>2</em>'],
+      [6,'minute 4　queue <b>[(2,2)]</b><br>fresh <em>1</em>'],
+      [7,'queue <b>[ ]</b>　fresh <i>1</i> → return <b>-1</b>']]),
+    q(1,'[[2,1,1],[0,1,1],[1,0,1]]: where does the spreading stop? Why return -1?')
+    + cards([[7,'fresh still 1 → -1','(2,0) has only empty cells and grid edges around it','coral']])),
+  say:[
+  'A red frame marks a fresh orange that can never rot. When the queue is empty, there are no just-rotten oranges left, and the spreading stops.',
+  'The question for this scene: in the second example, where does the spreading stop? Why do we return minus 1?',
+  'Minute 0: the only rotten orange is row 0 column 0, and it joins the queue. There are again 6 fresh oranges.',
+  'Minute 1: below row 0 column 0 is empty, so it can only rot row 0 column 1 to its right. fresh is 5.',
+  'Minute 2: row 0 column 1 rots row 1 column 1 below it and row 0 column 2 to its right. fresh is 3.',
+  'Minute 3: row 1 column 1 rots row 1 column 2 to its right. fresh is 2.',
+  'Minute 4: row 1 column 2 rots row 2 column 2 below it. fresh is 1.',
+  'Then we take out row 2 column 2. To its left is an empty cell, so nothing spreads, and the queue is empty. But fresh is still 1: the bottom-left cell, row 2 column 0, has empty cells above it and to its right. It can never rot, so we return minus 1.'
+]});
+
+/* ===== 9 Code ===== */
+add({ch:9, title:'Code: <em>count first, then spread level by level</em>', vis:
+  gloss(0,[['deque','Python\'s double-ended queue; popleft takes one from the front'],['(r, c)','one cell: row r, column c']])
+  + term('solution.py',[
+    [2,'o','def orangesRotting(grid):'],
+    [2,'o','    m, n = len(grid), len(grid[0])'],
+    [2,'o','    q, fresh = deque(), 0'],
+    [2,'o','    for r in range(m):'],
+    [2,'o','        for c in range(n):'],
+    [2,'hl','            if grid[r][c] == 2: q.append((r, c))   # every rotten one enters'],
+    [2,'o','            elif grid[r][c] == 1: fresh += 1'],
+    [3,'o','    minutes = 0'],
+    [3,'hl','    while q and fresh:'],
+    [3,'hl','        for _ in range(len(q)):          # only this minute\'s batch'],
+    [4,'o','            r, c = q.popleft()'],
+    [4,'o','            for nr, nc in ((r+1, c), (r-1, c), (r, c+1), (r, c-1)):'],
+    [4,'o','                if 0 <= nr < m and 0 <= nc < n and grid[nr][nc] == 1:'],
+    [4,'hl','                    grid[nr][nc] = 2     # mark rotten when enqueued'],
+    [4,'o','                    fresh -= 1'],
+    [4,'o','                    q.append((nr, nc))'],
+    [3,'o','        minutes += 1'],
+    [5,'hl','    return minutes if fresh == 0 else -1']])
+  + q(1,'Which part of the code matches which step of the animation?'),
+  say:[
+  'deque is Python\'s double-ended queue, and popleft takes one item from the front. r, c means one cell, row r and column c.',
+  'The question for this scene: which part of the code matches which step of the animation?',
+  'The first part is minute 0: scan the grid once, put every rotten orange into the queue together, and count the fresh ones into fresh.',
+  'The second part is the outer loop: we move on to another minute only while the queue is not empty and there are still fresh oranges. Inside, len of q records this minute\'s batch, and we take only that many.',
+  'The third part is the spreading: take a cell out and check its four neighbors. If a neighbor is inside the grid and fresh, change it to 2 right away, subtract 1 from fresh, and put it at the back of the queue.',
+  'The last line is the conclusion: if fresh is 0, return the minutes, otherwise return minus 1.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(m×n)','the work grows in proportion to the number of cells'],['edge case','a tiny or extreme input, such as no fresh orange at all']])
+  + q(1,'What are the time and space costs? Which ways of writing it count too much, too little, or wrong?')
+  + cards([[2,'Time O(m×n), space O(m×n)','each cell enters the queue at most once; the queue holds at most every cell','sky'],
+           [3,'Pitfall 1: looping on just while q','the last level spreads nothing but adds a minute: example 1 returns 5, [[0,2]] returns 1','coral'],
+           [4,'Pitfall 2: marking 2 only when dequeued','one orange gets queued twice by two neighbors, fresh drops too far','coral'],
+           [5,'Pitfall 3: no fresh oranges','count fresh first: if it is 0, return 0; [[0,2]] and [[2,2],[0,0]] both give 0','mint']]),
+  say:[
+  'Big O of m times n means the work grows in proportion to the number of cells. An edge case is a tiny or extreme input, such as a grid with no fresh orange at all.',
+  'The question for this scene: what are the time and space costs? Which ways of writing it count too much, too little, or wrong?',
+  'Each cell enters and leaves the queue at most once, so time is m times n. The queue can hold at most every cell, so space is also m times n.',
+  'Pitfall 1: writing the loop condition as just while q. The last batch of rotten oranges spreads to no one when it leaves the queue, yet it adds another minute. The first example would return 5, and 0, 2 would return 1. Both are wrong. Add fresh to the condition.',
+  'Pitfall 2: waiting until an orange leaves the queue to mark it 2. Before that, the same fresh orange can be queued twice by two neighbors, and fresh is subtracted too many times. Mark it 2 the moment it joins the queue.',
+  'Pitfall 3: no fresh orange at all. Count fresh first. If it is 0, the loop never runs and we return 0. Both 0, 2 and a grid of only rotten oranges and empty cells return 0.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the method out loud, write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why put all the rotten oranges in the queue at the start, instead of running from each one separately?"')
+  + flow([[2,'Brute force','scan the grid every minute, (m×n)²'],[3,'Insight','only fresh rot spreads'],[3,'Multi-source BFS','all rotten oranges enqueued'],[4,'One level per minute','batch by len(q)'],[4,'Finish','return only if fresh is 0']])
+  + chips(4,['multi-source BFS','level-order','queue','fresh count','O(m·n)','417 Pacific Atlantic']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code after the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why put all the rotten oranges in the queue at the start, instead of running from each one separately?',
+  'Start with the natural idea: scan the whole grid every minute. The worst case is m times n, squared, and most cells are checked for nothing.',
+  'Then explain why: only oranges that just rotted can spread, so the queue tracks only them. All rotten oranges start spreading at the same moment, so they enter together, and the first level is the first minute. Running from each one separately would get the timing wrong.',
+  'Then process level by level, each level one minute, and finally check whether fresh is 0. Time and space are both m times n. The keywords are multi-source BFS and level-order.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Count','enqueue rotten, count fresh'],[0,'One level','one minute'],[0,'Spread','a 1 neighbor becomes 2 and joins'],[0,'Decide','fresh is 0 ? minutes : -1']])
+  + cards([[1,'1. Only fresh rot spreads','every rotten orange enters the queue together: multi-source BFS','amber'],
+           [2,'2. One level is one minute','batch by len(q), mark 2 when enqueuing','sky'],
+           [3,'3. Count fresh first, check fresh last','loop on q and fresh; anything left means -1','mint']]),
+  say:[
+  'One more pass over the main line: put every rotten orange in the queue and count the fresh ones. Spread one level per minute. A fresh neighbor becomes 2 and joins the queue. Finally check whether fresh is 0.',
+  'Number one: only oranges that just rotted can spread. So every rotten orange enters the queue together, and that is multi-source BFS.',
+  'Number two: one level is one minute. Process in batches using len of q, and mark an orange 2 the moment it joins the queue.',
+  'Number three: count fresh first, and check fresh last. The loop runs while the queue is not empty and fresh is not zero. If fresh oranges remain at the end, return minus 1.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/a9f6f6d2919f.mp3", "0-1": "a/668648d3bb2e.mp3", "0-2": "a/9b1992755539.mp3", "0-3": "a/16b645ead918.mp3", "1-0": "a/d7ca64fc7145.mp3", "1-1": "a/cca972b74083.mp3", "1-2": "a/efc87d45c618.mp3", "1-3": "a/6f7213030bee.mp3", "1-4": "a/3c0085c8fde8.mp3", "2-0": "a/41789867995e.mp3", "2-1": "a/7b07b748d939.mp3", "2-2": "a/bdb62e8a3a70.mp3", "2-3": "a/2a7c07093a4b.mp3", "2-4": "a/edb33d7a2e5c.mp3", "3-0": "a/33573bc16980.mp3", "3-1": "a/c4c40c75f37c.mp3", "3-2": "a/ba2a06936753.mp3", "3-3": "a/64c3ec38dd77.mp3", "3-4": "a/e6e6a1bf9e57.mp3", "4-0": "a/e0aadf8c585b.mp3", "4-1": "a/9f78eec2bb2b.mp3", "4-2": "a/04b8265605f2.mp3", "4-3": "a/f78ec05ef40a.mp3", "4-4": "a/d6a61a701854.mp3", "5-0": "a/f62f428be525.mp3", "5-1": "a/a73ab4fa3608.mp3", "5-2": "a/ab180d48beac.mp3", "5-3": "a/3ff3b2cd3fc6.mp3", "5-4": "a/dfcb72009ac4.mp3", "6-0": "a/5bce71bf339a.mp3", "6-1": "a/1a11d706cfbd.mp3", "6-2": "a/d9e41121d865.mp3", "6-3": "a/d1a4dc08b4a5.mp3", "6-4": "a/0ed4c4e9e8ed.mp3", "6-5": "a/28a1f8c9d38a.mp3", "7-0": "a/90404d3cb6db.mp3", "7-1": "a/3c509e682c42.mp3", "7-2": "a/d457dc76fbfb.mp3", "7-3": "a/39254549e41a.mp3", "7-4": "a/0ec3cbecd908.mp3", "7-5": "a/c0203532c5e6.mp3", "7-6": "a/56ca3e517746.mp3", "7-7": "a/8456671b067a.mp3", "8-0": "a/cc3f635651e3.mp3", "8-1": "a/057c036cc5d9.mp3", "8-2": "a/8b6b37e88376.mp3", "8-3": "a/e78b6ec09f35.mp3", "8-4": "a/477db1ef1d07.mp3", "8-5": "a/19d62e0dcddf.mp3", "8-6": "a/d43ab678cb41.mp3", "8-7": "a/4bc29b92f719.mp3", "9-0": "a/2307ecda67c8.mp3", "9-1": "a/1fa6b4de4b69.mp3", "9-2": "a/60380761ff45.mp3", "9-3": "a/1a9db5923a54.mp3", "9-4": "a/3dab9eccbde4.mp3", "9-5": "a/7733e831bed7.mp3", "10-0": "a/f8ec17c64f7c.mp3", "10-1": "a/f9f2ac94cb21.mp3", "10-2": "a/9b751cd99a8a.mp3", "10-3": "a/f94d380712d6.mp3", "10-4": "a/50e5b538dd57.mp3", "10-5": "a/fbcb101aad29.mp3", "11-0": "a/10e437cfb5da.mp3", "11-1": "a/ff542352894d.mp3", "11-2": "a/417ece1e17f4.mp3", "11-3": "a/323c2f0a875b.mp3", "11-4": "a/0fae384622f0.mp3", "12-0": "a/77048337a3f7.mp3", "12-1": "a/419e1eb4da2e.mp3", "12-2": "a/0be0ceba7ce7.mp3", "12-3": "a/aaf07f43ff76.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

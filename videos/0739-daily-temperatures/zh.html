@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>等一个暖天</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'等一个暖天', template:'prep', sub:'LeetCode 739 Daily Temperatures · 算法动画', key:'lc739vid', doc:'LeetCode 739 题', blurb:'从"每天往后找更暖的一天"讲起，看它在一路变冷时为什么慢；再把等待的天放进一个栈，新的一天一来就替栈顶回答。这就是单调栈最温和的入门。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：一周的气温','读题：要等几天','直觉：往后找','反过来：让它们等','栈：为什么只看栈顶','走一遍：8 天','验证：一路变暖','写代码','复杂度：while 套在 for 里','三个坑','这个套路叫什么','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- day strip (index / temperature / answer) + stack column of waiting days ---------- */
+const DTCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.dt{display:grid;gap:4px;justify-content:center;margin:0 auto .3em}
+.dt>div{position:relative;display:grid;place-items:center;border-radius:7px}
+.dt>.ix{height:1.2em;color:var(--dim);font-family:var(--f-mono);font-size:.72em}
+.dt>.v{height:2.3em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.dt>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.1em}
+.dt>.a{height:1.9em;border:1px dashed var(--line);font-family:var(--f-mono);color:var(--dim);font-size:.9em}
+.dt .tint.s{position:absolute;inset:0;border-radius:6px;background:rgba(98,224,180,.3);transform:none;box-shadow:none}
+.dt .tint.s:not(.on){opacity:0}
+.dt .scan.s{position:absolute;inset:0;border-radius:6px;background:rgba(255,122,107,.38);transform:none;box-shadow:none;opacity:0!important}
+.dt .scan.s.now{opacity:1!important}
+.dt .av.s{position:absolute;inset:0;display:grid;place-items:center;border-radius:6px;background:var(--term);color:var(--mint);font-weight:700;transform:none;box-shadow:none}
+.dt .av.s:not(.on){opacity:0}
+.dt i.ring.s{position:absolute;inset:-4px;border-radius:9px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.dt i.ring.s.now{opacity:1!important}
+.dtl{text-align:center;color:var(--dim);font-size:.72em;margin-bottom:.4em}
+.stw{display:grid;justify-content:center}
+.stw>.fr{grid-area:1/1;display:grid;grid-template-columns:auto auto;gap:6px 12px;align-items:end;justify-content:center;transform:none;box-shadow:none!important;opacity:0!important}
+.stw>.fr.now{opacity:1!important}
+.stw .cup{display:flex;flex-direction:column-reverse;gap:4px;width:7.4em;padding:5px;border:2px solid var(--sky);border-top:none;border-radius:0 0 10px 10px}
+.stw .it{font-family:var(--f-mono);font-size:.85em;padding:.25em .4em;border-radius:6px;background:rgba(10,17,36,.85);border:1px solid var(--line);display:flex;justify-content:space-between}
+.stw .it span{color:var(--dim)}
+.stw .it.new{border-color:var(--amber);color:var(--amber)}
+.stw .pop{display:flex;flex-direction:column;gap:4px;min-width:7.4em}
+.stw .gone{font-family:var(--f-mono);font-size:.8em;padding:.25em .4em;border-radius:6px;border:1px dashed var(--coral);color:var(--coral)}
+.stw .gone em{font-style:normal;color:var(--mint);margin-left:.4em}
+.stw .hd{font-size:.72em;color:var(--dim);text-align:center}
+.stw .cap{grid-column:1/-1;text-align:center;font-family:var(--f-mono);font-size:.8em;color:var(--paper);max-width:19em;margin:0 auto}
+.stw .cap b{color:var(--amber)} .stw .cap em{font-style:normal;color:var(--mint)}
+</style>`;
+// o: {ring:[[step,k]], tint:{k:step}, ans:{k:[step,val]}, scan:[[step,[k...]]], noAns:bool, lab:string}
+function lc739_days(T, o={}){
+  const n = T.length;
+  let h = DTCSS + `<div class="dt" style="grid-template-columns:repeat(${n},2.25em)">`;
+  h += T.map((_,k)=>`<div class="ix">${k}</div>`).join('');
+  h += T.map((v,k)=>`<div class="v"><b>${v}</b>`
+    + (o.tint&&o.tint[k]!=null?`<i class="tint s" data-s="${o.tint[k]}"></i>`:'')
+    + (o.scan||[]).filter(([,ks])=>ks.includes(k)).map(([s])=>`<i class="scan s" data-s="${s}"></i>`).join('')
+    + (o.ring||[]).filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')
+    + `</div>`).join('');
+  if(!o.noAns) h += T.map((_,k)=>`<div class="a">?${o.ans&&o.ans[k]?`<i class="av s" data-s="${o.ans[k][0]}">${o.ans[k][1]}</i>`:''}</div>`).join('');
+  h += `</div>`;
+  if(o.lab) h += `<div class="dtl">${o.lab}</div>`;
+  return h;
+}
+// frames: [[step, stack[], popped[[j,wait]], pushed, caption]], rows = cup height in items
+function lc739_stack(T, frames, rows){
+  const mh = `min-height:${rows*2.05}em`;
+  return DTCSS + `<div class="stw">` + frames.map(([st,stk,pops,pushed,cap])=>`<div class="fr only s" data-s="${st}">`
+    + `<div class="hd">↑ 栈顶</div><div class="hd">${pops.length?'刚弹出':''}</div>`
+    + `<div class="cup" style="${mh}">${stk.map(j=>`<div class="it ${j===pushed?'new':''}"><span>#${j}</span>${T[j]}°</div>`).join('')}</div>`
+    + `<div class="pop" style="${mh};justify-content:flex-end">${pops.map(([j,w])=>`<div class="gone">#${j} ${T[j]}°<em>等 ${w} 天</em></div>`).join('')}</div>`
+    + `<div class="cap">${cap}</div></div>`).join('') + `</div>`;
+}
+const T8 = [73,74,75,71,69,72,76,73];
+const TD = [60,50,40,30,70];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'等一个暖天<br><em>LeetCode 739</em>', vis:
+  gloss(0,[['栈 stack','一摞盘子：只能从最上面放、从最上面拿'],['单调栈','栈里的数从下到上一路变小（或一路变大）'],['下一个更大元素','对每个数，找它右边第一个比它大的数']])
+  + flow([[1,'读题','要等几天'],[1,'直觉','每天往后找'],[2,'卡在哪','一路变冷 → O(n²)'],[2,'反过来','让没等到的天排队'],[3,'动画','栈 + 答案'],[3,'代码','一个 while']]),
+  say:[
+  '这节课讲力扣 739 题，每日温度。先认三个词：栈就是一摞盘子，只能从最上面放、从最上面拿。单调栈，是栈里的数从下到上一路变小，或者一路变大。下一个更大元素，是对每个数，找它右边第一个比它大的数。',
+  '我们从你自己会怎么做讲起：每一天都往后找，找到第一个更暖的天。这个做法是对的，但在气温一路变冷的时候会很慢。',
+  '然后反过来想：让还没等到暖天的日子排成一队，新的一天一来，就看它能替谁回答。这个队就是单调栈。',
+  '我们会在 8 天的气温上把栈一格格画出来，再写代码，讲复杂度和三个坑。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>要等几天</em>', vis:
+  gloss(0,[['temperatures[i]','第 i 天的气温，天从 0 开始编号'],['answer[i]','第 i 天之后，要再等几天才有更暖的一天；等不到就是 0']])
+  + duo(lc739_days([30,60,90],{ring:[[2,0],[3,1],[4,2]],ans:{0:[2,1],1:[3,1],2:[4,0]},lab:'下标 / 气温 / 答案'}),
+    q(1,'[30, 60, 90]：每一天要等几天，才有更暖的一天？')
+    + cards([[2,'第 0 天 30°：等 1 天','第 1 天是 60°，比 30° 暖','sky'],
+             [3,'第 1 天 60°：等 1 天','第 2 天是 90°','sky'],
+             [4,'第 2 天 90°：0','后面没有更暖的天了，填 0','mint']])),
+  say:[
+  'temperatures i 是第 i 天的气温，天从零开始编号。answer i 是第 i 天之后，要再等几天才有更暖的一天；如果一直等不到，就填零。',
+  '这一幕要回答的是：30、60、90 这三天，每一天要等几天，才有更暖的一天？',
+  '第零天是 30 度。下一天，也就是第一天，是 60 度，比它暖，所以等一天。',
+  '第一天是 60 度，下一天是 90 度，也是等一天。',
+  '第二天是 90 度，后面没有日子了，等不到，填零。答案是 1、1、0。更暖是严格大于，一样热不算。'
+]});
+
+/* ===== 2 直觉：往后找 ===== */
+add({ch:2, title:'直觉：<em>每天往后找</em>', vis:
+  gloss(0,[['比较一次','拿两天的气温比一下大小'],['O(n²)','n 天，比较次数大约是 n 乘 n 的一半']])
+  + lc739_days(TD,{ring:[[2,0],[3,1],[4,2],[4,3]],scan:[[2,[1,2,3,4]],[3,[2,3,4]],[4,[3,4]]],noAns:true,lab:'橙框：出发的那天　红色：被它看过的天'})
+  + q(1,'每天往后一格格找，直到碰到更暖的天。[60, 50, 40, 30, 70] 一共要比较几次？')
+  + term('比较次数',[
+    [2,'o','60 出发：看 50、40、30、70      4 次'],
+    [3,'o','50 出发：看 40、30、70          3 次'],
+    [4,'o','40 出发 2 次，30 出发 1 次      一共 10 次'],
+    [5,'e','一路变冷 n 天：约 n² / 2 次 → O(n²)']]),
+  say:[
+  '比较一次，就是拿两天的气温比一下大小。O n 平方的意思是：n 天，比较次数大约是 n 乘 n 的一半。',
+  '这一幕要回答的是：最自然的做法，是每天往后一格格找，直到碰到更暖的天。60、50、40、30、70 一共要比较几次？',
+  '从 60 出发：50 不暖，40 不暖，30 不暖，一直看到 70 才停，比了 4 次。',
+  '从 50 出发：又看一遍 40、30，再到 70，3 次。40、30 刚才已经看过了，现在又看一遍。',
+  '40 出发 2 次，30 出发 1 次，一共 10 次。',
+  '问题就在这里：一路变冷的时候，每一天都要越过前面同一批冷天，重复地看。n 天就是大约 n 平方的一半次，O n 平方。10 万天就是大约 50 亿次，会超时。'
+]});
+
+/* ===== 3 反过来 ===== */
+add({ch:3, title:'反过来：<em>让它们等</em>', vis:
+  gloss(0,[['等待的天','已经过去、但还没碰到更暖的一天的日子']])
+  + duo(lc739_days(TD,{ring:[[3,4],[4,4]],tint:{0:4,1:4,2:4,3:4},ans:{0:[4,4],1:[4,3],2:[4,2],3:[4,1],4:[4,0]},lab:'绿色：被 70° 一次回答的天'}),
+    q(1,'60、50、40、30 其实在等同一天。能不能让它们一起等？')
+    + cards([[2,'别往后找，往前看','从左往右走，记住"还在等"的天','sky'],
+             [3,'新的一天来了','看看它比谁暖：它就是那些天的答案','amber'],
+             [4,'70° 一来，四天一起有了答案','等了 4、3、2、1 天：就是下标相减','mint']])),
+  say:[
+  '等待的天，是已经过去、但还没碰到更暖的一天的日子。',
+  '这一幕要回答的是：上一幕里，60、50、40、30 其实都在等同一个 70。能不能不让它们各找各的，而是一起等？',
+  '可以。从左往右走一遍，把还在等的天记在一个列表里。',
+  '每来一个新的一天，就看看它比列表里的谁暖。比谁暖，它就是谁等的那一天，那一天的答案就有了，可以从列表里划掉。',
+  '比如 70 一来，比 60、50、40、30 都暖，四天一起有了答案：等了 4、3、2、1 天，就是 70 的下标减去它们的下标。'
+]});
+
+/* ===== 4 栈：为什么只看栈顶 ===== */
+add({ch:4, title:'栈：<em>为什么只看栈顶</em>', vis:
+  gloss(0,[['栈顶','栈最上面那个，也就是最后放进去的'],['压入 / 弹出','push 放到最上面；pop 从最上面拿走']])
+  + q(1,'今天来了，要和等待的天一个个比吗？从哪个开始比，什么时候停？')
+  + cards([[2,'等待的天，从下到上越来越冷','如果后来的一天更暖，它一来就会把前面冷的回答掉','sky'],
+           [3,'所以栈顶是最冷的那天','今天只跟栈顶比：比它暖，就弹出，记下答案','amber'],
+           [4,'栈顶不比今天冷，就停','下面的更暖，今天一个都回答不了','coral'],
+           [5,'最后把今天压入','今天也开始等它的暖天','mint']]),
+  say:[
+  '栈顶是栈最上面那个，也就是最后放进去的。压入是放到最上面，弹出是从最上面拿走。',
+  '这一幕要回答的是：今天来了，要和所有等待的天一个个比吗？从哪个开始比，什么时候停？',
+  '先看一个事实：等待的天，从下到上一定越来越冷，至少不会变暖。因为如果后来的一天比前面某天暖，它一来就会把那天回答掉，那天就不会还在等。',
+  '所以栈顶就是最冷的那天，今天只要跟栈顶比。今天比栈顶暖，栈顶就等到了：弹出它，答案是今天的下标减它的下标。然后再看新的栈顶，重复。',
+  '一旦栈顶不比今天冷，就停。栈顶下面的天更暖，今天一个都回答不了，不用再看。',
+  '最后把今天压入栈。今天也开始等它的暖天了。因为栈里从下到上一路变冷，所以叫单调栈。'
+]});
+
+/* ===== 5 走一遍 ===== */
+add({ch:5, title:'走一遍：<em>8 天的气温</em>', vis:
+  gloss(0,[['#3 71°','下标 3 的那天，71 度'],['橙框 / 绿色','橙框是今天；绿色是已经等到暖天的日子']])
+  + q(1,'[73, 74, 75, 71, 69, 72, 76, 73]：栈怎么变，答案怎么一格格填上？')
+  + duo(lc739_days(T8,{ring:[[2,0],[3,1],[4,2],[5,3],[6,4],[7,5],[8,6],[9,7]],
+        tint:{0:3,1:4,4:7,3:7,5:8,2:8},
+        ans:{0:[3,1],1:[4,1],4:[7,1],3:[7,2],5:[8,1],2:[8,4],6:[10,0],7:[10,0]},lab:'下标 / 气温 / 答案'}),
+    lc739_stack(T8,[
+      [2,[0],[],0,'栈空：压入 <b>#0</b>'],
+      [3,[1],[[0,1]],1,'74 &gt; 73：弹出 #0，<em>1 − 0 = 1</em>'],
+      [4,[2],[[1,1]],2,'75 &gt; 74：弹出 #1，<em>2 − 1 = 1</em>'],
+      [5,[2,3],[],3,'71 &lt; 75：不弹，压入 <b>#3</b>'],
+      [6,[2,3,4],[],4,'69 &lt; 71：不弹，压入 <b>#4</b>'],
+      [7,[2,5],[[4,1],[3,2]],5,'72 弹出 #4、#3；72 &lt; 75，停'],
+      [8,[6],[[5,1],[2,4]],6,'76 弹出 #5、#2：<em>6 − 2 = 4</em>'],
+      [9,[6,7],[],7,'73 &lt; 76：不弹，压入 <b>#7</b>'],
+      [10,[6,7],[],null,'栈里剩下的没等到：<em>保持 0</em>']],3)),
+  say:[
+  '井号 3、71 度，表示下标 3 的那天是 71 度。橙框是今天，绿色是已经等到暖天的日子。',
+  '这一幕要回答的是：73、74、75、71、69、72、76、73，栈怎么变，答案怎么一格格填上？',
+  '第零天 73 度。栈是空的，没人可回答，直接压入。',
+  '第一天 74 度，比栈顶 73 暖。弹出第零天，答案是 1 减 0，等于 1。栈空了，压入 74。',
+  '第二天 75 度，比栈顶 74 暖。弹出第一天，答案 1。压入 75。',
+  '第三天 71 度，比栈顶 75 冷，回答不了，直接压入。栈里是 75、71。',
+  '第四天 69 度，比 71 还冷，压入。栈里从下到上是 75、71、69，一路变冷。',
+  '第五天 72 度。比栈顶 69 暖，弹出第四天，等 1 天。再看新栈顶 71，72 也比它暖，弹出第三天，等 2 天。再看 75，不比 72 冷，停。压入 72。',
+  '第六天 76 度。比 72 暖，弹出第五天，等 1 天。比 75 也暖，弹出第二天，6 减 2，等了 4 天。栈空了，压入 76。',
+  '第七天 73 度，比 76 冷，压入。',
+  '走完了，栈里剩下的 76 和 73 没等到暖天，答案保持零。最后答案是 1、1、4、2、1、1、0、0。'
+]});
+
+/* ===== 6 验证：一路变暖 ===== */
+add({ch:6, title:'验证：<em>一路变暖</em>', vis:
+  gloss(0,[['一路变暖','每一天都比前一天热']])
+  + q(1,'[30, 40, 50, 60] 和 [30, 60, 90]：栈会怎么变？答案对不对？')
+  + duo(lc739_days([30,40,50,60],{tint:{0:2,1:2,2:2},ans:{0:[2,1],1:[2,1],2:[2,1],3:[2,0]},lab:'[30, 40, 50, 60] → [1, 1, 1, 0]'})
+    + lc739_days([30,60,90],{tint:{0:3,1:3},ans:{0:[3,1],1:[3,1],2:[3,0]},lab:'[30, 60, 90] → [1, 1, 0]'}),
+    cards([[4,'栈里永远最多一天','每一天一来就把前一天弹出：等 1 天','mint']])),
+  say:[
+  '一路变暖，就是每一天都比前一天热。',
+  '这一幕要回答的是：30、40、50、60，还有 30、60、90，栈会怎么变？答案对不对？',
+  '30、40、50、60：40 一来，比栈顶 30 暖，弹出，等 1 天；50 弹出 40；60 弹出 50。最后剩下 60，填零。答案 1、1、1、0。',
+  '30、60、90 也一样：60 弹出 30，90 弹出 60，90 剩在栈里。答案 1、1、0。',
+  '一路变暖的时候，每一天一来就把前一天弹出，栈里永远最多一天。'
+]});
+
+/* ===== 7 写代码 ===== */
+add({ch:7, title:'代码：<em>一个 for，一个 while</em>', vis:
+  gloss(0,[['stack[-1]','栈顶，列表的最后一个'],['enumerate','同时拿到下标 i 和气温 t']])
+  + term('solution.py',[
+    [2,'o','def dailyTemperatures(temperatures):'],
+    [2,'hl','    ans = [0] * len(temperatures)      # 等不到就是 0'],
+    [2,'hl','    stack = []                         # 等待的天：存下标'],
+    [3,'o','    for i, t in enumerate(temperatures):'],
+    [3,'hl','        while stack and temperatures[stack[-1]] < t:'],
+    [3,'o','            j = stack.pop()            # 栈顶等到了'],
+    [3,'o','            ans[j] = i - j             # 等了 i − j 天'],
+    [4,'hl','        stack.append(i)                # 今天也开始等'],
+    [4,'o','    return ans']])
+  + q(1,'把"弹出栈顶、记答案、压入今天"写成代码，有几行？'),
+  say:[
+  'stack 方括号负一，是栈顶，也就是列表的最后一个。enumerate 同时拿到下标 i 和气温 t。',
+  '这一幕要回答的是：把弹出栈顶、记答案、压入今天写成代码，有几行？',
+  '先准备两样东西：答案数组，全部先填零，等不到的天就不用再管；一个空栈，存的是下标，不是气温。',
+  '然后从左往右走。while 循环：只要栈不空，而且栈顶那天的气温小于今天，就弹出栈顶 j，答案 j 等于 i 减 j。',
+  '弹完了，把今天的下标压入栈。循环结束直接返回答案，核心就这三行。'
+]});
+
+/* ===== 8 复杂度 ===== */
+add({ch:8, title:'复杂度：<em>while 套在 for 里，还是 O(n)</em>', vis:
+  gloss(0,[['O(n)','总操作次数和天数成正比'],['均摊','不看某一天，而是把所有天的工作加起来算']])
+  + q(1,'for 里面套着 while，看起来像 O(n²)。为什么其实是 O(n)？')
+  + duo(lc739_stack(TD,[
+      [2,[0,1,2,3],[],3,'前 4 天一路变冷：全部压入'],
+      [3,[4],[[3,1],[2,2],[1,3],[0,4]],4,'70 一来，连弹 4 次'],
+      [4,[4],[[3,1],[2,2],[1,3],[0,4]],4,'压入 5 次，弹出 4 次'],
+      [5,[0,1,2,3],[],3,'一直变冷：所有天都在栈里等']],4),
+    cards([[3,'某一天可以弹很多次','但被弹出的那些天，以后再也不回来','sky'],
+           [4,'每天最多压入 1 次、弹出 1 次','总共不超过 2n 次：时间 O(n)','mint'],
+           [5,'空间 O(n)','一路变冷时，所有天都在栈里等','amber']])),
+  say:[
+  'O n 是总操作次数和天数成正比。均摊的意思是，不盯着某一天，而是把所有天的工作加起来算。',
+  '这一幕要回答的是：for 里面套着 while，看起来像 O n 平方。为什么其实是 O n？',
+  '还是 60、50、40、30、70 这个例子。前 4 天一路变冷，全部压入，一次都没弹。',
+  '70 一来，while 连着弹了 4 次。单看这一天，工作很多；但被弹出的这几天，以后再也不会回到栈里。',
+  '把所有天加起来：每一天最多压入一次、弹出一次，总共不超过 2 乘 n 次。这里压入 5 次、弹出 4 次，而往后找的做法要比 10 次。所以时间是 O n。',
+  '空间是 O n：最坏是一路变冷，所有的天都在栈里等。'
+]});
+
+/* ===== 9 三个坑 ===== */
+add({ch:9, title:'三个<em>坑</em>', vis:
+  gloss(0,[['严格大于','必须更暖；一样热不算']])
+  + q(1,'这段代码最容易错在哪三个地方？')
+  + cards([[2,'写成 <=：一样热也弹出','[70, 70, 71] 应该是 [2, 1, 0]；写 <= 会得到 [1, 1, 0]','coral'],
+           [3,'栈里存气温，不存下标','答案要算 i − j，必须知道是哪一天；气温用 temperatures[j] 查','coral'],
+           [4,'while 写成 if','72 那天要连弹两次；if 只弹一次，71 那天就漏了','coral']]),
+  say:[
+  '严格大于，就是必须更暖，一样热不算。',
+  '这一幕要回答的是：这段代码最容易错在哪三个地方？',
+  '坑一：比较写成小于等于。70、70、71 的答案应该是 2、1、0，因为第零天要等到 71。写小于等于的话，第二个 70 会把第一个 70 弹出，得到 1、1、0，错了。',
+  '坑二：栈里存气温。答案要算 i 减 j，必须知道是哪一天，所以栈里存下标；要气温的时候，用 temperatures j 去查。',
+  '坑三：把 while 写成 if。72 那天要连着弹出 69 和 71 两天，if 只弹一次，71 那天就漏了。'
+]});
+
+/* ===== 10 这个套路叫什么 ===== */
+add({ch:10, title:'这个套路：<em>下一个更大元素</em>', vis:
+  gloss(0,[['next greater element','对每个数，找右边第一个比它大的数'],['柱子','直方图里的一根竖条，高度就是数组里的数']])
+  + q(1,'这道题背后的套路叫什么？哪些难题是在它上面搭起来的？')
+  + cards([[2,'739 = 下一个更大元素','"更暖的一天"就是右边第一个更大的数；答案是下标差','amber'],
+           [3,'84 柱状图中最大的矩形','对每根柱子，找左右第一个更矮的：栈从下到上变高','sky'],
+           [4,'42 接雨水','来了一根更高的柱子，弹出矮的，算中间能装多少水','sky']]),
+  say:[
+  'next greater element，下一个更大元素，就是对每个数，找它右边第一个比它大的数。柱子是直方图里的一根竖条，高度就是数组里的数。',
+  '这一幕要回答的是：这道题背后的套路叫什么？哪些难题是在它上面搭起来的？',
+  '739 就是下一个更大元素：更暖的一天，就是右边第一个更大的数，答案取的是下标差。看到右边第一个更大，就想单调栈。',
+  '84 题，柱状图中最大的矩形：对每根柱子，找左右两边第一个更矮的柱子。方向反过来，栈从下到上变高，弹出的时机还是一样。',
+  '42 题，接雨水：来了一根更高的柱子，就弹出比它矮的，算夹在中间能装多少水。都是新来的数替栈顶回答问题。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："为什么只跟栈顶比就够了？"')
+  + flow([[2,'暴力','每天往后找 O(n²)'],[3,'栈','存还在等的下标'],[3,'弹出','比栈顶暖 → 记 i − j'],[4,'压入','今天也开始等'],[4,'复杂度','O(n) / O(n)']])
+  + chips(4,['monotonic stack','next greater element','decreasing stack','amortized O(n)','84 Largest Rectangle','42 Trapping Rain Water']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，为什么只跟栈顶比就够了？',
+  '先讲暴力：每天往后找，一路变冷时是 O n 平方。我换个方向，从左往右走，用一个栈存还没等到暖天的下标。',
+  '再讲为什么：栈里的气温从下到上一路变冷，栈顶最冷。今天比栈顶暖，就弹出，记下 i 减 j，再看下一个；栈顶不比今天冷，下面的更暖，就可以停。最后压入今天。',
+  '每天最多进栈一次、出栈一次，均摊 O n，空间 O n。英文关键词是 monotonic stack 和 next greater element。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'直觉','往后找 O(n²)'],[0,'反过来','栈里存在等的天'],[0,'弹出','比栈顶暖 → i − j'],[0,'压入','今天也开始等']])
+  + cards([[1,'① 栈里存"还在等的天"的下标','从下到上越来越冷，栈顶最冷','amber'],
+           [2,'② 今天比栈顶暖：弹出，答案 i − j，while 一直比','不比栈顶冷就停，再压入今天','sky'],
+           [3,'③ 每天进出栈各一次：O(n)','这就是下一个更大元素；84、42 都从这里出发','mint']]),
+  say:[
+  '回顾一遍主线：每天往后找，一路变冷时是 O n 平方；反过来，让还在等的天待在栈里；今天比栈顶暖就弹出、记答案；最后压入今天。',
+  '第一句：栈里存的是还在等的天的下标，从下到上越来越冷，栈顶最冷。',
+  '第二句：今天比栈顶暖，就弹出，答案是 i 减 j，用 while 一直比；栈顶不比今天冷就停，再压入今天。',
+  '第三句：每一天进栈一次、出栈最多一次，所以是 O n。这个套路叫下一个更大元素，84 和 42 都从这里出发。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/888a2ffbfc4b.mp3", "0-1": "a/d86e42c3004b.mp3", "0-2": "a/3ef9b4edf8b4.mp3", "0-3": "a/bb19f06f053a.mp3", "1-0": "a/892bf9c053ea.mp3", "1-1": "a/8210c55539aa.mp3", "1-2": "a/b261e249a571.mp3", "1-3": "a/48848342d643.mp3", "1-4": "a/b3f57d9eef05.mp3", "2-0": "a/44a4458b5a9d.mp3", "2-1": "a/ff8f9f0a9c64.mp3", "2-2": "a/76dfe250ef95.mp3", "2-3": "a/1146ad87f984.mp3", "2-4": "a/cbd52cf29c77.mp3", "2-5": "a/9e745b1dcd92.mp3", "3-0": "a/f555b016a043.mp3", "3-1": "a/d85023cc4d5e.mp3", "3-2": "a/43a4d6a01795.mp3", "3-3": "a/9005cb13f339.mp3", "3-4": "a/804afaac5bcc.mp3", "4-0": "a/7733567d8285.mp3", "4-1": "a/a243e279db78.mp3", "4-2": "a/6541f3d34a19.mp3", "4-3": "a/268c7dbdcbcb.mp3", "4-4": "a/c4e4d7ee921d.mp3", "4-5": "a/0af0df65a6d8.mp3", "5-0": "a/c17301ccddd3.mp3", "5-1": "a/4a7b27cef8be.mp3", "5-2": "a/7d1c65027726.mp3", "5-3": "a/4d450cfff755.mp3", "5-4": "a/4cf2bdd0b76a.mp3", "5-5": "a/aeb1c93002e0.mp3", "5-6": "a/07c363a734bb.mp3", "5-7": "a/00906fb618ef.mp3", "5-8": "a/e730ec442780.mp3", "5-9": "a/11e00f0dd4da.mp3", "5-10": "a/416bcdf02bd3.mp3", "6-0": "a/1f2b8d809d9e.mp3", "6-1": "a/377deb3d3622.mp3", "6-2": "a/6a0215e7a462.mp3", "6-3": "a/6abeb0334bd9.mp3", "6-4": "a/73f119cf1f79.mp3", "7-0": "a/b721de1af013.mp3", "7-1": "a/14bbead479be.mp3", "7-2": "a/2b4415df630f.mp3", "7-3": "a/b8003a67c84f.mp3", "7-4": "a/2ff4928a6851.mp3", "8-0": "a/7d63ebb706fa.mp3", "8-1": "a/017f5b0a88ab.mp3", "8-2": "a/40e994a436d4.mp3", "8-3": "a/ac1e8a020f3d.mp3", "8-4": "a/de3dd41d2be3.mp3", "8-5": "a/313d4bcf040a.mp3", "9-0": "a/b34c43adc1d7.mp3", "9-1": "a/2613ba32ce9d.mp3", "9-2": "a/e2bb86347fec.mp3", "9-3": "a/9645547200ff.mp3", "9-4": "a/9b39968fb57e.mp3", "10-0": "a/c426f568bdc4.mp3", "10-1": "a/ec8c636b4488.mp3", "10-2": "a/d5ca69e47e0b.mp3", "10-3": "a/eecd2d66e9c7.mp3", "10-4": "a/80627218bd06.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/ef53dc9519d4.mp3", "11-2": "a/0ec04c7ccae7.mp3", "11-3": "a/008633323f9d.mp3", "11-4": "a/0964de7f7566.mp3", "12-0": "a/409dcb30e50c.mp3", "12-1": "a/5cfeb6e277f1.mp3", "12-2": "a/a6e345180f91.mp3", "12-3": "a/fc44bfaf93e3.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

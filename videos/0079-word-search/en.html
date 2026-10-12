@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Words in a Grid</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Words in a Grid', template:'prep', lang:'en', sub:'LeetCode 79 Word Search · animated walkthrough', key:'lc79envid', doc:'LeetCode 79', blurb:'Start from "find the first letter, then keep walking to the next letter", watch it walk into a dead end on SEE, then use backtracking (mark, try four directions, restore on the way back) to try every path.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: finding a word in a grid','The problem: neighbors, each cell once','Instinct: just keep walking','Instinct gets stuck: SEE','Key idea: stuck means step back','Marking: B cannot be used twice','Restoring: other paths need it','Animation: ABCCED','Animation: backtracking on SEE','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- board drawing ---------- */
+const LC79_B = [['A','B','C','E'],['S','F','C','S'],['A','D','E','E']];
+const LC79_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.wbd{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.wbc{position:relative;height:2.7em;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:rgba(10,17,36,.85)}
+.wbc b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.4em;color:var(--paper)}
+.wbc .ov{position:absolute;inset:0;z-index:0;border-radius:7px;display:flex;align-items:flex-start;justify-content:flex-end;padding:1px 4px;font-family:var(--f-mono);font-size:.62em;font-style:normal;color:var(--paper);transform:none}
+.wbc .ov.s:not(.on){opacity:0}
+.wbc .ov.s.now{box-shadow:none}
+.wbc .ov.only.s{opacity:0!important} .wbc .ov.only.s.now{opacity:1!important}
+.wbc .ov.p{background:rgba(255,184,77,.32)}
+.wbc .ov.c{background:rgba(255,184,77,.32);box-shadow:inset 0 0 0 3px var(--amber)!important}
+.wbc .ov.x{background:rgba(255,122,107,.38)}
+.wbc .ov.g{background:rgba(98,224,180,.5)}
+.wbc .ov.b{background:rgba(140,150,175,.16);box-shadow:inset 0 0 0 2px var(--dim)!important}
+.wbx{display:flex;justify-content:center;gap:4px;margin-bottom:3px;font-family:var(--f-mono);font-size:.7em;color:var(--dim)}
+.wst{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:2.8em;position:relative;margin-top:8px}
+.wst .s{position:absolute;left:0;right:0}
+.wst .only.s{opacity:0!important} .wst .only.s.now{opacity:1!important}
+.wst b{color:var(--amber)} .wst em{font-style:normal;color:var(--mint)} .wst i{font-style:normal;color:var(--coral)}
+</style>`;
+// st: [[step, [[r,c,cls,txt]...], statusText]] (shown only at that step)
+function LC79_bd(o={}){
+  const G = LC79_B, n = G[0].length;
+  let h = LC79_CSS + `<div class="wbd" style="grid-template-columns:repeat(${n},2.7em)">`;
+  G.forEach((row,r)=>row.forEach((ch,c)=>{
+    let ov = '';
+    (o.st||[]).forEach(([s,cells])=>cells.forEach(([rr,cc,k,t])=>{ if(rr===r&&cc===c) ov+=`<i class="ov only s ${k}" data-s="${s}">${t||''}</i>`; }));
+    h += `<div class="wbc"><b>${ch}</b>${ov}</div>`;
+  }));
+  h += `</div>`;
+  if((o.st||[]).some(x=>x[2])) h += `<div class="wst">${o.st.filter(x=>x[2]).map(([s,,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Words in a Grid<br><em>LeetCode 79</em>', vis:
+  gloss(0,[['board','A table of letters with some rows and columns'],['neighbors','The four cells up, down, left and right; diagonals do not count'],['backtracking','Try a path; if it fails, step back, try another way, and erase your tracks'],['DFS (depth-first search)','Pick one direction, go all the way down, then come back']])
+  + flow([[1,'Read','ABCCED, SEE, ABCB'],[1,'Instinct','keep walking to the next letter'],[2,'Stuck','SEE hits a dead end'],[2,'Backtrack','step back, change direction'],[3,'Mark + restore','# and change back'],[3,'Code','dfs(r, c, k)']]),
+  say:[
+  'This lesson covers LeetCode 79, Word Search. First, four words. A board is a table of letters. Neighbors are the four cells up, down, left and right; diagonals do not count. Backtracking means if a path fails, you step back, try another way, and erase your tracks. DFS means you pick one direction and go all the way down before coming back.',
+  'The route: first read the problem, then try the most natural idea: find the first letter, then keep walking to the next letter.',
+  'We will see it walk into a dead end on the word SEE and give the wrong answer. The fix is backtracking: when you are stuck, step back one cell and try another direction.',
+  'Then we make two things clear: why we mark visited cells with a hash sign, and why we must change them back on the way out. Finally, we write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>neighbors, each cell once</em>', vis:
+  gloss(0,[['(r, c)','Row r, column c, both counted from 0'],['each cell at most once','While spelling one word, you cannot step on the same cell twice']])
+  + duo(LC79_bd({st:[
+      [2,[[0,0,'g','1'],[0,1,'g','2'],[0,2,'g','3'],[1,2,'g','4'],[2,2,'g','5'],[2,1,'g','6']],'ABCCED: <em>right right down down left</em>'],
+      [3,[[1,3,'g','1'],[2,3,'g','2'],[2,2,'g','3']],'SEE: <em>(1, 3) down left</em>'],
+      [4,[[0,0,'p','1'],[0,1,'x','2 4?'],[0,2,'p','3']],'ABCB: the second B can only be <i>the used cell</i>']]}),
+    q(1,'board is the 3 × 4 grid on the left. Can "ABCCED", "SEE" and "ABCB" each be spelled in one stroke through neighboring cells?')
+    + cards([[2,'"ABCCED" → True','A B C to the right, C E downward, D to the left','mint'],
+             [3,'"SEE" → True','Start at the S at (1, 3), go down, then left','mint'],
+             [4,'"ABCB" → False','The only B next to C is already used; you cannot step on it again','coral']])),
+  say:[
+  'The pair r, c means row r, column c, both counted from zero. Each cell at most once means that while spelling one word, you cannot step on the same cell twice.',
+  'The question for this scene: on this grid with three rows and four columns, can ABCCED, SEE and ABCB each be spelled in one stroke through neighboring cells?',
+  'ABCCED works: from the A in the top-left corner, go right to B and C, down to C and E, then left to D. It returns true.',
+  'SEE works too: start at the S in row 1, column 3. Below it is an E, and to the left of that is another E. It returns true.',
+  'ABCB does not: A, B and C are all there, but for the fourth letter B, the only B next to C is the one we just used. You cannot step on a cell twice, so it returns false.'
+]});
+
+/* ===== 2 Instinct ===== */
+add({ch:2, title:'Instinct: <em>just keep walking</em>', vis:
+  gloss(0,[['greedy','At each step, take the first move that works and never look back'],['check order','Neighbors are checked in the order up, down, left, right']])
+  + duo(LC79_bd({st:[
+      [2,[[0,0,'c','1']],'Find the first letter <b>A</b>: (0, 0)'],
+      [3,[[0,0,'p','1'],[1,0,'x',''],[0,1,'c','2']],'Need B: down S ✗, right <b>B</b> ✓'],
+      [4,[[0,0,'p','1'],[0,1,'p','2'],[0,2,'p','3'],[1,2,'c','4']],'Need C: right <b>C</b>; need C again: down <b>C</b>'],
+      [5,[[0,0,'g','1'],[0,1,'g','2'],[0,2,'g','3'],[1,2,'g','4'],[2,2,'g','5'],[2,1,'g','6']],'E: down ✓　D: left ✓ → <em>True</em>']]}),
+    q(1,'The most natural idea: find the first letter, then at each step walk to the first neighbor that is the next letter. Does it work on ABCCED?')
+    + cards([[5,'ABCCED: walks straight through','Every step had only one correct neighbor, so greedy happened to be right','mint']])),
+  say:[
+  'Greedy means at each step you take the first move that works, and never look back. We always check neighbors in the order up, down, left, right.',
+  'The question for this scene: the most natural idea is to find the first letter, then at each step walk to the first neighbor that is the next letter. Does it work on ABCCED?',
+  'First find the first letter A. The very first cell, zero zero, is an A.',
+  'Next we need B. Up is off the board, down is S, which is wrong. Left is off the board, and right is B, so walk there.',
+  'Next we need C, and it is right there to the right. Then the second C is straight down.',
+  'Then we need E, which is down, and D, which is to the left. Done, it returns true. Every step had only one correct neighbor, so greedy happened to be right.'
+]});
+
+/* ===== 3 Instinct gets stuck ===== */
+add({ch:3, title:'Instinct gets stuck: <em>SEE</em>', vis:
+  gloss(0,[['dead end','You reach a cell and none of its four neighbors is the next letter']])
+  + duo(LC79_bd({st:[
+      [2,[[1,0,'c','1'],[0,0,'x',''],[2,0,'x',''],[1,1,'x','']],'S at (1, 0): up A, down A, right F, no E → next start'],
+      [3,[[1,3,'p','1'],[0,3,'c','2']],'S at (1, 3): check <b>up</b> first, it is E ✓ walk there'],
+      [4,[[1,3,'p','1'],[0,3,'c','2'],[0,2,'x','']],'Need E: up off, down used, left C, right off → <i>dead end</i>'],
+      [5,[[1,3,'p','1'],[0,3,'x','2'],[2,3,'g','2'],[2,2,'g','3']],'Greedy says <i>False</i>; going <b>down</b> works → <em>True</em>']]}),
+    q(1,'What does the same greedy idea do on "SEE"?')
+    + cards([[5,'Greedy says False, the answer is True','The first correct neighbor does not always lead to the end','coral'],
+             [6,'The missing step: go back one cell, try the next direction','Below the S is also an E, and we never tried it','amber']])),
+  say:[
+  'A dead end means you reach a cell and none of its four neighbors is the next letter.',
+  'The question for this scene: what does the same greedy idea do on SEE?',
+  'The first S is in row 1, column 0. Above it is A, below it is A, and to the right is F. No E, so move on to the next start.',
+  'The next S is in row 1, column 3. In our order we check up first. It is an E, which is correct, so greedy walks straight there.',
+  'Now we need the second E. Up is off the board, down is the S we just used, left is C, and right is off the board. All four directions fail. This is a dead end.',
+  'Greedy never looks back, so it can only return false. But the correct answer is true: below the S is also an E, and to its left is another E.',
+  'Greedy is missing exactly one step: when stuck, go back one cell and try the next direction. The first correct neighbor does not always lead to the end.'
+]});
+
+/* ===== 4 Key idea ===== */
+add({ch:4, title:'Key idea: <em>stuck means step back</em>', vis:
+  gloss(0,[['dfs(r, c, k)','Asks one thing: starting from cell (r, c), can we spell the rest of word from letter k onward?'],['k','The index in word of the letter we are looking for, starting at 0']])
+  + q(1,'How do we turn "when stuck, go back one cell and try the next direction" into code?')
+  + flow([[2,'Done?','k == len(word) → True'],[3,'Is this cell right','off the board or wrong letter → False'],[4,'Mark','set to #'],[5,'Four directions','dfs(…, k + 1)'],[6,'Restore','put the letter back']])
+  + cards([[7,'Recursion does the "going back" for you','When one direction returns False, you are back at this cell and try the next one','mint']]),
+  say:[
+  'dfs of r, c, k asks one thing: starting from cell r, c, can we spell the rest of the word from letter k onward? k is the index of the letter we are looking for, starting at zero.',
+  'The question for this scene: how do we turn "when stuck, go back one cell and try the next direction" into code?',
+  'Step one: if k equals the length of the word, every letter has been spelled, so return true.',
+  'Step two: check this cell. If it is off the board, or its letter is not word of k, return false.',
+  'Step three: the cell is right, so temporarily set it to a hash sign, meaning it is used on this path.',
+  'Step four: call dfs once in each of the four directions, up, down, left and right, with k plus 1, to find the next letter. If any of them returns true, we succeed.',
+  'Step five: after trying all four directions, change the hash sign back to the original letter, then return the result.',
+  'Recursion does the going back for you: when one direction returns false, you are back at this cell and try the next direction. That is backtracking.'
+]});
+
+/* ===== 5 Marking ===== */
+add({ch:5, title:'Marking: <em>B cannot be used twice</em>', vis:
+  gloss(0,[['# mark','Temporarily set a cell to # when you step in; no letter equals #, so this path will not step on it again']])
+  + duo(LC79_bd({st:[
+      [2,[[0,0,'p','#'],[0,1,'p','#'],[0,2,'c','#']],'A → B → C: all three cells marked <b>#</b>'],
+      [3,[[0,0,'p','#'],[0,1,'x','#'],[0,2,'c','#'],[1,2,'x',''],[0,3,'x','']],'Need B: down C ✗, left <b>#</b> ✗, right E ✗'],
+      [4,[[0,0,'p',''],[0,1,'x','B?'],[0,2,'c','']],'Without marking: left is still B → <i>wrong True</i>'],
+      [5,[[2,0,'c','#'],[1,0,'x',''],[2,1,'x','']],'Back out; the other A at (2, 0): S and D are not B → <em>False</em>']]}),
+    q(1,'Why is "ABCB" False? If we do not mark visited cells, what goes wrong?')
+    + cards([[4,'No marking = stepping on a cell twice is allowed','C turns back onto the B it just used and spells ABCB','coral'],
+             [5,'Mark it #, and one path never steps twice','"Each cell at most once" depends on this step','mint']])),
+  say:[
+  'A hash mark means that when you step into a cell, you temporarily set it to a hash sign. No letter equals a hash sign, so this path will not step on it again.',
+  'The question for this scene: why is ABCB false? If we do not mark visited cells, what goes wrong?',
+  'Starting from the top-left corner, A, B and C lead us to row 0, column 2, and all three cells are now marked with a hash sign.',
+  'Next we need B. Up is off the board, down is C, left is a hash sign, and right is E. None of them work.',
+  'Without marking, the cell to the left would still be B. The program would turn back onto the cell it just used and wrongly return true.',
+  'With marking, this path can only back out. The other A is in row 2, column 0, and its neighbors are S and D, with no B, so it returns false. Each cell at most once depends on this step.'
+]});
+
+/* ===== 6 Restoring ===== */
+add({ch:6, title:'Restoring: <em>other paths need it</em>', vis:
+  gloss(0,[['restore (un-choose)','When you leave a cell, change # back to the original letter']])
+  + duo(LC79_bd({st:[
+      [2,[[0,2,'p','#'],[1,2,'c','#']],'word = "CCB": C at (0, 2) → down C'],
+      [3,[[0,2,'p','#'],[1,2,'x','#'],[2,2,'x',''],[1,1,'x',''],[1,3,'x','']],'Need B: up #, down E, left F, right S → back out'],
+      [4,[[0,2,'x','#'],[0,1,'x',''],[0,3,'x','']],'(0, 2): left B, right E are not C → back out'],
+      [5,[[0,2,'x','#'],[1,2,'x','#']],'No restore: both stay #, start (1, 2) is # → <i>wrong False</i>'],
+      [6,[[1,2,'g','1'],[0,2,'g','2'],[0,1,'g','3']],'Restore: (1, 2) → up C → left B → <em>True</em>']]}),
+    q(1,'When backing out, why must we change # back to the letter? Try word = "CCB".')
+    + cards([[7,'# belongs only to the current path','This path failed, so its cells must be left for other paths','mint']])),
+  say:[
+  'Restoring means that when you leave a cell, you change the hash sign back to the original letter.',
+  'The question for this scene: when backing out, why must we change the hash sign back to the letter? Let\'s try a different word, CCB.',
+  'The first C is in row 0, column 2, so we mark it with a hash sign. We need a second C, and it is straight down, so we mark that too.',
+  'Now we need B. Up is a hash sign, down is E, left is F, and right is S. None of them work, so we back out.',
+  'Back in row 0, column 2, left is B and right is E, and neither is the C we want, so we back out again. This path failed.',
+  'Without restoring, those two cells keep their hash signs. The next start, row 1, column 2, was a C but is now a hash sign, so we cannot enter it, and in the end we wrongly return false.',
+  'With restoring, it works: start from the C in row 1, column 2, go up to C, then left to B, and return true.',
+  'So a hash sign belongs only to the current path. When the path fails, the cells it stepped on must be handed back to other paths.'
+]});
+
+/* ===== 7 Animation ABCCED ===== */
+add({ch:7, title:'Animation: <em>ABCCED</em>', vis:
+  gloss(0,[['orange','Cells on the current path, already marked #'],['red','Neighbors tried that were wrong'],['green','Fully spelled']])
+  + duo(LC79_bd({st:[
+      [2,[[0,0,'c','#']],'k = 0 need <b>A</b>: (0, 0) ✓ mark #'],
+      [3,[[0,0,'p','#'],[1,0,'x',''],[0,1,'c','#']],'k = 1 need <b>B</b>: up off, down S ✗, left off, right B ✓'],
+      [4,[[0,0,'p','#'],[0,1,'p','#'],[1,1,'x',''],[0,2,'c','#']],'k = 2 need <b>C</b>: down F ✗, left # ✗, right C ✓'],
+      [5,[[0,0,'p','#'],[0,1,'p','#'],[0,2,'p','#'],[1,2,'c','#']],'k = 3 need <b>C</b>: up off, down C ✓'],
+      [6,[[0,0,'p','#'],[0,1,'p','#'],[0,2,'x','#'],[1,2,'p','#'],[2,2,'c','#']],'k = 4 need <b>E</b>: up # ✗, down E ✓'],
+      [7,[[0,0,'p','#'],[0,1,'p','#'],[0,2,'p','#'],[1,2,'x','#'],[2,2,'p','#'],[2,1,'c','#']],'k = 5 need <b>D</b>: up # ✗, down off, left D ✓'],
+      [8,[[0,0,'g','1'],[0,1,'g','2'],[0,2,'g','3'],[1,2,'g','4'],[2,2,'g','5'],[2,1,'g','6']],'k = 6 == len(word) → <em>True</em>, every # restored']]}),
+    q(1,'Run dfs(r, c, k) on "ABCCED". Which neighbors does each step look at?')),
+  say:[
+  'Orange cells are on the current path and are already marked with a hash sign. Red cells are neighbors we tried that were wrong. Green means the word is fully spelled.',
+  'The question for this scene: run dfs of r, c, k on ABCCED. Which neighbors does each step look at?',
+  'k equals 0, we need A. The first cell, zero zero, is an A. Correct, so mark it with a hash sign.',
+  'k equals 1, we need B. In the order up, down, left, right: up is off the board, down is S, wrong; left is off the board; right is B, correct, so step in and mark it.',
+  'k equals 2, we need C. Up is off the board, down is F, wrong; left is a hash sign, wrong; right is C, so step in.',
+  'k equals 3, we need the second C. Up is off the board, and down is C, so step in.',
+  'k equals 4, we need E. Up is a hash sign, wrong; down is E, so step in.',
+  'k equals 5, we need D. Up is a hash sign, down is off the board, and left is D, so step in.',
+  'At the next level k equals 6, the length of the word, so return true. Each level changes its hash sign back before leaving, and the board is restored.'
+]});
+
+/* ===== 8 Animation SEE ===== */
+add({ch:8, title:'Animation: <em>backtracking on SEE</em>', vis:
+  gloss(0,[['gray frame','A cell we just left and already restored']])
+  + duo(LC79_bd({st:[
+      [2,[[1,0,'b','↩'],[0,0,'x',''],[2,0,'x',''],[1,1,'x','']],'S at (1, 0): A, A, F are not E → back out, restore'],
+      [3,[[1,3,'c','#']],'Start (1, 3): k = 0 need <b>S</b> ✓ mark #'],
+      [4,[[1,3,'p','#'],[0,3,'c','#']],'k = 1 need <b>E</b>: try <b>up</b> first, E ✓'],
+      [5,[[1,3,'c','#'],[0,3,'b','↩'],[0,2,'x','']],'k = 2: all four directions fail at (0, 3) → <b>back out</b>, restore E'],
+      [6,[[1,3,'p','#'],[0,3,'b',''],[2,3,'c','#']],'Back at S, try <b>down</b>: E ✓'],
+      [7,[[1,3,'g','1'],[2,3,'g','2'],[2,2,'g','3']],'k = 2 need <b>E</b>: up # ✗, down off, left E ✓ → <em>True</em>'],
+      [8,[],'Greedy stopped at step 5; backtracking steps back one cell and finds it']]}),
+    q(1,'On "SEE", how does backtracking get out of the dead end where greedy got stuck?')),
+  say:[
+  'A gray frame marks a cell we just left and have already restored.',
+  'The question for this scene: on SEE, how does backtracking get out of the dead end where greedy got stuck?',
+  'The first S is in row 1, column 0, and its neighbors A, A and F are not E. All four directions return false, so it changes back to S before leaving.',
+  'The F and C in the middle are not S, so we skip them. The start at row 1, column 3 is an S for k equals 0, so we mark it with a hash sign.',
+  'k equals 1, we need E. Try up first: row 0, column 3 is an E, so step in and mark it.',
+  'k equals 2, we need E again. From this cell, up is off the board, down is a hash sign, left is C, and right is off the board. All fail, so it returns false and changes back to E before leaving. This is exactly where greedy got stuck.',
+  'Back at the S, its up direction failed, so it tries down next: row 2, column 3 is an E, so step in.',
+  'k equals 2, we need E. Up is a hash sign, down is off the board, and left is E, so step in. At the next level k equals 3, and it returns true.',
+  'Greedy ends at the dead end. Backtracking steps back one cell, changes direction, and finds the word.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>mark, four directions, restore</em>', vis:
+  gloss(0,[['or short-circuit','Once one call returns True, the later ones are not called']])
+  + term('solution.py',[
+    [2,'o','def exist(board, word):'],
+    [2,'o','    m, n = len(board), len(board[0])'],
+    [2,'o','    def dfs(r, c, k):'],
+    [2,'hl','        if k == len(word):          # all spelled'],
+    [2,'o','            return True'],
+    [3,'o','        if not (0 <= r < m and 0 <= c < n) or board[r][c] != word[k]:'],
+    [3,'o','            return False'],
+    [4,'hl',"        board[r][c] = '#'           # mark"],
+    [4,'o','        found = (dfs(r - 1, c, k + 1) or dfs(r + 1, c, k + 1) or'],
+    [4,'o','                 dfs(r, c - 1, k + 1) or dfs(r, c + 1, k + 1))'],
+    [5,'hl','        board[r][c] = word[k]       # restore'],
+    [5,'o','        return found'],
+    [6,'o','    return any(dfs(r, c, 0) for r in range(m) for c in range(n))']])
+  + q(1,'Which step of backtracking does each part of the code match?'),
+  say:[
+  'Or short-circuit means once one call returns true, the later ones are not called. So once we find a path, we stop trying other directions.',
+  'The question for this scene: which step of backtracking does each part of the code match?',
+  'The first thing dfs does: if k equals the length of the word, everything is spelled, so return true. This line must come first.',
+  'The second part checks this cell: if it is off the board, or its letter is not word of k, return false. Used cells are hash signs, so they are blocked here too.',
+  'The third part marks this cell, then calls dfs four times, up, down, left and right, with k plus 1, joined with or.',
+  'The fourth part restores: whether it succeeded or failed, set the cell back to word of k, then return.',
+  'Finally, call dfs from every cell with k starting at 0. If any start succeeds, return true.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['m × n','The number of cells on the board'],['L','The length of the word']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(m × n × 3^L), space O(L)','m × n starts; 4 directions on the first step, then at most 3 since you never go back. Recursion is at most L deep','sky'],
+           [3,'Check k == len(word) before the bounds','Reversed, the next level still reads word[k]: IndexError; [["A"]] with "A" wrongly gives False','coral'],
+           [4,'Forgetting to restore','A failed path leaves #, and other starts cannot use those cells','coral'],
+           [5,'Moving diagonally, or not marking','Only up, down, left, right; without marking you step on a cell twice','coral']]),
+  say:[
+  'm times n is the number of cells on the board, and L is the length of the word.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to slip?',
+  'There are m times n starting cells. The first step has four directions, and after that you cannot go back, so at most three. That makes the time big O of m times n times 3 to the power L. The space is the recursion depth, big O of L.',
+  'Pitfall one: the order of checks. First check whether k equals the length of the word, then check bounds and the letter. Reversed, after the word is spelled the next level still reads word of k and crashes with an index error; and on a one by one board holding A, searching for A wrongly returns false.',
+  'Pitfall two: forgetting to restore. A failed path leaves hash signs behind, and other starts cannot use those cells, just like CCB earlier.',
+  'Pitfall three: moving diagonally, or not marking. There are only four directions, up, down, left and right; without marking, the same cell gets stepped on twice.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Why can\'t you just walk to the next letter as soon as you find it? Why change cells back when backing out?"')
+  + flow([[2,'Starts','try every cell'],[2,'Check','off board / wrong letter'],[3,'Mark','set to #'],[3,'Four directions','k + 1'],[3,'Restore','put the letter back'],[4,'Complexity','O(m n 3^L)']])
+  + chips(4,['backtracking','DFS','choose / explore / un-choose','visited','in-place marking','212 Word Search II','Trie']),
+  say:[
+  'A good interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, why can\'t you just walk to the next letter as soon as you find it? Why change cells back when backing out?',
+  'First explain why we backtrack: the first correct neighbor does not always lead to the end. For SEE, going up is a dead end and only going down works. So every direction must be tried.',
+  'Then explain marking and restoring: stepping into a cell sets it to a hash sign so this path never reuses it; leaving changes it back because other paths still need that cell. In English this is choose, explore, un-choose.',
+  'Finally, the complexity is big O of m times n times 3 to the power L. The follow-up, 212 Word Search II, finds many words at once by adding a trie on top of this same backtracking.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Check','off board / wrong letter'],[0,'Mark','set to #'],[0,'Try','four directions, k + 1'],[0,'Restore','put the letter back']])
+  + cards([[1,'① The first correct neighbor may not work; try all four directions','SEE: up is a dead end, only down works','amber'],
+           [2,'② Mark a cell # when you step in; one path never steps twice','ABCB: C cannot turn back and reuse that B','sky'],
+           [3,'③ Put the letter back when you leave; other paths need it','CCB: without restoring, the right path is blocked','mint']]),
+  say:[
+  'Let\'s review the main thread: check this cell, and return false if it is off the board or the wrong letter; otherwise mark it with a hash sign, try four directions with k plus 1, and finally put the letter back.',
+  'Number one: the first correct neighbor does not always lead to the end, so try all four directions. Like SEE, where up is a dead end and only down works.',
+  'Number two: mark a cell with a hash sign when you step in, so one path never steps on it twice. Like ABCB, where C cannot turn back and reuse that B.',
+  'Number three: put the original letter back when you leave, because other paths still need it. Like CCB, where without restoring, the right path gets blocked.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/99e029828d0a.mp3", "0-1": "a/7f16915c9e71.mp3", "0-2": "a/ad354f5fccb9.mp3", "0-3": "a/aa7382ea0098.mp3", "1-0": "a/5e0aa519b41b.mp3", "1-1": "a/ec770ac99b2c.mp3", "1-2": "a/936c0a5d36da.mp3", "1-3": "a/fea42a0091fb.mp3", "1-4": "a/bc6e4eb3f62f.mp3", "2-0": "a/5696f8a4b593.mp3", "2-1": "a/4deceda8a9fe.mp3", "2-2": "a/c78145f1603c.mp3", "2-3": "a/d1a4619fd1fb.mp3", "2-4": "a/0353188b3ad2.mp3", "2-5": "a/8585c82e68c0.mp3", "3-0": "a/d8648bf05aa6.mp3", "3-1": "a/e04b7404bb81.mp3", "3-2": "a/4fceb2ba8209.mp3", "3-3": "a/801b61226014.mp3", "3-4": "a/f7aa7153c96f.mp3", "3-5": "a/d3e252659a93.mp3", "3-6": "a/721f7debe80b.mp3", "4-0": "a/c0419570f8b8.mp3", "4-1": "a/4774c76b7de6.mp3", "4-2": "a/679c98bf092a.mp3", "4-3": "a/a00347701335.mp3", "4-4": "a/bb17ad88ce2a.mp3", "4-5": "a/0c07b80917c8.mp3", "4-6": "a/e727cfa52b1f.mp3", "4-7": "a/d6664c3abae8.mp3", "5-0": "a/d3298be4d8bb.mp3", "5-1": "a/40063d2fde65.mp3", "5-2": "a/20f81ce8cf79.mp3", "5-3": "a/8ea10a51c22b.mp3", "5-4": "a/d18f5bea3c18.mp3", "5-5": "a/bb424f6f4237.mp3", "6-0": "a/b8b21eb2803b.mp3", "6-1": "a/3bebbbf27309.mp3", "6-2": "a/8a8424da86d8.mp3", "6-3": "a/623f9ac6005f.mp3", "6-4": "a/ca32ad09d658.mp3", "6-5": "a/d29cf3778c16.mp3", "6-6": "a/013bb72ed448.mp3", "6-7": "a/c6f8b3f4ebf2.mp3", "7-0": "a/3168052a3a81.mp3", "7-1": "a/1007bc61c880.mp3", "7-2": "a/a730fdd5588b.mp3", "7-3": "a/481f12e425b5.mp3", "7-4": "a/9f3feea05a44.mp3", "7-5": "a/a4ea534c9bc0.mp3", "7-6": "a/86810a463203.mp3", "7-7": "a/a2f27912e418.mp3", "7-8": "a/0bcb3672eedd.mp3", "8-0": "a/45e1369c0d80.mp3", "8-1": "a/9b95845365d6.mp3", "8-2": "a/509e85bb71b9.mp3", "8-3": "a/f97399e79166.mp3", "8-4": "a/ecc3900b79d3.mp3", "8-5": "a/9414eaade41b.mp3", "8-6": "a/43b9dd6f52dc.mp3", "8-7": "a/bbbb24863a5f.mp3", "8-8": "a/2558633a9c12.mp3", "9-0": "a/a67b69b762ed.mp3", "9-1": "a/be137104cdf5.mp3", "9-2": "a/bfc2e60eedd1.mp3", "9-3": "a/287fa7449184.mp3", "9-4": "a/56dea9d00c4f.mp3", "9-5": "a/32f13b712105.mp3", "9-6": "a/762fa28d3545.mp3", "10-0": "a/20349690ca1e.mp3", "10-1": "a/fab3f43d53e1.mp3", "10-2": "a/99e23e39c5f7.mp3", "10-3": "a/2624039b77c0.mp3", "10-4": "a/1e0808f1e040.mp3", "10-5": "a/2c5faf5e383c.mp3", "11-0": "a/e3da5feb2ef2.mp3", "11-1": "a/fd7af5f65d81.mp3", "11-2": "a/41491a928bd7.mp3", "11-3": "a/01c2511a601a.mp3", "11-4": "a/252753d4720f.mp3", "12-0": "a/5b4d7242ff2f.mp3", "12-1": "a/ac5cd9ac15b7.mp3", "12-2": "a/e2a50c028078.mp3", "12-3": "a/1c13ca86890b.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

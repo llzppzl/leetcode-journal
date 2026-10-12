@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sink the Islands</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Sink the Islands', template:'prep', lang:'en', sub:'LeetCode 200 Number of Islands · animated walkthrough', key:'lc200envid', doc:'LeetCode 200', blurb:'Start from counting land cell by cell: that double counts, so every time you step on a new island you add one and sink the whole island, which is flood fill.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a map','The problem: "1" is land','What connected means','First idea: counting ones double counts','Key idea: sink it when you step on it','Animation: scan and sink','Check: an island that bends','Write the code: DFS','Complexity and recursion depth','Switch to BFS','In place, and two pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- island grid: base "1"/"0" cells; ov = sunk overlay (island colour + order); mk = marker; rg = one-step ring; st = one-step status ---------- */
+const LC200_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lg{display:grid;grid-template-columns:1.3em repeat(5,2.7em);grid-template-rows:1.4em;grid-auto-rows:2.7em;gap:4px;justify-content:center;margin:0 auto}
+.lg .ix{display:grid;place-items:center;font-family:var(--f-mono);font-size:.7em;color:var(--dim)}
+.lc{position:relative;display:grid;place-items:center;border-radius:8px;border:1px solid var(--line)}
+.lc.w{background:rgba(127,180,255,.10)}
+.lc.l{background:rgba(196,160,110,.34)}
+.lc b{font-family:var(--f-mono);font-size:1.15em;font-weight:700;color:var(--paper)}
+.lc.w b{color:var(--dim);font-weight:400}
+.lc .s:not(.on){opacity:0}
+.lc .only.s{opacity:0!important} .lc .only.s.now{opacity:1!important}
+.lc .ov{position:absolute;inset:0;z-index:1;border-radius:7px;display:grid;place-items:center;font-style:normal}
+.lc .ov u{text-decoration:none;font-family:var(--f-mono);font-size:1.15em;color:var(--paper)}
+.lc .ov em{position:absolute;top:1px;right:4px;font-style:normal;font-family:var(--f-mono);font-size:.6em;color:var(--paper)}
+.lc .k1{background:linear-gradient(rgba(255,184,77,.6),rgba(255,184,77,.6)),var(--term)}
+.lc .k2{background:linear-gradient(rgba(98,224,180,.6),rgba(98,224,180,.6)),var(--term)}
+.lc .k3{background:linear-gradient(rgba(127,180,255,.6),rgba(127,180,255,.6)),var(--term)}
+.lc .mk{position:absolute;inset:0;z-index:2;border-radius:7px;box-shadow:inset 0 0 0 3px var(--sky);font-style:normal;font-family:var(--f-mono);font-size:.62em;font-weight:700;color:var(--sky);padding:1px 4px;text-align:left}
+.lc .mk.x{box-shadow:inset 0 0 0 3px var(--coral);color:var(--coral)}
+.lc .mk.c{box-shadow:inset 0 0 0 3px var(--amber);color:var(--amber)}
+.lc .rg{position:absolute;inset:-3px;z-index:3;border-radius:10px;box-shadow:0 0 0 3px var(--amber),0 0 14px rgba(255,184,77,.5)}
+.lst{font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim);min-height:1.6em;position:relative;margin-top:8px}
+.lst .s{position:absolute;left:0;right:0}
+.lst .only.s{opacity:0!important} .lst .only.s.now{opacity:1!important}
+.lst b{color:var(--amber)}
+</style>`;
+function LC200_g(G, o={}){
+  const at = (L,r,c) => (L||[]).filter(x=>x[1]===r&&x[2]===c);
+  let h = LC200_CSS + `<div class="lg" role="img" aria-label="island grid"><div></div>`;
+  for(let c=0;c<G[0].length;c++) h += `<div class="ix">${c}</div>`;
+  G.forEach((row,r)=>{
+    h += `<div class="ix">${r}</div>`;
+    row.forEach((v,c)=>{
+      h += `<div class="lc ${v==='1'?'l':'w'}"><b>${v}</b>`;
+      at(o.ov,r,c).forEach(([s,,,k,t])=>h+=`<i class="ov s ${k}" data-s="${s}"><u>0</u>${t!=null?`<em>${t}</em>`:''}</i>`);
+      at(o.mk,r,c).forEach(([s,,,k,t])=>h+=`<i class="mk s ${k}" data-s="${s}">${t||''}</i>`);
+      at(o.rg,r,c).forEach(([s])=>h+=`<i class="rg only s" data-s="${s}"></i>`);
+      h += `</div>`;
+    });
+  });
+  h += `</div>`;
+  if(o.st) h += `<div class="lst">${o.st.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const GA = [["1","1","0","0","0"],["1","1","0","0","0"],["0","0","1","0","0"],["0","0","0","1","1"]];
+const GB = [["1","1","1","1","0"],["1","1","0","1","0"],["1","1","0","0","0"],["0","0","0","0","0"]];
+const ONES_A = [[0,0],[0,1],[1,0],[1,1],[2,2],[3,3],[3,4]];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Sink the Islands<br><em>LeetCode 200</em>', vis:
+  gloss(0,[['grid','A table with m rows and n columns, one character per cell'],['island','A patch of land connected up, down, left and right'],['flood fill','Start at one cell and paint the whole connected patch at once']])
+  + flow([[1,'Read','"1" land, "0" water'],[1,'Connected','only up, down, left, right'],[2,'First idea','count "1"s? double counts'],[2,'Key idea','sink each new island'],[3,'Animation','two examples'],[3,'Code','DFS, BFS, in place']]),
+  say:[
+  'This lesson is LeetCode 200, Number of Islands. Three words first: a grid is a table with m rows and n columns; an island is a patch of land connected up, down, left and right; flood fill means starting at one cell and painting the whole connected patch at once.',
+  'Here is the route: first we read what the characters one and zero in the grid mean, then we pin down what connected means.',
+  'Then we try the most direct way to count, and see the step where it double counts. That leads to the key idea: every time you step on a new island, sink the whole thing.',
+  'Finally we really scan and sink on two examples, write a DFS and a BFS version, and cover complexity, modifying the input in place, and how to say it in an interview.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>"1" is land, "0" is water</em>', vis:
+  gloss(0,[['grid','A table with m rows and n columns; here 4 rows and 5 columns'],['"1" / "0"','"1" is land, "0" is water; they are strings, not numbers'],['(r, c)','Row r, column c, both counted from 0']])
+  + duo(LC200_g(GA),
+    q(1,'On this map with 4 rows and 5 columns, how many islands are there?')
+    + cards([[2,'Outside the grid is all water','Land touching land is the same island','sky'],
+             [3,'Answer: 3 islands','4 cells top left, 1 in the middle, 2 bottom right','mint']])),
+  say:[
+  'A grid is a table with m rows and n columns; this one has four rows and five columns. The string one means land, and the string zero means water. Note that they are strings in quotes, not numbers. A coordinate r, c means row r, column c, counted from zero.',
+  'The question for this scene: on this map with four rows and five columns, how many islands are there?',
+  'The rule is: everything outside the grid counts as water. Land touching land is the same island.',
+  'Look at the picture: four land cells in the top left form one island; the single cell in the middle is one; the two cells in the bottom right are one. Three in total, so the function returns 3.'
+]});
+
+/* ===== 2 Connected ===== */
+add({ch:2, title:'What <em>connected</em> means', vis:
+  gloss(0,[['neighbor','The four directions up, down, left, right; diagonals do not count'],['connected','Stepping only on land, only up, down, left or right, you can walk from one cell to the other']])
+  + duo(LC200_g(GA,{mk:[[2,1,1,'c','●'],[2,0,1,'','↑'],[2,2,1,'','↓'],[2,1,0,'','←'],[2,1,2,'','→'],[3,2,2,'x','↘']]}),
+    q(1,'(1, 1) and (2, 2) touch diagonally. Are they the same island?')
+    + cards([[2,'The four neighbors of (1, 1)','up (0, 1), down (2, 1), left (1, 0), right (1, 2)','sky'],
+             [3,'Diagonals do not count','(2, 2) is not one of those four','coral'],
+             [4,'So it is 3 islands, not 2','(2, 2) and (3, 3) are diagonal too, so each is its own island','mint']])),
+  say:[
+  'A neighbor is one of the four directions: up, down, left, right. Diagonals do not count. Connected means that, stepping only on land and moving only up, down, left or right, you can walk from one land cell to another. If you can, they are the same island.',
+  'The question for this scene: the land cells at row 1, column 1 and row 2, column 2 touch diagonally. Are they the same island?',
+  'First, list the four neighbors of row 1, column 1: up is row 0, column 1; down is row 2, column 1; left is row 1, column 0; right is row 1, column 2. Up and left are land, so those are connected.',
+  'Row 2, column 2 sits to the lower right, diagonally. It is not one of the four neighbors, so they are not connected.',
+  'So the answer is three islands, not two. In the same way, row 2, column 2 and row 3, column 3 only touch diagonally, so each is its own island.'
+]});
+
+/* ===== 3 First idea ===== */
+add({ch:3, title:'First idea: <em>add one for every "1"?</em>', vis:
+  gloss(0,[['scan','Start at the top left and look at every cell, row by row, left to right']])
+  + duo(LC200_g(GA,{mk:ONES_A.map(([r,c],i)=>[2,r,c,'x',String(i+1)]), rg:[[3,0,0],[4,0,1]],
+      st:[[3,'(0, 0) is "1" → new island, count <b>1</b>'],[4,'(0, 1) is "1" → count <b>2</b>?']]}),
+    q(1,'The most direct idea: scan once and add one for every "1". What number do you get?')
+    + cards([[2,'You get 7','7 cells hold "1", but there are only 3 islands','coral'],
+             [4,'(0, 1) and (0, 0) are the same island','From this cell alone, you cannot tell which counted island it belongs to','coral'],
+             [5,'What is missing: record the whole island','The moment you meet a new island, mark all of it','mint']])),
+  say:[
+  'Scanning means starting at the top left and looking at every cell, row by row, each row from left to right.',
+  'The question for this scene: the most direct idea is to scan once and add one for every character one. What number do you get?',
+  'Count them: the grid has seven ones, but only three islands. One island can be made of several land cells, so counting cells is not counting islands.',
+  'So adjust it: add one only when you meet a new island. At row 0, column 0 we find land, and we have seen nothing before, so it is a new island. The count is 1.',
+  'Next is row 0, column 1, land again. Is it a new island? No, it is connected to row 0, column 0. But from this one cell alone, you cannot tell which island you already counted it belongs to.',
+  'Here is exactly why it breaks: the moment we met a new island, we did not record the whole island. When we later step on its other cells, we count it again.'
+]});
+
+/* ===== 4 Key idea ===== */
+add({ch:4, title:'Key idea: <em>step on a new island, sink all of it</em>', vis:
+  gloss(0,[['sink','Turn land into water: change "1" to "0"'],['flood fill','Like the paint bucket in a drawing app: one click fills the whole connected patch'],['DFS','Depth first search: follow one path to the end, then back up and try another']])
+  + q(1,'When you step on new land, what must you do so the same island is never counted twice?')
+  + flow([[2,'Scan finds "1"','not sunk yet'],[2,'Count plus 1','a new island'],[3,'Sink the island','every connected "1" becomes "0"'],[3,'Keep scanning','sunk cells are already "0"']])
+  + cards([[4,'Why the count is right','Each island adds one only the first time you touch it; after that it is all "0" and never counted again','mint']]),
+  say:[
+  'To sink means turning land into water: changing the character one into the character zero. Flood fill is like the paint bucket in a drawing app: one click fills the whole connected patch. DFS is depth first search: follow one path to the end, then back up and try another.',
+  'The question for this scene: when you step on new land, what must you do so the same island is never counted twice?',
+  'Here is the method: while scanning, if you meet a character one that has not been sunk, you have found a new island, so add one to the count.',
+  'Then immediately sink that whole island: from this cell, move up, down, left and right, and change every connected one into zero. When it is done, keep scanning. The sinking can use DFS or BFS; we will write both.',
+  'Why is the count right? Each island adds one only the first time it is touched. At that moment the whole island is sunk into water, so when the scan reaches its other cells, it sees zeros and never counts it again.'
+]});
+
+/* ===== 5 Animation ===== */
+add({ch:5, title:'Animation: <em>scan once, sink as you go</em>', vis:
+  gloss(0,[['orange / green / blue','Sunk cells of islands 1, 2 and 3'],['corner number','The order the cell was sunk within its island'],['glowing frame','The cell we are on right now']])
+  + duo(LC200_g(GA,{
+      ov:[[3,0,0,'k1',1],[3,1,0,'k1',2],[4,1,1,'k1',3],[4,0,1,'k1',4],[6,2,2,'k2',1],[7,3,3,'k3',1],[7,3,4,'k3',2]],
+      rg:[[2,0,0],[3,1,0],[4,0,1],[5,0,1],[6,2,2],[7,3,4]],
+      st:[[2,'(0, 0) is "1" → new island, count <b>1</b>'],[3,'sink (0, 0), then down to (1, 0)　count <b>1</b>'],
+          [4,'right to (1, 1), then up to (0, 1)　count <b>1</b>'],[5,'scan reaches (0, 1): already "0" → skip'],
+          [6,'(2, 2) is "1" → new island, count <b>2</b>'],[7,'(3, 3) is "1" → new island, count <b>3</b>'],[8,'all 20 cells scanned → return <b>3</b>']]}),
+    q(1,'Really scan and sink on the example: at which cell is each island counted?')
+    + cards([[8,'3 islands, each counted once','Starts at (0, 0), (2, 2), (3, 3): the first cell of each island the scan reaches','mint']])),
+  say:[
+  'Orange, green and blue are the sunk cells of islands one, two and three. The small number in the corner is the order the cell was sunk within its island, and the glowing frame is the cell we are on right now.',
+  'The question for this scene: if we really scan and sink on the example, at which cell is each island counted?',
+  'Start scanning at row 0, column 0. It is a character one and not sunk, so it is a new island, and the count becomes 1. Start sinking right away.',
+  'First change row 0, column 0 to zero, then check neighbors in the order down, up, right, left. Below it, row 1, column 0 is land, so we go there and sink it too.',
+  'Below row 1, column 0 is water, above it is already sunk, and to its right, row 1, column 1 is land, so we sink it. From row 1, column 1 we go up to row 0, column 1 and sink that too. All four cells are orange; the first island is gone.',
+  'Back to the scan: the next cell is row 0, column 1. That is exactly where the last scene got stuck, but now it is already zero, so we skip it and never count it twice.',
+  'The scan skips water and sunk cells until it reaches row 2, column 2. New island, and the count becomes 2. It is surrounded by water, so only that cell sinks.',
+  'Keep scanning to row 3, column 3. New island, and the count becomes 3. Sink it, then move right and sink row 3, column 4.',
+  'The last cell, row 3, column 4, is already zero. All twenty cells are scanned, and we return 3, which matches the answer. Each island is counted at the first of its cells that the scan reaches.'
+]});
+
+/* ===== 6 Example two ===== */
+add({ch:6, title:'Check: <em>one big island that bends</em>', vis:
+  gloss(0,[['any shape','Long, bent, with a gap, it does not matter: connected means one island'],['sunk in one go','DFS follows every connected "1", however it turns']])
+  + duo(LC200_g(GB,{
+      ov:[[3,0,0,'k1',1],[3,1,0,'k1',2],[3,2,0,'k1',3],[3,2,1,'k1',4],[3,1,1,'k1',5],[3,0,1,'k1',6],[4,0,2,'k1',7],[4,0,3,'k1',8],[4,1,3,'k1',9]],
+      rg:[[2,0,0],[3,0,1],[4,1,3]],
+      st:[[2,'(0, 0) is "1" → new island, count <b>1</b>'],[3,'left block: 6 cells sunk'],[4,'along the top row, around to (1, 3): 9 cells'],[5,'the other 19 cells are "0" → return <b>1</b>']]}),
+    q(1,'Example two: one big island that bends. With the same method, do we get 1?')
+    + cards([[5,'Return 1','One DFS sinks all 9 cells; the remaining 19 cells are all skipped','mint']])),
+  say:[
+  'An island can be any shape, long or bent, and if it is connected it is one island. DFS follows every connected one, however it turns, and sinks it all in one go.',
+  'The question for this scene: example two is one big island that bends. With the same method, do we get 1?',
+  'Start scanning at row 0, column 0. It is land, a new island, the count is 1, and we start sinking.',
+  'In the order down, up, right, left, we first sink straight down to row 2, column 0, then right to row 2, column 1, then up to row 1, column 1 and row 0, column 1. The left block of six cells is sunk.',
+  'From row 0, column 1 we continue right, sinking row 0, column 2 and row 0, column 3, then turn down to row 1, column 3. It is connected through the top row, so it is part of the same island. All nine cells are orange.',
+  'The remaining nineteen cells are all zero, so they are all skipped. We return 1, which matches the answer.'
+]});
+
+/* ===== 7 Code ===== */
+add({ch:7, title:'Code: <em>scan, plus a recursive sink</em>', vis:
+  gloss(0,[['recursion','A function calling itself: sink this cell, then go sink the neighbors'],['out of bounds','A row or column outside the grid, like -1, or equal to m']])
+  + term('solution.py',[
+    [2,'o','def numIslands(grid):'],
+    [2,'o','    m, n = len(grid), len(grid[0])'],
+    [2,'o','    def sink(r, c):'],
+    [3,'o','        if r < 0 or r >= m or c < 0 or c >= n or grid[r][c] != "1":'],
+    [3,'o','            return'],
+    [3,'hl','        grid[r][c] = "0"                # sink this cell first'],
+    [4,'o','        sink(r + 1, c); sink(r - 1, c)  # down, up'],
+    [4,'o','        sink(r, c + 1); sink(r, c - 1)  # right, left'],
+    [5,'o','    count = 0'],
+    [5,'o','    for r in range(m):'],
+    [5,'o','        for c in range(n):'],
+    [5,'hl','            if grid[r][c] == "1":       # a new island'],
+    [5,'o','                count += 1'],
+    [5,'o','                sink(r, c)'],
+    [5,'o','    return count']])
+  + q(1,'Which line makes sure the same cell is never sunk twice?')
+  + cards([[6,'Answer: set it to "0" before visiting neighbors','When a neighbor looks back at this cell, it is no longer "1", so it returns at once','mint']]),
+  say:[
+  'Recursion means a function calling itself: sink this cell, then go sink the neighbors. Out of bounds means a row or column outside the grid, like minus 1, or equal to the row count m.',
+  'The question for this scene: which line makes sure the same cell is never sunk twice?',
+  'At the top we get the row count m and the column count n. The function sink is in charge of sinking the whole island that starts at r, c.',
+  'The first line is the guard: if we are out of bounds, or this cell is not the character one, return right away. Notice we compare with the quoted character one. If we pass the guard, we change the cell to the character zero.',
+  'Then we call sink recursively once for each of the four neighbors: down, up, right, left. If a neighbor is water or out of bounds, its call returns at the first line.',
+  'The main loop is the scan: whenever a cell is the character one, add one to the count and call sink to sink the whole island. At the end, return the count.',
+  'Back to the question: the key is changing the cell to zero before visiting the neighbors. When a neighbor looks back at this cell, it is no longer a one, so it returns at once and never loops around.'
+]});
+
+/* ===== 8 Complexity ===== */
+add({ch:8, title:'Complexity, and <em>how deep the recursion goes</em>', vis:
+  gloss(0,[['O(m×n)','Steps grow in proportion to the number of cells'],['recursion depth','How many calls are nested inside each other at most'],['stack overflow','Nesting beyond the language limit, and the program crashes']])
+  + q(1,'How many times is each cell looked at? If the whole grid is land, how deep does the recursion go?')
+  + cards([[2,'Time O(m×n)','The scan looks at each cell once; each cell sinks at most once and checks 4 neighbors','sky'],
+           [3,'Recursion up to m×n deep','On an all-land grid, DFS walks one long snake chain through every cell','amber'],
+           [4,'300×300 = 90,000 levels','Python\'s default recursion limit is 1000 → stack overflow; use BFS for big grids','coral']]),
+  say:[
+  'Big O of m times n means the number of steps grows in proportion to the number of cells. Recursion depth is how many calls are nested inside each other at most. Going past the language limit is a stack overflow, and the program crashes.',
+  'The question for this scene: how many times is each cell looked at? And if the whole grid is land, how deep does the recursion go?',
+  'The scan looks at every cell once. Each cell sinks at most once, and when it sinks it checks four neighbors. So the time is big O of m times n.',
+  'Now the depth. On an all-land grid, with the order down, up, right, left, DFS walks a snake shaped path that strings every cell into one chain, so it goes up to m times n levels deep.',
+  'The limit in the problem is three hundred by three hundred, which is ninety thousand levels. Python\'s default recursion limit is one thousand, so it overflows. For big grids, switch to BFS.'
+]});
+
+/* ===== 9 BFS ===== */
+add({ch:9, title:'Switch to BFS: <em>a queue instead of recursion</em>', vis:
+  gloss(0,[['BFS','Breadth first search: spread out ring by ring, like ripples'],['deque','A queue: in at the back, out at the front; popleft takes one from the front']])
+  + term('solution_bfs.py',[
+    [2,'o','from collections import deque'],
+    [2,'o','def numIslands(grid):'],
+    [2,'o','    m, n = len(grid), len(grid[0])'],
+    [2,'o','    count = 0'],
+    [2,'o','    for r in range(m):'],
+    [2,'o','        for c in range(n):'],
+    [2,'o','            if grid[r][c] != "1":'],
+    [2,'o','                continue'],
+    [2,'o','            count += 1'],
+    [3,'hl','            grid[r][c] = "0"'],
+    [3,'o','            q = deque([(r, c)])'],
+    [3,'o','            while q:'],
+    [3,'o','                i, j = q.popleft()'],
+    [3,'o','                for x, y in ((i+1, j), (i-1, j), (i, j+1), (i, j-1)):'],
+    [4,'o','                    if 0 <= x < m and 0 <= y < n and grid[x][y] == "1":'],
+    [4,'hl','                        grid[x][y] = "0"   # sink when enqueued'],
+    [4,'o','                        q.append((x, y))'],
+    [5,'o','    return count']])
+  + q(1,'With a queue, why change a cell to "0" the moment it goes into the queue?')
+  + cards([[5,'No recursion → no stack overflow','The queue lives in ordinary memory, not limited by recursion depth','mint']]),
+  say:[
+  'BFS is breadth first search: it spreads out ring by ring, like ripples. A deque is a queue: in at the back, out at the front, and popleft takes one item from the front.',
+  'The question for this scene: with a queue, why change a cell to the character zero the moment it goes into the queue?',
+  'The outer loop is the same scan: if a cell is not the character one, skip it; if it is, add one to the count.',
+  'Then, instead of recursion: sink this cell first and put it in the queue. While the queue is not empty, take a cell from the front and look at its four neighbors.',
+  'If a neighbor is inside the grid and is the character one, sink it right away, then add it to the queue. That is the answer: changing it on the way in means the same cell is never added to the queue by several neighbors.',
+  'With no recursion, there is no recursion depth limit and no stack overflow. The time is still big O of m times n.'
+]});
+
+/* ===== 10 In place and pitfalls ===== */
+add({ch:10, title:'Modifying in place, and <em>two pitfalls</em>', vis:
+  gloss(0,[['in place','Change the grid you were given directly, with no second table'],['side effect','After the function runs, the caller\'s grid has changed']])
+  + q(1,'If you change the "1"s in grid to "0"s, will the interviewer mind?')
+  + cards([[2,'Upside: no extra table','The only extra space is the recursion stack or the queue','sky'],
+           [3,'Cost: the input is changed','It is a design choice; say it out loud in the interview','amber'],
+           [4,'If you cannot change it: a seen set','A set or a same sized boolean table marks sunk cells, costing O(m×n) extra space','mint'],
+           [5,'Two pitfalls','Comparing with the number 1 is never equal; recursing before marking never stops','coral']]),
+  say:[
+  'In place means changing the grid you were given directly, without a second table. A side effect means that after the function runs, the grid in the caller\'s hands has changed.',
+  'The question for this scene: if you change the ones in grid to zeros, will the interviewer mind?',
+  'The upside is space: you need no extra table to record which cells are sunk, so the only extra space is the recursion stack or the queue.',
+  'The cost is that the input has been changed. If the caller needs this map afterwards, it breaks. So this is a design choice, and in an interview you should say it out loud: I will modify the input in place, is that okay?',
+  'If you are not allowed to, keep a separate seen set, or a boolean table of the same size, to record which cells are sunk. That costs big O of m times n extra space.',
+  'Two common pitfalls to finish. First, grid holds strings, so comparing with the number one is never equal, and the answer comes out as zero. Second, mark before visiting neighbors; if you visit first and mark later, two land cells keep calling each other and never stop.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, and code once the interviewer nods']])
+  + q(1,'The interviewer asks: "How do you make sure each island is counted only once?"')
+  + flow([[2,'Scan','look at every cell'],[2,'New island','"1" found, count plus 1'],[3,'Sink','connected "1"s become "0"'],[4,'Complexity','O(m×n)'],[4,'Notes','in place; BFS for big grids']])
+  + chips(4,['flood fill','connected components','4-directional','DFS / BFS','in-place','recursion depth']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and start coding once the interviewer nods.',
+  'The question for this scene: the interviewer asks, how do you make sure each island is counted only once?',
+  'First the method: I scan every cell from the top left. When I find a character one, I have found a new island, so I add one to the count.',
+  'Then why it counts once: the moment I find a new island, I use DFS to turn every one connected up, down, left or right into zero. The whole island is sunk, so when the scan reaches its other cells, it only sees zeros.',
+  'Then two more notes: the time is big O of m times n. I modify the input in place, and if that is not allowed I keep a seen set. For a very large grid I use BFS to avoid deep recursion. The English keywords are flood fill and connected components.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Scan','every cell once'],[0,'New island','"1" found, plus 1'],[0,'Sink','connected "1" → "0"'],[0,'Keep scanning','sunk cells are skipped']])
+  + cards([[1,'① Only up, down, left, right; diagonals do not count','Four neighbors: (r±1, c) and (r, c±1)','amber'],
+           [2,'② Step on new land, add one, then sink the whole island','Flood fill with DFS or BFS; mark before visiting neighbors','sky'],
+           [3,'③ Compare with the string "1"','Say that you modify in place; use BFS on big grids to avoid stack overflow','mint']]),
+  say:[
+  'One more pass through the main line: scan row by row; when you find a one that is not sunk, add one to the count; immediately sink every connected one into zero; keep scanning and skip what is sunk.',
+  'Number one: connected means only the four directions up, down, left and right. Touching diagonally is not the same island.',
+  'Number two: step on new land, add one, then sink the whole island. That is flood fill, with DFS or BFS, and remember to mark before visiting the neighbors.',
+  'Number three: grid holds strings, so compare with the quoted character one. Modifying in place is a design choice, so mention it in the interview, and on a big grid use BFS to avoid stack overflow.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/00968eb47a1c.mp3", "0-1": "a/00dc1ed21705.mp3", "0-2": "a/9858de90d9e8.mp3", "0-3": "a/50c5eace1228.mp3", "1-0": "a/81ff5ba627b8.mp3", "1-1": "a/90ac4d76ab59.mp3", "1-2": "a/b4332f2723d8.mp3", "1-3": "a/49864bdafa93.mp3", "2-0": "a/4947c0e9c21e.mp3", "2-1": "a/22026ce216f4.mp3", "2-2": "a/e890a9187ce1.mp3", "2-3": "a/dceaa9baad1e.mp3", "2-4": "a/df5722f3c4fa.mp3", "3-0": "a/375d0a6ac360.mp3", "3-1": "a/48420a130f53.mp3", "3-2": "a/a8c1353d7b9a.mp3", "3-3": "a/69e701a6740c.mp3", "3-4": "a/1ce781d4bd3b.mp3", "3-5": "a/6746f6e40600.mp3", "4-0": "a/ad6f50538a3b.mp3", "4-1": "a/29439aa6acfd.mp3", "4-2": "a/a9860231be12.mp3", "4-3": "a/ad4fd3004eaf.mp3", "4-4": "a/cb4e5f58d7ab.mp3", "5-0": "a/4fac9e2bf494.mp3", "5-1": "a/0bffccc9e9f4.mp3", "5-2": "a/b886ead1bf7f.mp3", "5-3": "a/5680ba93d920.mp3", "5-4": "a/8f6d91277a68.mp3", "5-5": "a/3bded4b9a1e7.mp3", "5-6": "a/ba4c6d4c7e13.mp3", "5-7": "a/f041991f57d8.mp3", "5-8": "a/2c7ab9d467d2.mp3", "6-0": "a/d783db70f459.mp3", "6-1": "a/35d45c7eccd0.mp3", "6-2": "a/b5b4a3a0e579.mp3", "6-3": "a/6084e9d78e34.mp3", "6-4": "a/7fb9456fa2ef.mp3", "6-5": "a/39205c6e0345.mp3", "7-0": "a/f76f9fb4f1eb.mp3", "7-1": "a/538c3d284414.mp3", "7-2": "a/6631d65db9c8.mp3", "7-3": "a/ffb2e659a1c3.mp3", "7-4": "a/b94636b84d91.mp3", "7-5": "a/4668d4ad86d3.mp3", "7-6": "a/1a43c2d336f5.mp3", "8-0": "a/5baadf98a55f.mp3", "8-1": "a/3351670a3fe3.mp3", "8-2": "a/b524ee8783d8.mp3", "8-3": "a/eb4e5ba400a0.mp3", "8-4": "a/7b96a2984f8c.mp3", "9-0": "a/1edceebae678.mp3", "9-1": "a/b36c2d72b129.mp3", "9-2": "a/c0b311e07293.mp3", "9-3": "a/9df6e68348b7.mp3", "9-4": "a/b5d55a5d85ed.mp3", "9-5": "a/22d1f0a688c3.mp3", "10-0": "a/a4454132f718.mp3", "10-1": "a/03e06300bd6c.mp3", "10-2": "a/1cebf6c7eb34.mp3", "10-3": "a/f86c2774a85f.mp3", "10-4": "a/5424cb507d79.mp3", "10-5": "a/316db1f5d6fb.mp3", "11-0": "a/fb2fce69124b.mp3", "11-1": "a/c4b00aa29efe.mp3", "11-2": "a/2d4d3dabb38c.mp3", "11-3": "a/801ac6630363.mp3", "11-4": "a/1b6cc399e80a.mp3", "12-0": "a/870579c3ea39.mp3", "12-1": "a/c6653a7bcf99.mp3", "12-2": "a/9778082bcdd9.mp3", "12-3": "a/1481e971df82.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

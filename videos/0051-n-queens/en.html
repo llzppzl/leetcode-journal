@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>One Queen Per Row</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'One Queen Per Row', template:'prep', lang:'en', sub:'LeetCode 51 N-Queens · animated walkthrough', key:'lc51envid', doc:'LeetCode 51', blurb:'Start from how a queen attacks: each row holds exactly one queen, so place them row by row and undo when stuck; then name the two diagonal directions with r − c and r + c, so three sets catch any conflict in one step.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a chessboard','The problem: how a queen attacks','First idea: try everything','Insight one: exactly one per row','Checking conflicts: comparing is slow','The trick: r − c and r + c','Walk through: column 0 is a dead end','Walk through: two solutions','Write the code','Complexity and pitfalls','Variant: count only','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- n × n board: layers are <g> groups revealed at a step; "only" layers show at their own step only ---------- */
+const NQ_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.nq{width:100%;max-width:270px;margin:0 auto;display:block;overflow:visible}
+.nq .s{transform:none}
+.nq .s:not(.on){opacity:0}
+.nq .only.s{opacity:0!important} .nq .only.s.now{opacity:1!important}
+.nq rect.sq{fill:rgba(10,17,36,.85);stroke:var(--line);stroke-width:1}
+.nq rect.sq.dk{fill:rgba(140,160,200,.12)}
+.nq rect.hl{stroke:none;opacity:.5}
+.nq rect.hl.amber{fill:var(--amber)} .nq rect.hl.sky{fill:var(--sky)} .nq rect.hl.coral{fill:var(--coral)} .nq rect.hl.mint{fill:var(--mint)}
+.nq rect.band{fill:none;stroke:var(--amber);stroke-width:3}
+.nq circle.qn{fill:var(--amber)} .nq circle.qn.ok{fill:var(--mint)}
+.nq text{font-family:var(--f-display);text-anchor:middle;dominant-baseline:central;fill:var(--paper)}
+.nq text.qt{fill:#0a1124;font-size:20px;font-weight:700}
+.nq text.ix{font-family:var(--f-mono);font-size:12px;fill:var(--dim)}
+.nq text.num{font-family:var(--f-mono);font-size:19px}
+.nq text.sm{font-family:var(--f-mono);font-size:13px}
+.nq text.sm.a{fill:var(--coral)} .nq text.sm.b{fill:var(--sky)}
+.nq path.xm{stroke:var(--coral);stroke-width:4;stroke-linecap:round;fill:none}
+.nqcap{font-family:var(--f-mono);font-size:.8em;line-height:1.5;text-align:center;color:var(--dim);min-height:3.2em;position:relative;margin-top:6px}
+.nqcap .s{position:absolute;left:0;right:0}
+.nqcap .only.s{opacity:0!important} .nqcap .only.s.now{opacity:1!important}
+.nqcap b{color:var(--amber);font-weight:400} .nqcap em{font-style:normal;color:var(--mint)}
+</style>`;
+const NQ_P = 22, NQ_S = 54;
+const NQ_xy = (r, c) => [NQ_P + c*NQ_S + NQ_S/2, NQ_P + r*NQ_S + NQ_S/2];
+const NQ_q = (r, c, ok) => { const [x,y] = NQ_xy(r,c); return `<circle class="qn${ok?' ok':''}" cx="${x}" cy="${y}" r="18"/><text class="qt" x="${x}" y="${y}">Q</text>`; };
+const NQ_x = (r, c) => { const [x,y] = NQ_xy(r,c), d = 11; return `<path class="xm" d="M${x-d},${y-d} L${x+d},${y+d} M${x+d},${y-d} L${x-d},${y+d}"/>`; };
+const NQ_h = (cells, tone) => cells.map(([r,c]) => `<rect class="hl ${tone}" x="${NQ_P+c*NQ_S+2}" y="${NQ_P+r*NQ_S+2}" width="${NQ_S-4}" height="${NQ_S-4}" rx="6"/>`).join('');
+const NQ_m = v => v < 0 ? '−' + (-v) : '' + v;
+const NQ_t = (r, c, s) => { const [x,y] = NQ_xy(r,c); return `<text class="num" x="${x}" y="${y}">${s}</text>`; };
+const NQ_all = (n, f) => { let s = ''; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) s += NQ_t(r, c, NQ_m(f(r, c))); return s; };
+const NQ_two = n => { let s = ''; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) { const [x,y] = NQ_xy(r,c); s += `<text class="sm a" x="${x}" y="${y-10}">${NQ_m(r-c)}</text><text class="sm b" x="${x}" y="${y+11}">${NQ_m(r+c)}</text>`; } return s; };
+const NQ_row = (r, n) => `<rect class="band" x="${NQ_P-1}" y="${NQ_P+r*NQ_S}" width="${n*NQ_S+2}" height="${NQ_S}" rx="8"/>`;
+// one walk state: queens [[r,c]], crosses [[r,c]], current row (or null), ok = all green
+const NQ_st = (st, qs, xs, row, ok) => [st, (row!=null ? NQ_row(row,4) : '') + xs.map(([r,c]) => NQ_x(r,c)).join('') + qs.map(([r,c]) => NQ_q(r,c,ok)).join(''), true];
+function NQ_bd(n, layers, caps){
+  const W = NQ_P + n*NQ_S + 6;
+  let s = NQ_CSS + `<svg class="nq" viewBox="0 0 ${W} ${W}" role="img" aria-label="${n} × ${n} board">`;
+  for (let k = 0; k < n; k++) { s += `<text class="ix" x="${NQ_P+k*NQ_S+NQ_S/2}" y="10">${k}</text><text class="ix" x="9" y="${NQ_P+k*NQ_S+NQ_S/2}">${k}</text>`; }
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) s += `<rect class="sq${(r+c)%2?' dk':''}" x="${NQ_P+c*NQ_S}" y="${NQ_P+r*NQ_S}" width="${NQ_S}" height="${NQ_S}"/>`;
+  layers.forEach(([st, inner, only]) => s += `<g class="s${only?' only':''}" data-s="${st}">${inner}</g>`);
+  s += `</svg>`;
+  if (caps) s += `<div class="nqcap">${caps.map(([st, t]) => `<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+  return s;
+}
+const NQ_sets = (a, b, c) => `col {${a}} · r−c {${b}} · r+c {${c}}`;
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'One queen per row<br><em>LeetCode 51</em>', vis:
+  gloss(0,[['queen','the strongest chess piece: it attacks along rows, columns and diagonals'],['backtracking','try step by step; when stuck, step back and try the next option'],['diagonal','a slanted line on the board, in two directions']])
+  + flow([[1,'Problem','how a queen attacks'],[1,'First idea','try everything: too many'],[2,'Insight one','one per row → backtracking'],[2,'Insight two','r − c, r + c'],[3,'Animation','n = 4, two solutions'],[3,'Code','three sets']]),
+  say:[
+  'This lesson is LeetCode 51, N-Queens. Three words first. A queen is the strongest chess piece; it attacks along its row, its column and its diagonals. Backtracking means trying step by step, and when you get stuck, stepping back and trying the next option. A diagonal is a slanted line on the board, and there are two directions.',
+  'First we explain from zero how a queen attacks. Then we look at the most direct idea, trying every placement, and see that there are far too many.',
+  'Then come two key insights. Each row holds exactly one queen, so we place them row by row. And to check a diagonal conflict, we only need r minus c and r plus c.',
+  'Finally, on a 4 by 4 board, we place queens step by step, hit conflicts, remove them, try the next column, find both solutions, and write the code.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>how a queen attacks</em>', vis:
+  gloss(0,[['n × n board','n rows and n columns; row r and column c both start at 0'],['attack','the squares a queen can reach in one move']])
+  + duo(NQ_bd(4,[[2,NQ_h([[1,0],[1,2],[1,3]],'amber')],[3,NQ_h([[0,1],[2,1],[3,1]],'sky')],[4,NQ_h([[0,0],[2,2],[3,3]],'coral')],[5,NQ_h([[0,2],[2,0]],'mint')],[1,NQ_q(1,1)]]),
+    q(1,'Place 4 queens on a 4 × 4 board so that none can attack another. How many ways are there?')
+    + cards([[2,'Same row','amber','amber'],[3,'Same column','blue','sky'],[4,'↘ diagonal','red: top left to bottom right','coral'],[5,'↙ diagonal','green: top right to bottom left','mint'],
+             [6,'Output: each solution is n strings','"Q" is a queen, "." is empty; n = 4 has 2 solutions','sky']])),
+  say:[
+  'An n by n board has n rows and n columns, and row r and column c both count from zero. A queen attacks every square it can reach in one move.',
+  'The question for this scene: on a 4 by 4 board, place 4 queens so that none can attack another. How many ways are there? First, let us see which squares one queen attacks.',
+  'Put a queen at row 1, column 1. First, it attacks every square in its row, the amber strip.',
+  'Second, it attacks every square in its column, the blue strip.',
+  'Third, it attacks the diagonal from top left to bottom right, in red.',
+  'Fourth, it attacks the other diagonal, from top right to bottom left, in green. One row, one column, two diagonals: no other queen may sit on any of these four lines.',
+  'The answer format: each solution is written as n strings, one per row, where Q is a queen and a dot is empty. The 4 by 4 board has two solutions, and we will find them by hand later.'
+]});
+
+/* ===== 2 First idea ===== */
+add({ch:2, title:'First idea: <em>try everything</em>', vis:
+  gloss(0,[['C(16, 4)','a combination count: the number of ways to pick 4 of 16 squares']])
+  + q(1,'The most direct way: try every placement of n queens, then keep the valid ones. How many placements is that?')
+  + cards([[2,'n = 4: pick 4 of 16 squares','C(16, 4) = 1820 placements','sky'],
+           [3,'n = 8: pick 8 of 64 squares','C(64, 8) = 4,426,165,368: over 4.4 billion','coral'],
+           [4,'Where it breaks: many are obviously wrong','two queens share a row, yet each one is still checked','amber']]),
+  say:[
+  'C of 16 choose 4 is a combination count: the number of ways to pick 4 squares out of 16.',
+  'The question for this scene: the most direct way is to try every placement of n queens and keep the valid ones. How many placements is that?',
+  'A 4 by 4 board has 16 squares. Picking 4 of them gives 1820 placements. That is tiring by hand, but fine for a computer.',
+  'Now an 8 by 8 board: picking 8 of 64 squares gives over 4.4 billion placements, and each one still needs a check. Far too slow.',
+  'Here is where it breaks. A huge number of placements put two queens in the same row. They are obviously invalid, yet we still check them one by one. The next scene attacks exactly this.'
+]});
+
+/* ===== 3 Insight one ===== */
+add({ch:3, title:'Insight one: <em>exactly one per row</em>', vis:
+  gloss(0,[['backtracking','go row by row; when stuck, remove the last queen and try its next spot'],['pruning','stop the moment a conflict appears; do not go deeper']])
+  + q(1,'With n queens and n rows, how many queens can one row hold? How many placements does that save?')
+  + cards([[2,'Two in one row → they attack','so each row holds at most 1','coral'],
+           [3,'n queens, n rows → exactly 1 per row','just pick a column for each row','mint']])
+  + flow([[4,'Place','pick a column in row r'],[4,'Next row','go to row r + 1'],[5,'Conflict','skip this column'],[5,'Remove','row is full of conflicts: go back and change columns'],[6,'8 × 8','only 2056 placements']]),
+  say:[
+  'Backtracking means going row by row; when you get stuck, you remove the last queen and try its next spot. Pruning means stopping the moment a conflict appears, without going any deeper.',
+  'The question for this scene: with n queens and n rows, how many queens can one row hold? How many placements does that save?',
+  'Two queens in the same row always attack each other. So each row holds at most one queen.',
+  'There are n queens but only n rows, and each row holds at most one. So each row holds exactly one. The problem becomes: pick a column for each row.',
+  'So the method is: in row r, pick a column and place a queen, then move on to row r plus 1 and pick again.',
+  'If a column conflicts with an earlier queen, skip it. If the whole row has no safe column, remove the queen in the previous row and move it to its next column. That is backtracking.',
+  'How much does it save? On 8 by 8, one of 8 columns per row gives 8 to the power 8, over 16.7 million. Add pruning, and we place a queen only 2056 times to find every solution.'
+]});
+
+/* ===== 4 Checking conflicts ===== */
+add({ch:4, title:'Checking conflicts: <em>comparing is slow</em>', vis:
+  gloss(0,[['O(1)','one step, no matter how big n is'],['set','a container that tells in one step whether a number is inside']])
+  + q(1,'Before placing a queen at row r, column c, how do we know whether it conflicts with earlier queens?')
+  + cards([[2,'First idea: compare with every earlier queen','same column: equal c; same diagonal: |row gap| = |column gap|. O(n) each time','sky'],
+           [3,'Columns are easy: a set cols of used columns','c in cols, one step','mint'],
+           [4,'What about diagonals?','each diagonal needs a number as its name, so it fits in a set','amber']]),
+  say:[
+  'Big O of 1 means the work takes one step, no matter how big n is. A set is a container that tells you in one step whether a number is inside.',
+  'The question for this scene: before placing a queen at row r, column c, how do we know whether it conflicts with earlier queens? Rows need no check, since each row holds one queen.',
+  'The first idea is to compare with every earlier queen. Equal columns mean the same column. If the row gap equals the column gap in absolute value, they share a diagonal. That is n comparisons, big O of n.',
+  'Columns are easy. Keep a set called cols with the used columns, and checking whether c is in cols takes one step.',
+  'To check diagonals in one step too, each diagonal needs a number as its name, the same for every square on it. The next scene finds that number.'
+]});
+
+/* ===== 5 The trick ===== */
+add({ch:5, title:'The trick: <em>r − c and r + c</em>', vis:
+  gloss(0,[['↘ direction','a diagonal from top left to bottom right'],['↙ direction','a diagonal from top right to bottom left']])
+  + duo(NQ_bd(4,[
+      [2,NQ_h([[0,0],[1,1],[2,2],[3,3]],'amber')+NQ_all(4,(r,c)=>r-c),true],
+      [3,NQ_h([[0,1],[1,2],[2,3]],'coral')+NQ_all(4,(r,c)=>r-c),true],
+      [4,NQ_h([[0,3],[1,2],[2,1],[3,0]],'sky')+NQ_all(4,(r,c)=>r+c),true],
+      [5,NQ_h([[0,2],[1,1],[2,0]],'mint')+NQ_all(4,(r,c)=>r+c),true],
+      [6,NQ_two(4),true]],
+      [[2,'each square shows <b>r − c</b><br>this ↘ line: all 0'],[3,'one step ↘: row +1, col +1<br>difference unchanged: all −1'],
+       [4,'each square shows <b>r + c</b><br>this ↙ line: all 3'],[5,'one step ↙: row +1, col −1<br>sum unchanged: all 2'],
+       [6,'top: r − c (name of the ↘ line)<br>bottom: r + c (name of the ↙ line)']]),
+    q(1,'Which number is the same for every square on one diagonal?')
+    + cards([[6,'Three sets, three O(1) checks','cols for columns, d1 for r − c, d2 for r + c; any hit means conflict','mint']])),
+  say:[
+  'Diagonals go in two directions. Top left to bottom right, we draw as a down-right arrow. Top right to bottom left, we draw as a down-left arrow.',
+  'The question for this scene: which number is the same for every square on one diagonal?',
+  'Write row minus column in every square. Look at the diagonal from top left to bottom right: 0 0, 1 1, 2 2, 3 3. Every one gives 0.',
+  'Why? One step down-right adds 1 to the row and 1 to the column, so the difference does not change. Every down-right diagonal has its own r minus c; this one is all minus 1.',
+  'Now write row plus column in every square. Look at this down-left line: 0 3, 1 2, 2 1, 3 0. Every one gives 3.',
+  'Because one step down-left adds 1 to the row and subtracts 1 from the column, so the sum does not change. Every down-left diagonal has its own r plus c; this one is all 2.',
+  'So we keep three sets: cols for used columns, d1 for used r minus c, and d2 for used r plus c. Before placing, check all three. Any hit means a conflict, and each check is big O of 1.'
+]});
+
+/* ===== 6 Walk through: dead end ===== */
+add({ch:6, title:'Walk through: <em>column 0 is a dead end</em>', vis:
+  gloss(0,[['amber frame','the row we are picking a column for'],['red cross','this square conflicts with a placed queen'],['dead end','all four squares in a row are crossed; go back one row']])
+  + duo(NQ_bd(4,[
+      NQ_st(2,[[0,0]],[],0),
+      NQ_st(3,[[0,0],[1,2]],[[1,0],[1,1]],1),
+      NQ_st(4,[[0,0],[1,2]],[[2,0],[2,1],[2,2],[2,3]],2),
+      NQ_st(5,[[0,0],[1,3]],[[1,0],[1,1]],1),
+      NQ_st(6,[[0,0],[1,3],[2,1]],[[2,0]],2),
+      NQ_st(7,[[0,0],[1,3],[2,1]],[[3,0],[3,1],[3,2],[3,3]],3),
+      NQ_st(8,[],[],0)],
+      [[2,'row 0: place at column 0<br>'+NQ_sets('0','0','0')],
+       [3,'row 1: place at column 2<br>'+NQ_sets('0, 2','0, −1','0, 3')],
+       [4,'row 2: all four crossed<br><b>dead end → remove row 1 queen</b>'],
+       [5,'row 1: move to column 3<br>'+NQ_sets('0, 3','0, −2','0, 4')],
+       [6,'row 2: place at column 1<br>'+NQ_sets('0, 3, 1','0, −2, 1','0, 4, 3')],
+       [7,'row 3: all four crossed<br><b>dead end → back up to row 0</b>'],
+       [8,'row 0, column 0: removed<br>try column 1 next']]),
+    q(1,'n = 4, row 0 starts at column 0. Can we place queens all the way down?')
+    + cards([[8,'Row 0 at column 0: no solution','go back to row 0 and try column 1','coral']])),
+  say:[
+  'The amber frame marks the row we are picking a column for. A red cross means that square conflicts with a queen already placed. A dead end is a row where all four squares are crossed, so we must go back one row.',
+  'The question for this scene: on the 4 by 4 board, with row 0 starting at column 0, can we place queens all the way down?',
+  'Row 0 goes to column 0. The three sets record: column 0, r minus c equals 0, r plus c equals 0.',
+  'Row 1: column 0 is already used; column 1 has r minus c equal to 0, also used. Column 2 has no conflict, so we place it.',
+  'Row 2: columns 0 and 2 are taken; column 1 has r plus c equal to 3, taken; column 3 has r minus c equal to minus 1, also taken. All four are crossed. Dead end.',
+  'Backtrack: remove the row 1 queen from column 2, delete its records from the three sets, and try column 3. No conflict, so we place it.',
+  'Row 2: column 0 is taken; column 1 passes all three checks, so we place it. Three queens are down now.',
+  'Row 3: columns 0, 1 and 3 are taken; column 2 has r minus c equal to 1, also taken. Another dead end. Backing up, the last two columns of row 2 fail, and row 1 has no columns left.',
+  'Conclusion: with row 0 at column 0, we can never place all four. Remove that queen too, and row 0 tries column 1.'
+]});
+
+/* ===== 7 Walk through: two solutions ===== */
+add({ch:7, title:'Walk through: <em>two solutions</em>', vis:
+  gloss(0,[['green queens','all four are placed: this is a solution'],['record it','r equals n: every row is filled, so save a copy of the board']])
+  + duo(NQ_bd(4,[
+      NQ_st(2,[[0,1]],[],0),
+      NQ_st(3,[[0,1],[1,3]],[[1,0],[1,1],[1,2]],1),
+      NQ_st(4,[[0,1],[1,3],[2,0]],[],2),
+      NQ_st(5,[[0,1],[1,3],[2,0],[3,2]],[[3,0],[3,1]],null,true),
+      NQ_st(6,[[0,2],[1,0],[2,3],[3,1]],[],null,true),
+      NQ_st(7,[[0,3]],[],0)],
+      [[2,'row 0: place at column 1<br>'+NQ_sets('1','−1','1')],
+       [3,'row 1: place at column 3<br>'+NQ_sets('1, 3','−1, −2','1, 4')],
+       [4,'row 2: place at column 0<br>'+NQ_sets('1, 3, 0','−1, −2, 2','1, 4, 2')],
+       [5,'row 3: column 2 → r = 4 = n<br><em>solution 1: .Q.. / ...Q / Q... / ..Q.</em>'],
+       [6,'after backtracking, row 0 tries column 2<br><em>solution 2: ..Q. / Q... / ...Q / .Q..</em>'],
+       [7,'row 0, column 3: all dead ends<br><b>2 solutions in total</b>']]),
+    q(1,'Row 0 now goes to column 1. Going all the way down, what do we find?')
+    + cards([[7,'n = 4: 2 solutions','[".Q..","...Q","Q...","..Q."]<br>["..Q.","Q...","...Q",".Q.."]','mint']])),
+  say:[
+  'Green queens mean all four are placed: that is a solution. Recording it means that when r equals n, every row is filled, so we save a copy of the board.',
+  'The question for this scene: row 0 now goes to column 1. Going all the way down, what do we find?',
+  'Row 0 goes to column 1. The sets record: column 1, r minus c equals minus 1, r plus c equals 1.',
+  'Row 1: column 0 has r plus c equal to 1, taken; column 1 is taken; column 2 has r minus c equal to minus 1, taken. Only column 3 is left, so we place it.',
+  'Row 2: column 0 is in none of the three sets, so we place it.',
+  'Row 3: columns 0 and 1 are taken; column 2 has no conflict, so we place it. Now r is 4, equal to n, and we record the first solution: dot Q dot dot, dot dot dot Q, Q dot dot dot, dot dot Q dot.',
+  'We are not done after recording. We keep backtracking, removing queens and trying the next column. When row 0 reaches column 2, we find the second solution, the mirror image of the first.',
+  'Last, row 0 tries column 3, and every path is a dead end. After trying everything, the 4 by 4 board has two solutions.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>three sets plus backtracking</em>', vis:
+  gloss(0,[['bt(r)','the backtracking function: rows before r are done; pick a column for row r'],['undo','after the recursive call returns, remove the queen and its set records']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def solveNQueens(self, n):'],
+    [2,'o','        res = []'],
+    [2,'o','        board = [["."] * n for _ in range(n)]'],
+    [2,'hl','        cols, d1, d2 = set(), set(), set()  # col, r-c, r+c'],
+    [3,'o','        def bt(r):'],
+    [3,'o','            if r == n:                       # every row filled'],
+    [3,'o','                res.append(["".join(row) for row in board])'],
+    [3,'o','                return'],
+    [4,'o','            for c in range(n):'],
+    [4,'hl','                if c in cols or r - c in d1 or r + c in d2:'],
+    [4,'o','                    continue                 # red cross'],
+    [5,'o','                cols.add(c); d1.add(r - c); d2.add(r + c)'],
+    [5,'o','                board[r][c] = "Q"'],
+    [5,'o','                bt(r + 1)'],
+    [5,'hl','                cols.remove(c); d1.remove(r - c); d2.remove(r + c)'],
+    [5,'o','                board[r][c] = "."            # undo'],
+    [6,'o','        bt(0)'],
+    [6,'o','        return res']])
+  + q(1,'Which step of the animation does each part of the code match?'),
+  say:[
+  'bt of r is the backtracking function: all rows before r are done, and now we pick a column for row r. Undo means that after the recursive call returns, we remove the queen we just placed and its records in the sets.',
+  'The question for this scene: which step of the animation does each part of the code match?',
+  'Setup: res holds the answers, board is n by n dots, and three sets, cols, d1 and d2, record columns, r minus c, and r plus c.',
+  'Inside bt of r: if r equals n, every row is filled, so we join each row into a string and save a copy into res.',
+  'Otherwise, try each column. If c is in cols, or r minus c is in d1, or r plus c is in d2, that is a red cross, and continue skips it.',
+  'With no conflict, place it: add one record to each set, write Q on the board, and recurse into the next row. When it returns, undo: delete the three records and set the square back to a dot. That is the removal in the animation.',
+  'Finally, start from row 0 by calling bt of 0, and return res.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['n!','n factorial: n × (n − 1) × … × 1'],['recursion depth','how many calls are nested; here at most n']])
+  + q(1,'What are the time and space costs? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n!)','row 0 has at most n choices, row 1 at most n − 1, …','sky'],
+           [3,'Space O(n²)','board n × n; three sets and recursion depth O(n) each; output not counted','sky'],
+           [4,'Pitfall one: forgetting to undo','later rows see false conflicts; solutions go missing','coral'],
+           [5,'Pitfall two: r − c can be negative','fine in a set; an array needs an offset of n − 1','coral'],
+           [6,'Pitfall three: saving board itself into res','later undos would change saved answers; build new strings','coral']]),
+  say:[
+  'n factorial is n times n minus 1 times n minus 2, all the way down to 1. Recursion depth is how many function calls are nested inside each other; here it is at most n.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to go wrong?',
+  'Time: row 0 has at most n choices, and row 1 at most n minus 1, because a used column cannot be reused. Multiplied together, the upper bound is big O of n factorial.',
+  'Space: the board is n by n, so big O of n squared. The three sets and the recursion depth are each big O of n. The saved answers are not counted.',
+  'Pitfall one: forgetting to undo. If the records stay after the call returns, later rows see false conflicts, and solutions go missing.',
+  'Pitfall two: r minus c can be negative. That is fine in a set; with an array, add n minus 1 to shift the index to non-negative.',
+  'Pitfall three: when saving an answer, build new strings. If you put board itself into res, later undos change the answers you already saved.'
+]});
+
+/* ===== 10 Variant: count only ===== */
+add({ch:10, title:'Variant: <em>count only</em>', vis:
+  gloss(0,[['LeetCode 52','N-Queens II: no boards, just return how many solutions']])
+  + q(1,'If we only need the number of solutions, what changes? What are the counts for n = 1, 4 and 8?')
+  + cards([[2,'when r == n: count += 1','no board, no strings; the three sets stay','mint'],
+           [3,'n = 1 → [["Q"]]','one square, one queen: 1 solution','sky'],
+           [4,'n = 4 → 2 solutions','exactly the two from the animation','sky'],
+           [5,'n = 8 → 92 solutions','backtracking places a queen only 2056 times','amber']]),
+  say:[
+  'LeetCode 52 is N-Queens II: no boards, just return how many solutions there are.',
+  'The question for this scene: if we only need the number of solutions, what changes? And what are the counts for n equals 1, 4 and 8?',
+  'Only one thing changes: when r equals n, instead of building strings, add 1 to a counter. The board is no longer needed; the three sets stay.',
+  'n equals 1: one square holds one queen, and the answer is a list with the single string Q. One solution.',
+  'n equals 4: two solutions, exactly the two we found by hand in the animation.',
+  'n equals 8: 92 solutions in total, and backtracking places a queen only 2056 times to find them all.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','explain the method out loud; write code after the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why does r − c identify a diagonal?"')
+  + flow([[2,'One per row','only pick columns'],[2,'Backtracking','place → next row → undo'],[3,'Three sets','column, r − c, r + c'],[4,'Complexity','O(n!)']])
+  + chips(4,['backtracking','pruning','N-Queens','diagonal r - c','anti-diagonal r + c','52 N-Queens II']),
+  say:[
+  'In interviews, lead with the approach: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why does r minus c identify a diagonal?',
+  'First the method: two queens cannot share a row, so each row holds exactly one. I go row by row and only pick a column; when a row has no safe column, I undo the previous row and try its next column. That is backtracking.',
+  'Then the why: one step down-right adds 1 to both row and column, so the difference stays the same along a diagonal. In the other direction, the row goes up by 1 and the column down by 1, so the sum stays the same. Three sets give big O of 1 checks.',
+  'The complexity upper bound is big O of n factorial. The key words are backtracking and pruning. The follow-up, problem 52, only counts the solutions, and the code is almost the same.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'One per row','only pick columns'],[0,'Backtracking','place, check, undo'],[0,'Diagonals','r − c / r + c'],[0,'Results','4 → 2, 8 → 92']])
+  + cards([[1,'① Exactly one queen per row','the problem becomes picking a column per row, row by row','amber'],
+           [2,'② Place → recurse to the next row → undo','undo resets both the set records and the board','sky'],
+           [3,'③ r − c is constant on ↘ lines, r + c on ↙ lines','three sets cols, d1, d2 check conflicts in O(1)','mint']]),
+  say:[
+  'One more pass through the main line: one queen per row, so only pick columns; place, recurse, undo; name diagonals with r minus c and r plus c; 4 by 4 has two solutions, and 8 by 8 has 92.',
+  'Number one: exactly one queen per row. The problem shifts from picking squares to picking a column for each row, and we backtrack row by row.',
+  'Number two: place, recurse into the next row, and undo when it returns. Undo must reset both the records in the three sets and the board.',
+  'Number three: r minus c stays the same along down-right diagonals, and r plus c along down-left diagonals. Three sets catch any conflict in one step.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/061a1a0a67ef.mp3", "0-1": "a/3dc9721d31d7.mp3", "0-2": "a/2c6427fde10c.mp3", "0-3": "a/e0b65b534b4e.mp3", "1-0": "a/09a9b45dec03.mp3", "1-1": "a/8579d6e23a67.mp3", "1-2": "a/0f9a881b1520.mp3", "1-3": "a/9725cf619b2d.mp3", "1-4": "a/1f98ae712b6d.mp3", "1-5": "a/ae0b302728f1.mp3", "1-6": "a/8c49b3f05968.mp3", "2-0": "a/0d9a985ee519.mp3", "2-1": "a/641955028125.mp3", "2-2": "a/1adcf045b09b.mp3", "2-3": "a/2d0623b94351.mp3", "2-4": "a/da26cbae3f4c.mp3", "3-0": "a/e6dfa1781792.mp3", "3-1": "a/3e080fc25a50.mp3", "3-2": "a/f3396673803a.mp3", "3-3": "a/c892fcbd0009.mp3", "3-4": "a/0be881e43633.mp3", "3-5": "a/cd18a6653520.mp3", "3-6": "a/50bfec68d0e3.mp3", "4-0": "a/ebbdae0d4fc7.mp3", "4-1": "a/7d471a820a7a.mp3", "4-2": "a/28c9e6b66183.mp3", "4-3": "a/3ea628cce5bd.mp3", "4-4": "a/373dbb5376dc.mp3", "5-0": "a/4d23004e68b0.mp3", "5-1": "a/36e9a2384b08.mp3", "5-2": "a/d96920eccd51.mp3", "5-3": "a/8183c5499148.mp3", "5-4": "a/c57926198588.mp3", "5-5": "a/465a6e48e095.mp3", "5-6": "a/e5cd0a07b40a.mp3", "6-0": "a/2bd7df5e1d8f.mp3", "6-1": "a/6fe2253614f3.mp3", "6-2": "a/95ad67c8b8c5.mp3", "6-3": "a/5c3f908b94e8.mp3", "6-4": "a/8b272af49aa5.mp3", "6-5": "a/3eaeffb3ef2a.mp3", "6-6": "a/93c2b116cf64.mp3", "6-7": "a/9194b8b8e632.mp3", "6-8": "a/216317c843b2.mp3", "7-0": "a/1eac6c25455c.mp3", "7-1": "a/c393e9c11838.mp3", "7-2": "a/447f87221b6c.mp3", "7-3": "a/9600747579f6.mp3", "7-4": "a/b2da548fe30f.mp3", "7-5": "a/86a68dc3789b.mp3", "7-6": "a/1ce592c3585d.mp3", "7-7": "a/87f2ff7d5b3e.mp3", "8-0": "a/4cbf29035bc5.mp3", "8-1": "a/49a350dcfd7f.mp3", "8-2": "a/c9bd1e68959d.mp3", "8-3": "a/e97532e9aa3a.mp3", "8-4": "a/7c0f1c3e9770.mp3", "8-5": "a/87c84db0e630.mp3", "8-6": "a/1ba0d608bcfa.mp3", "9-0": "a/bef0f6080601.mp3", "9-1": "a/7c35137176fb.mp3", "9-2": "a/6214fa899f15.mp3", "9-3": "a/ccaa1b360474.mp3", "9-4": "a/251004432f80.mp3", "9-5": "a/4910a45761b1.mp3", "9-6": "a/470979a558e6.mp3", "10-0": "a/e0dc8cdce43c.mp3", "10-1": "a/3e5d16ef4ca3.mp3", "10-2": "a/ab6c5618330a.mp3", "10-3": "a/4a3963e85aa9.mp3", "10-4": "a/374f118c341c.mp3", "10-5": "a/d614a9a5a279.mp3", "11-0": "a/3b3879fb5107.mp3", "11-1": "a/e07c984c7a15.mp3", "11-2": "a/87a81b66437a.mp3", "11-3": "a/9fe3d5d4a548.mp3", "11-4": "a/57684409974d.mp3", "12-0": "a/7bd77ae4a8a1.mp3", "12-1": "a/c47cd1c41b9c.mp3", "12-2": "a/7d8b585cad0d.mp3", "12-3": "a/50cccadd9c50.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

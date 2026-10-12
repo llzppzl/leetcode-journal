@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Flip the Arrows</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Flip the Arrows', template:'prep', lang:'en', sub:'LeetCode 206 Reverse Linked List · animated walkthrough', key:'lc206envid', doc:'LeetCode 206', blurb:'Start from the fact that a linked list only goes forward: flipping an arrow directly loses the rest of the list, so save, flip, then move; finally, read the recursive version off a call stack.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: turn the list around','What a linked list is','The problem: 5 → 4 → 3 → 2 → 1','Instinct: just flip it','Key: save, flip, move','Animation: flip one by one','Write the code','Verify: [1, 2] and []','Recursion: reverse the rest first','Recursion: the call stack','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const RL_duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- linked-list frames: each frame is a full picture shown at its own steps (.only + .now) ---------- */
+const RL_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.ll{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.ll .s:not(.on){opacity:0}
+.ll .only.s{opacity:0!important} .ll .only.s.now{opacity:1!important}
+.ll rect{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.ll rect.done{fill:rgba(98,224,180,.3);stroke:var(--mint)}
+.ll rect.lost{fill:none;stroke:var(--coral);stroke-dasharray:4 3;opacity:.6}
+.ll path{fill:none;stroke:var(--sky);stroke-width:2.5}
+.ll path.new{stroke:var(--mint);stroke-width:3}
+.ll path.lost{stroke:var(--coral);stroke-dasharray:4 3;opacity:.6}
+.ll text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.ll text.lost{opacity:.5}
+.ll text.nil{font-family:var(--f-mono);font-size:11px;fill:var(--dim)}
+.ll text.ptr{font-family:var(--f-mono);font-size:12px;fill:var(--amber)}
+.cap{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.cap .s{position:absolute;left:0;right:0}
+.cap .only.s{opacity:0!important} .cap .only.s.now{opacity:1!important}
+.cap b{color:var(--amber)} .cap em{font-style:normal;color:var(--mint)}
+.stk{display:grid;font-family:var(--f-mono);font-size:.82em}
+.stk>.s{grid-area:1/1}
+.stk .only.s{opacity:0!important} .stk .only.s.now{opacity:1!important}
+.stk .fr{border:2px solid var(--line);border-radius:8px;padding:.35em .6em;margin:.25em 0;color:var(--dim)}
+.stk .fr.top{border-color:var(--amber);color:var(--paper)}
+.stk .fr.ret{border-color:var(--mint);color:var(--paper)}
+.stk .fr b{color:var(--amber)} .stk .fr em{font-style:normal;color:var(--mint)}
+.stk .lab{color:var(--dim);font-size:.85em;text-align:center}
+.stk .lst{text-align:center;color:var(--mint);margin-top:.3em}
+</style>`;
+const RL_W = 30, RL_H = 30;
+let RL_N = 0;
+const RL_half = k => k[0]==='N' ? [15,8] : [RL_W/2, RL_H/2];
+function RL_cut(u, v, [hw, hh]){ return Math.min(Math.abs(u)>1e-6?hw/Math.abs(u):1e9, Math.abs(v)>1e-6?hh/Math.abs(v):1e9); }
+function RL_arrow(f, a, b, cls, bend, uid){
+  const [x1,y1]=f.n[a], [x2,y2]=f.n[b];
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const t1=RL_cut(ux,uy,RL_half(a))+2, t2=RL_cut(ux,uy,RL_half(b))+6;
+  const sx=x1+ux*t1, sy=y1+uy*t1, ex=x2-ux*t2, ey=y2-uy*t2;
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  return `<path class="${cls}" marker-end="url(#${uid}${cls?'-'+cls:''})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+// f = {s:[steps], n:{key:[x,y,cls]}, e:[[from,to,cls,bend]], p:[[label,key,'u'|'d']], cap}
+// keys starting with N are drawn as the text "None"
+function RL_frame(f, uid){
+  let g = '';
+  (f.e||[]).forEach(([a,b,cls,bend])=> g += RL_arrow(f,a,b,cls||'',bend||0,uid));
+  Object.entries(f.n).forEach(([k,[x,y,cls]])=>{
+    if(k[0]==='N') g += `<text class="nil" x="${x}" y="${y}">None</text>`;
+    else g += `<rect class="${cls||''}" x="${x-RL_W/2}" y="${y-RL_H/2}" width="${RL_W}" height="${RL_H}" rx="7"/><text class="${cls==='lost'?'lost':''}" x="${x}" y="${y}">${k}</text>`;
+  });
+  const used = {};
+  (f.p||[]).forEach(([lab,k,side])=>{
+    const [x,y]=f.n[k], id=k+side, m=used[id]=(used[id]||0)+1, hh=RL_half(k)[1];
+    const yy = side==='d' ? y+hh+11+(m-1)*14 : y-hh-10-(m-1)*14;
+    g += `<text class="ptr" x="${x}" y="${yy}">${lab}</text>`;
+  });
+  return g;
+}
+function RL_ll(frames, h, label){
+  const uid = 'rlm'+(RL_N++);
+  const mk = (id, col) => `<marker id="${id}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--${col});stroke:none"/></marker>`;
+  let s = RL_CSS + `<svg class="ll" viewBox="0 0 340 ${h}" role="img" aria-label="${label||'linked list'}"><defs>${mk(uid,'sky')}${mk(uid+'-new','mint')}${mk(uid+'-lost','coral')}</defs>`;
+  let caps = '';
+  frames.forEach(f => f.s.forEach(st => {
+    s += `<g class="only s" data-s="${st}">${RL_frame(f,uid)}</g>`;
+    if(f.cap) caps += `<span class="only s bare" data-s="${st}">${f.cap}</span>`;
+  }));
+  return s + `</svg>` + (caps ? `<div class="cap">${caps}</div>` : '');
+}
+const RL_rg = (a, b) => Array.from({length:b-a+1}, (_,i)=>a+i);
+// 5-node row with a None on each side
+const RL_X = [74,126,178,230,282], RL_Y = 58;
+const RL_row = (vals, cls={}) => { const n={NL:[22,RL_Y],NR:[322,RL_Y]}; vals.forEach((v,i)=>n[v]=[RL_X[i],RL_Y,cls[v]]); return n; };
+const RL_ORIG = {n:RL_row(['1','2','3','4','5']), e:[['1','2'],['2','3'],['3','4'],['4','5'],['5','NR']]};
+// state after k loop rounds on 1..5: first k nodes flipped
+function RL_after(k){
+  const cls={}, e=[];
+  for(let i=1;i<=5;i++){
+    if(i<=k){ cls[i]='done'; e.push([String(i), i===1?'NL':String(i-1), 'new']); }
+    else e.push([String(i), i===5?'NR':String(i+1)]);
+  }
+  return {n:RL_row(['1','2','3','4','5'],cls), e};
+}
+const RL_ptr = k => [['prev', k===0?'NL':String(k), 'u'], ['cur', k===5?'NR':String(k+1), 'u']];
+// call-stack snapshots: [steps[], frames(top first) as [cls, html], list text]
+function RL_stack(snaps){
+  return `<div class="stk">${snaps.map(([sts,frs,lst])=>sts.map(st=>`<div class="only s" data-s="${st}"><div class="lab">call stack (top = running now)</div>${frs.map(([c,t])=>`<div class="fr ${c}">${t}</div>`).join('')}${lst?`<div class="lst">${lst}</div>`:''}</div>`).join('')).join('')}</div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Flip the Arrows<br><em>LeetCode 206</em>', vis:
+  gloss(0,[['linked list','A chain of nodes; each node has an arrow to the next one'],['.next','The arrow inside a node that points to the next node'],['pointer','A variable that holds on to some node'],['reverse','Turn every arrow around']])
+  + flow([[1,'Linked list','forward only'],[1,'Instinct','just flip it'],[2,'Crash','lose the rest'],[2,'Key','save, flip, move'],[3,'Animation','1 to 5'],[3,'Recursion','reverse the rest first']]),
+  say:[
+  'This lesson is LeetCode 206, Reverse Linked List. A linked list is a chain of nodes, each with an arrow called next that points to the next node. A pointer is a variable that holds on to some node. Reversing means turning every arrow around.',
+  'We will explain linked lists from zero, then try the most natural idea: just flip the arrow.',
+  'You will watch it lose the rest of the list on the spot. The fix is three pointers taking turns: save, flip, then move.',
+  'We will flip the arrows one by one on 1 to 5, then use a call stack to explain the recursive version. It is a building block for 143, 25 and 234.'
+]});
+
+/* ===== 1 What a linked list is ===== */
+add({ch:1, title:'Linked list: <em>follow the arrows only</em>', vis:
+  gloss(0,[['node','A small box: one value, val, plus one arrow, next'],['head','The first node; it is all the problem gives us'],['None','The arrow points to nothing: the list ends here']])
+  + RL_duo(RL_ll([{...RL_ORIG, s:[0,1], p:[['head','1','u']]},
+            {...RL_ORIG, s:[2], p:[['head','1','u'],['cur','3','d']], cap:'<b>cur = cur.next</b>: one step right at a time'},
+            {...RL_ORIG, s:[3,4], p:[['head','1','u'],['cur','5','d']], cap:'At 5, back to 4? <b>No arrow goes back</b>'}], 105),
+    q(1,'What does a linked list look like? Why can\'t you walk back from the tail?')
+    + cards([[2,'Only from head, along next','No index, and no "previous"','sky'],
+             [3,'Arrows go one way','5 knows it points to None, not who points to it','coral'],
+             [4,'So not "walk backwards", but "flip the arrows"','Make 5 point to 4, 4 point to 3, and so on','mint']])),
+  say:[
+  'A node is a small box holding one value, val, plus one arrow, next. The head is the first node, and it is all the problem gives us. None means the arrow points to nothing, so the list ends.',
+  'The question for this scene: what does a linked list look like, and why can\'t you walk back from the tail?',
+  'To look further, the only move is cur equals cur dot next, one step to the right at a time. There is no index, and no previous arrow.',
+  'At 5, want to go back to 4? Node 5 only knows it points to None. It has no idea who points to it. Arrows go one way, so walking backwards does not exist.',
+  'So reversing is not walking backwards. It is flipping every arrow: 5 points to 4, 4 points to 3, all the way to 1 pointing to None.'
+]});
+
+/* ===== 2 The problem ===== */
+add({ch:2, title:'The problem: <em>5 → 4 → 3 → 2 → 1</em>', vis:
+  gloss(0,[['return the new head','After reversing, the old last node is now first; hand it back'],['in place','Create no new nodes; only change each next']])
+  + RL_duo(RL_ll([{...RL_ORIG, s:[0,1,2], p:[['head','1','u']], cap:'input: 1 → 2 → 3 → 4 → 5'},
+            {n:RL_row(['5','4','3','2','1'],{'1':'done','2':'done','3':'done','4':'done','5':'done'}), e:[['5','4','new'],['4','3','new'],['3','2','new'],['2','1','new'],['1','NR','new']], s:[3,4], p:[['new head','5','u']], cap:'<em>output: 5 → 4 → 3 → 2 → 1</em>'}], 105),
+    q(1,'Given head, what do you hand back?')
+    + cards([[2,'The input is just head','Following it reaches all 5 nodes','sky'],
+             [3,'Hand back the new head: node 5','The old tail becomes the head','mint'],
+             [4,'[1, 2] → [2, 1]; [] → []','An empty list\'s head is None','amber']])),
+  say:[
+  'Return the new head means handing back the first node after reversing. In place means creating no new nodes and only changing next.',
+  'The question for this scene: given head, what do you hand back?',
+  'The input is only head, which is node 1. Following next reaches all five nodes.',
+  'Hand back the new head, node 5. The list becomes 5, 4, 3, 2, 1, and the tail becomes the head.',
+  'Remember two small examples: 1, 2 reverses to 2, 1. An empty list stays empty, and its head is None.'
+]});
+
+/* ===== 3 Instinct: just flip it ===== */
+add({ch:3, title:'Instinct: <em>just flip it, and crash</em>', vis:
+  gloss(0,[['prev','The node before cur, which cur should point back to; starts as None'],['cur','The node being handled'],['dashed red box','A node we can no longer reach']])
+  + RL_duo(RL_ll([{...RL_ORIG, s:[0,1,2], p:[['prev','NL','u'],['cur','1','u']], cap:'prev = None, cur = 1'},
+            {n:RL_row(['1','2','3','4','5'],{'2':'lost','3':'lost','4':'lost','5':'lost'}), e:[['1','NL','new'],['2','3','lost'],['3','4','lost'],['4','5','lost'],['5','NR','lost']], s:[3], p:[['prev','NL','u'],['cur','1','u']], cap:'<b>cur.next = prev</b>: 1 points to None'},
+            {n:RL_row(['1','2','3','4','5'],{'2':'lost','3':'lost','4':'lost','5':'lost'}), e:[['1','NL','new'],['2','3','lost'],['3','4','lost'],['4','5','lost'],['5','NR','lost']], s:[4,5], p:[['prev','NL','u'],['cur','NL','u']], cap:'cur = cur.next → only reaches <b>None</b>'}], 105),
+    q(1,'The most natural line, cur.next = prev: what happens on 1 → 2 → 3 → 4 → 5?')
+    + cards([[3,'1\'s old next was the only arrow to 2','Overwrite it, and nobody points to 2 → 3 → 4 → 5','coral'],
+             [5,'Save a copy before you flip','That is the nxt of the next scene','amber']])),
+  say:[
+  'prev is the node before cur, the one cur should point back to, and it starts as None. cur is the node being handled. A dashed red box is a node we can no longer reach.',
+  'The question for this scene: the most natural line, cur dot next equals prev. What happens on 1 to 5?',
+  'At the start, prev is None and cur is 1. The idea is direct: flip 1 so it points to prev.',
+  'After that line, 1 points to None. But the old next of 1 was the only arrow leading to 2. Overwrite it, and nobody points to 2 through 5 anymore.',
+  'Now try to move on with cur equals cur dot next. It only reaches None. Four nodes are lost, and the loop ends.',
+  'The problem is the order: we never saved the old next before changing it. The fix is to save a copy first, and that is the nxt of the next scene.'
+]});
+
+/* ===== 4 Key: save, flip, move ===== */
+add({ch:4, title:'Key: <em>save, flip, move</em>', vis:
+  gloss(0,[['nxt','The old next of cur, saved before the arrow is changed'],['three pointers','prev, cur and nxt shifting right together']])
+  + q(1,'What does each node need, and in what order?')
+  + flow([[2,'① save','nxt = cur.next'],[3,'② flip','cur.next = prev'],[4,'③ move','prev = cur'],[4,'③ move','cur = nxt']])
+  + cards([[5,'prev starts as None','The old head becomes the tail, and the tail points to None','sky'],
+           [6,'After each round: left of prev is flipped, right of cur is untouched','When cur reaches None, everything is flipped','mint']]),
+  say:[
+  'nxt is the old next of cur, saved before the arrow is changed. Three pointers means prev, cur and nxt shifting right together.',
+  'The question for this scene: what does each node need, and in what order?',
+  'First, save: nxt equals cur dot next, so we hold the entrance to the rest of the list.',
+  'Second, flip: cur dot next equals prev. Flip without fear, because nxt is holding the rest.',
+  'Third, move: prev equals cur, then cur equals nxt. Move prev first and cur second, or the old spot of cur is lost.',
+  'prev starts as None, because the old head 1 becomes the tail, and the tail should point to None.',
+  'After each round, everything left of prev is flipped and everything right of cur is untouched. When cur reaches None, everything is flipped.'
+]});
+
+/* ===== 5 Animation: flip one by one ===== */
+add({ch:5, title:'Animation: <em>flip one by one</em>', vis:
+  gloss(0,[['green arrow','An arrow that is already flipped'],['green box','A node whose next is already fixed']])
+  + RL_duo(RL_ll([{...RL_after(0), s:[0,1,2], p:RL_ptr(0), cap:'prev = None, cur = 1'},
+            {...RL_after(0), s:[3], p:[...RL_ptr(0),['nxt','2','d']], cap:'<b>① save</b>: nxt = 2'},
+            {n:RL_row(['1','2','3','4','5'],{'1':'done'}), e:[['1','NL','new'],['2','3'],['3','4'],['4','5'],['5','NR']], s:[4], p:[...RL_ptr(0),['nxt','2','d']], cap:'<b>② flip</b>: 1.next = None'},
+            {...RL_after(1), s:[5], p:RL_ptr(1), cap:'<b>③ move</b>: prev = 1, cur = 2'},
+            {...RL_after(2), s:[6], p:RL_ptr(2), cap:'2 → 1; prev = 2, cur = 3'},
+            {...RL_after(3), s:[7], p:RL_ptr(3), cap:'3 → 2; prev = 3, cur = 4'},
+            {...RL_after(4), s:[8], p:RL_ptr(4), cap:'4 → 3; prev = 4, cur = 5'},
+            {...RL_after(5), s:[9], p:RL_ptr(5), cap:'5 → 4; prev = 5, cur = <b>None</b>'},
+            {...RL_after(5), s:[10], p:[['new head','5','u']], cap:'<em>return prev: 5 → 4 → 3 → 2 → 1</em>'}], 110),
+    q(1,'On 1 → 2 → 3 → 4 → 5, how do the three pointers move?')
+    + cards([[4,'1 is flipped, 2 is still held by nxt','Not a single node lost this time','amber'],
+             [10,'Return prev, not cur','At the end cur is None; prev is the new head','mint']])),
+  say:[
+  'A green arrow is already flipped, and a green box is a node whose next is already fixed.',
+  'The question for this scene: on 1 to 5, how do the three pointers move?',
+  'Start: prev is None, and cur is node 1.',
+  'Round one, save first: nxt equals cur dot next, which is node 2.',
+  'Then flip: 1 now points to None. This time node 2 is still held by nxt, so nothing is lost.',
+  'Then move: prev goes to 1, and cur goes to 2.',
+  'Round two: save 3, flip 2 to point to 1, prev goes to 2, cur goes to 3.',
+  'Round three: save 4, flip 3 to point to 2. prev is 3, cur is 4.',
+  'Round four: save 5, flip 4 to point to 3. prev is 4, cur is 5.',
+  'Round five: save None, flip 5 to point to 4. prev is 5, cur becomes None, and the loop ends.',
+  'Return prev, node 5, and the list is 5, 4, 3, 2, 1. Return prev, not cur, because cur is already None.'
+]});
+
+/* ===== 6 Write the code ===== */
+add({ch:6, title:'Code: <em>a four-line loop body</em>', vis:
+  gloss(0,[['while cur','Keep going as long as cur is not None'],['Optional[ListNode]','A node, or None']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:'],
+    [2,'o','        prev, cur = None, head'],
+    [3,'o','        while cur:'],
+    [3,'hl','            nxt = cur.next      # ① save'],
+    [3,'hl','            cur.next = prev     # ② flip'],
+    [3,'o','            prev = cur          # ③ move'],
+    [3,'o','            cur = nxt'],
+    [4,'hl','        return prev']])
+  + q(1,'What does "save, flip, move" look like in Python?')
+  + cards([[5,'The condition is while cur, not while cur.next','The last node, 5, must be flipped too','amber']]),
+  say:[
+  'while cur means keep going as long as cur is not None. Optional ListNode means a node, or None.',
+  'The question for this scene: what does save, flip, move look like in Python?',
+  'The first line sets up: prev equals None, cur equals head.',
+  'The loop body is four lines: the first saves, the second flips, and the last two move.',
+  'When the loop ends, cur is None, so return prev. It is the new head.',
+  'The condition is while cur, not while cur dot next. With the second one, node 5 never gets flipped.'
+]});
+
+/* ===== 7 Verify ===== */
+const RL_T = {NL:[60,58],'1':[140,58],'2':[220,58],NR:[300,58]};
+add({ch:7, title:'Verify: <em>[1, 2] and []</em>', vis:
+  gloss(0,[['edge case','The shortest inputs: two nodes, zero nodes'],['[]','An empty list; head is None']])
+  + RL_duo(RL_ll([{n:RL_T, e:[['1','2'],['2','NR']], s:[0,1,2], p:[['prev','NL','u'],['cur','1','u']], cap:'prev = None, cur = 1'},
+            {n:{...RL_T,'1':[140,58,'done']}, e:[['1','NL','new'],['2','NR']], s:[3], p:[['prev','1','u'],['cur','2','u']], cap:'nxt = 2; 1 → None; prev = 1, cur = 2'},
+            {n:{...RL_T,'1':[140,58,'done'],'2':[220,58,'done']}, e:[['1','NL','new'],['2','1','new']], s:[4], p:[['prev','2','u'],['cur','NR','u']], cap:'nxt = None; 2 → 1; <em>return 2</em>'},
+            {n:{N0:[170,58]}, e:[], s:[5], p:[['cur','N0','u'],['prev','N0','u'],['head','N0','u']], cap:'head = None: the loop never runs'}], 105),
+    q(1,'Feed in [1, 2] and []: what does the code hand back?')
+    + cards([[4,'[1, 2] → [2, 1] ✓','Two rounds, return prev = 2','mint'],
+             [5,'[] → [] ✓','prev starts as None and comes straight back','sky']])),
+  say:[
+  'Edge cases are the shortest inputs: two nodes and zero nodes. Empty brackets mean an empty list, and its head is None.',
+  'The question for this scene: feed in 1, 2 and the empty list. What does the code hand back?',
+  'First, 1, 2. At the start, prev is None and cur is 1.',
+  'Round one: save 2, flip 1 to point to None, prev goes to 1, cur goes to 2.',
+  'Round two: save None, 2 points to 1, prev is 2, cur is None. Return 2, and the list is 2, 1. Correct.',
+  'Empty list: cur is None from the start, so the loop never runs, and we return prev, which is None. No special case needed.'
+]});
+
+/* ===== 8 Recursion: reverse the rest first ===== */
+const RL_R = {'1':[60,45],'2':[170,45],'3':[280,45],N1:[60,120],N2:[170,120],N3:[280,120]};
+const RL_Rd = {...RL_R,'2':[170,45,'done'],'3':[280,45,'done']};
+const RL_Ra = {...RL_R,'1':[60,45,'done'],'2':[170,45,'done'],'3':[280,45,'done']};
+add({ch:8, title:'Recursion: <em>reverse the rest first</em>', vis:
+  gloss(0,[['recursion','A function calls itself to solve a smaller problem of the same kind'],['base case','Too small to split: zero or one node, return it as is']])
+  + RL_duo(RL_ll([{n:RL_R, e:[['1','2'],['2','3'],['3','N3']], s:[0,1,2], p:[['head','1','u']], cap:'head = 1, then 2 → 3'},
+            {n:RL_Rd, e:[['1','2'],['3','2','new'],['2','N2','new']], s:[3], p:[['head','1','u'],['new_head','3','u']], cap:'recursion: the rest becomes 3 → 2 → None'},
+            {n:RL_Rd, e:[['1','2','',12],['2','1','new',12],['3','2']], s:[4], p:[['head','1','u'],['new_head','3','u']], cap:'<b>head.next.next = head</b>: 2 points back to 1'},
+            {n:RL_Ra, e:[['2','1'],['3','2'],['1','N1','new']], s:[5], p:[['head','1','u'],['new_head','3','u']], cap:'<b>head.next = None</b>: 1 becomes the tail'},
+            {n:RL_Ra, e:[['2','1'],['3','2'],['1','N1']], s:[6], p:[['new_head','3','u']], cap:'<em>return new_head: 3 → 2 → 1</em>'}], 140),
+    q(1,'No loop: if the rest is already reversed, what is left for head to do?')
+    + cards([[3,'1.next still points to 2','And 2 is exactly the tail of the reversed part','amber'],
+             [5,'Skip the cut and you get a cycle','1 → 2 → 1 → 2 ...','coral']])),
+  say:[
+  'Recursion means a function calls itself to solve a smaller problem of the same kind. The base case is zero or one node, which we return as is.',
+  'The question for this scene: with no loop, if the rest is already reversed, what is left for head to do?',
+  'Take 1, 2, 3. head is 1, and the rest is 2, 3.',
+  'Trust the recursion: hand 2, 3 to reverseList, and it returns the new head 3, with the rest now 3, 2, None. And 1 dot next still points to 2, which is exactly the tail of that part.',
+  'So head dot next dot next equals head: make 2 point back to 1.',
+  'Then set head dot next to None. Without the cut, 1 and 2 point at each other, a cycle. After the cut, 1 is the tail.',
+  'Finally, return new_head unchanged. It is 3, and the list is 3, 2, 1.'
+]});
+
+/* ===== 9 Recursion: the call stack ===== */
+add({ch:9, title:'Recursion: <em>watch the call stack</em>', vis:
+  gloss(0,[['call stack','Unfinished function calls piled up, newest on top'],['waiting','It called someone else and is waiting for the result']])
+  + q(1,'On 1 → 2 → 3, in what order does the recursion actually flip the arrows?')
+  + RL_duo(term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def reverseList(self, head):'],
+    [2,'o','        if head is None or head.next is None:'],
+    [2,'o','            return head          # 0 or 1 node'],
+    [2,'hl','        new_head = self.reverseList(head.next)'],
+    [2,'hl','        head.next.next = head    # next one points back to me'],
+    [2,'hl','        head.next = None         # I become the tail'],
+    [2,'o','        return new_head']]),
+    RL_stack([
+      [[2],[['top','reverseList(<b>1</b>): first reverse from 2'],],''],
+      [[3],[['top','reverseList(<b>2</b>): first reverse from 3'],['','reverseList(1): waiting']],''],
+      [[4],[['ret','reverseList(<b>3</b>): 3.next is None → <em>return 3</em>'],['','reverseList(2): waiting'],['','reverseList(1): waiting']],''],
+      [[5],[['top','reverseList(<b>2</b>): 3 → 2, 2 → None, return 3'],['','reverseList(1): waiting']],'3 → 2 → None'],
+      [[6,7],[['top','reverseList(<b>1</b>): 2 → 1, 1 → None, return 3']],'3 → 2 → 1 → None']])
+    + cards([[7,'The stack gets n levels deep','Recursive version: extra space O(n)','amber']])),
+  say:[
+  'The call stack is the pile of unfinished function calls, newest on top. Waiting means it called someone else and is waiting for the result.',
+  'The question for this scene: on 1, 2, 3, in what order does the recursion actually flip the arrows?',
+  'Call reverseList of 1. There are more nodes after it, so first reverse the part starting at 2.',
+  'Call reverseList of 2. There is still 3 after it, so call again. The stack is two deep.',
+  'Call reverseList of 3. Its next is None, the base case, so return 3. This is the new head.',
+  'Back in reverseList of 2: make 3 point back to 2, set 2 to None, and return 3.',
+  'Back in reverseList of 1: make 2 point back to 1, set 1 to None, and return 3.',
+  'The arrows are flipped on the way back, from the tail. The stack gets n levels deep, so extra space is big O of n.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three traps</em>', vis:
+  gloss(0,[['O(n)','n is the number of nodes; each is handled once'],['O(1) space','However long the list, only a few extra variables']])
+  + q(1,'Time and space for both versions? Where is it easiest to slip?')
+  + cards([[2,'Iterative: time O(n), space O(1)','Each node flips once; only prev, cur, nxt','sky'],
+           [3,'Recursive: time O(n), space O(n)','A call stack n deep; a very long list risks stack overflow','amber'],
+           [4,'Trap one: flip before you save','cur.next = prev before nxt = cur.next loses the rest','coral'],
+           [5,'Trap two: return cur; trap three: forget head.next = None','cur ends as None; skip the cut and you get a cycle','coral']]),
+  say:[
+  'In big O of n, n is the number of nodes, and each is handled once. Big O of 1 space means only a few extra variables.',
+  'The question for this scene: what are time and space for both versions, and where is it easiest to slip?',
+  'Iterative: time big O of n, space big O of 1, with only three pointers. Lead with this one in an interview.',
+  'Recursive: time big O of n, but the call stack is n deep, so space is big O of n, and a very long list risks a stack overflow.',
+  'Trap one: flipping before saving. That is the crash from scene three, and the rest of the list is gone.',
+  'Trap two: returning cur, which ends as None. Trap three: in the recursion, forgetting head dot next equals None, which makes a cycle.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud, write code after the nod'],['building block','A small piece of code you reuse inside other problems']])
+  + q(1,'The interviewer asks: "Why do you need the nxt variable at all?"')
+  + flow([[2,'Crash','change next directly, lose the rest'],[3,'Three pointers','save, flip, move'],[3,'Return','prev'],[4,'Complexity','O(n) / O(1)'],[4,'Recursion','O(n) stack']])
+  + chips(4,['reverse in place','three pointers','prev / cur / next','recursion','143 Reorder List','25 Reverse Nodes in k-Group','234 Palindrome Linked List']),
+  say:[
+  'Idea first: explain the approach out loud, and write code after the interviewer nods. A building block is a small piece of code you reuse in other problems.',
+  'The question for this scene: the interviewer asks, why do you need the nxt variable at all?',
+  'First the why: the old next of cur is the only arrow into the rest of the list. Overwrite it directly, and the rest is lost.',
+  'Then the method: each round I save nxt, point cur at prev, then move prev and cur one step each, and finally return prev.',
+  'Complexity is big O of n time and big O of 1 space; recursion needs a big O of n stack. It is a building block: 143 reverses the second half, 25 reverses every k nodes, and 234 reverses the second half and compares.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Save','nxt = cur.next'],[0,'Flip','cur.next = prev'],[0,'Move','prev = cur, cur = nxt'],[0,'Return','prev']])
+  + cards([[1,'① Linked lists go forward only; reversing = flipping every arrow','Not walking backwards','amber'],
+           [2,'② Save nxt before you flip','Save, flip, move; then return prev','sky'],
+           [3,'③ Recursion: reverse the rest, then make the next node point back to me','head.next.next = head, head.next = None','mint']]),
+  say:[
+  'The main line once more: save nxt, point cur back at prev, move both one step, and finally return prev.',
+  'One: a linked list only goes forward along next. Reversing is not walking backwards; it is flipping every arrow.',
+  'Two: save nxt before you change the arrow. Save, flip, move, and when cur reaches None, return prev.',
+  'Three: the recursive version reverses the rest first, makes the next node point back to itself, then cuts its own next and becomes the tail.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/d3623846407b.mp3", "0-1": "a/6b03a088683a.mp3", "0-2": "a/6d025ee16bb9.mp3", "0-3": "a/c4c9251607b7.mp3", "1-0": "a/e6674f8f7147.mp3", "1-1": "a/ca804deefdbc.mp3", "1-2": "a/87853a7ce611.mp3", "1-3": "a/10cd017e6e4f.mp3", "1-4": "a/96c8054370ff.mp3", "2-0": "a/fdeaf6471f34.mp3", "2-1": "a/79544c6a9528.mp3", "2-2": "a/802be99da4d3.mp3", "2-3": "a/7235d3895b99.mp3", "2-4": "a/6edfbe06e3c8.mp3", "3-0": "a/bb5709d94959.mp3", "3-1": "a/d4c325636576.mp3", "3-2": "a/f0ce4792c680.mp3", "3-3": "a/592d55641c28.mp3", "3-4": "a/6e40ed6c4250.mp3", "3-5": "a/31321e517a53.mp3", "4-0": "a/bd448b552f4c.mp3", "4-1": "a/ab26ef034e9c.mp3", "4-2": "a/c629428d71fa.mp3", "4-3": "a/375f7158990c.mp3", "4-4": "a/73f430902030.mp3", "4-5": "a/67566033d241.mp3", "4-6": "a/e2f58964a4c8.mp3", "5-0": "a/ccbfd50aa31c.mp3", "5-1": "a/3bfc6cecea6a.mp3", "5-2": "a/79a5e9a3ef81.mp3", "5-3": "a/2844a123fcd7.mp3", "5-4": "a/4b9c35d84236.mp3", "5-5": "a/0e7f98df3b30.mp3", "5-6": "a/b6cb904a64ea.mp3", "5-7": "a/de5120fbab41.mp3", "5-8": "a/574c705b48fb.mp3", "5-9": "a/7e407c8f1415.mp3", "5-10": "a/0ccb6ce26117.mp3", "6-0": "a/e32545c2edb6.mp3", "6-1": "a/f60139025c26.mp3", "6-2": "a/2c5438d16429.mp3", "6-3": "a/1bc38f016d80.mp3", "6-4": "a/f5d5c62320b8.mp3", "6-5": "a/5c0b8b012f19.mp3", "7-0": "a/18f8dd0728b9.mp3", "7-1": "a/20b6a44056fb.mp3", "7-2": "a/c7f86d9d21e1.mp3", "7-3": "a/4aa7d15f68e2.mp3", "7-4": "a/79c06abd0b82.mp3", "7-5": "a/f683635a67dc.mp3", "8-0": "a/5e19a8da41b5.mp3", "8-1": "a/1f1f5d667b0f.mp3", "8-2": "a/92f5c9b0e91d.mp3", "8-3": "a/df45f204a621.mp3", "8-4": "a/ead53235d1bb.mp3", "8-5": "a/e8d947709b75.mp3", "8-6": "a/593033408bf2.mp3", "9-0": "a/77d1b22be42f.mp3", "9-1": "a/26f8fb79addc.mp3", "9-2": "a/ff82ae773aff.mp3", "9-3": "a/133e5a1f4f0c.mp3", "9-4": "a/55d9835b8f27.mp3", "9-5": "a/c5226d8fafed.mp3", "9-6": "a/8a5426eab8d5.mp3", "9-7": "a/58fd7a18cbc8.mp3", "10-0": "a/8e73566dee4b.mp3", "10-1": "a/097b89984ce1.mp3", "10-2": "a/8a13e53c7c62.mp3", "10-3": "a/720b67e59330.mp3", "10-4": "a/a9c7fa206c0a.mp3", "10-5": "a/a28a2182fdfe.mp3", "11-0": "a/49ebbb587d62.mp3", "11-1": "a/49c84b287486.mp3", "11-2": "a/6bf243020b25.mp3", "11-3": "a/b8f63964f1fb.mp3", "11-4": "a/9f841c5000ea.mp3", "12-0": "a/611b31be569c.mp3", "12-1": "a/95616fc43e94.mp3", "12-2": "a/5c2ad9b6f75d.mp3", "12-3": "a/5ec90338fba7.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

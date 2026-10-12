@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Walls of Parentheses</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Walls of Parentheses', template:'prep', lang:'en', sub:'LeetCode 32 Longest Valid Parentheses · animated walkthrough', key:'lc32envid', doc:'LeetCode 32', blurb:'Start from counting every stretch by hand; when that is too slow, keep a stack of positions that never got matched, so the stack top is the wall just before the current valid run and its length is i minus the stack top; then see the O(1) space trick that scans once forward and once backward with two counters.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a string of parentheses','The problem: valid and contiguous','How would you count','Key idea: store indices in a stack','What the stack bottom means','Walk through: )()())','Walk through: (()','Write the code','Complexity and pitfalls','Check three more examples','O(1) space: scan both ways','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- string strip + stack: amber ring = current i, green = valid run ending at i, sky ring = wall (stack top), amber box = stack bottom ---------- */
+const LP_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lp{max-width:400px;margin:0 auto}
+.lp .s{transform:none}
+.lp .only.s{opacity:0!important} .lp .only.s.now{opacity:1!important;box-shadow:none}
+.lp-row{display:grid;gap:4px;justify-content:center}
+.lp-row>div{position:relative;display:grid;place-items:center;height:2.5em;border-radius:8px}
+.lp-row>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.75em}
+.lp-row>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.lp-row>.v b{position:relative;z-index:1;font-family:var(--f-mono);font-size:1.4em}
+.lp-row>.ghost{border:1px dashed var(--dim);background:none}
+.lp-row i{position:absolute;border-radius:9px}
+.lp-row i.tint{inset:0;background:rgba(98,224,180,.35)}
+.lp-row i.ring{inset:-4px;box-shadow:0 0 0 3px var(--amber)!important}
+.lp-row i.wall{inset:-4px;box-shadow:0 0 0 3px var(--sky)!important}
+.lp-lay{display:grid;margin-top:12px;gap:6px}
+.lp-lay>*{grid-area:1/1}
+.lp-stk{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:5px;font-family:var(--f-mono)}
+.lp-stk i{font-style:normal;min-width:2.2em;padding:.25em .3em;text-align:center;border:1px solid var(--sky);border-radius:6px}
+.lp-stk i.bot{border-color:var(--amber);color:var(--amber)}
+.lp-stk span{color:var(--dim);font-size:.8em}
+.lp-info{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);margin-top:2.6em}
+.lp-info b{color:var(--amber)} .lp-info em{font-style:normal;color:var(--mint)}
+</style>`;
+// states: [step, i, stack[], info, run [a,b] | null]
+function LP_viz(str, states){
+  const n = str.length, idx = [-1, ...Array.from({length:n},(_,k)=>k)];
+  let h = LP_CSS + `<div class="lp"><div class="lp-row" style="grid-template-columns:repeat(${n+1},2.5em)">`;
+  h += idx.map(k=>`<div class="ix">${k}</div>`).join('');
+  h += idx.map(k=>{
+    let inner = k<0 ? '' : `<b>${esc(str[k])}</b>`;
+    states.forEach(([st,i,stack,,run])=>{
+      if(run && k>=run[0] && k<=run[1]) inner += `<i class="tint only s" data-s="${st}"></i>`;
+      if(run && k===stack[stack.length-1]) inner += `<i class="wall only s" data-s="${st}"></i>`;
+      if(i===k) inner += `<i class="ring only s" data-s="${st}"></i>`;
+    });
+    return `<div class="${k<0?'ghost':'v'}">${inner}</div>`;
+  }).join('');
+  h += `</div><div class="lp-lay">`;
+  states.forEach(([st,,stack,info])=>{
+    h += `<div class="lp-stk only s" data-s="${st}"><span>bottom</span>${stack.map((v,k)=>`<i class="${k===0?'bot':''}">${v}</i>`).join('')}<span>top</span></div>`;
+    h += `<div class="lp-info only s" data-s="${st}">${info}</div>`;
+  });
+  return h + `</div></div>`;
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Walls of Parentheses<br><em>LeetCode 32</em>', vis:
+  gloss(0,[['valid parentheses','Every ( is matched by a later ), and every ) by an earlier ('],['substring','One contiguous piece of the string; you cannot skip characters'],['stack','A pile of plates: the last one put on is the first one taken off']])
+  + flow([[1,'Read','longest valid substring'],[1,'Instinct','count every stretch'],[2,'Too slow','O(n²)'],[2,'Stack of indices','start with −1'],[3,'Length','i − top'],[3,'O(1) space','scan both ways']]),
+  say:[
+  'This lesson covers LeetCode 32, Longest Valid Parentheses. First, three words. Valid parentheses means every open parenthesis is matched by a later close, and every close by an earlier open. A substring is one contiguous piece of the string. A stack is like a pile of plates: the last one put on is the first one taken off.',
+  'We start from the most natural idea: take every stretch of the string and count it with a counter. It is correct, but too slow.',
+  'Then we switch to a stack, and what goes in the stack is not parentheses but indices. We put minus 1 at the bottom first. Then at every close parenthesis, the valid length is i minus the stack top.',
+  'Finally we look at a trick with just two counters, scanning left to right and then right to left, which needs only big O of 1 space.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>valid and contiguous</em>', vis:
+  gloss(0,[['match','An ( pairs with some ) to its right, and everything in between is matched too'],['length','How many characters the substring has']])
+  + q(1,'In ")()())", how long is the longest valid substring? What about "(()"?')
+  + cards([[2,'")()())" → 4','"()()" at indices 1 to 4; the first and last ) have no partner','mint'],
+           [3,'"(()" → 2','The last two characters "()"; the first ( never gets a )','mint'],
+           [4,'Only one contiguous piece','Characters picked with gaps are not a substring','amber']]),
+  say:[
+  'To match means an open parenthesis pairs with some close parenthesis to its right, and everything in between is matched too. Length is how many characters the substring has.',
+  'The question for this scene: in close, open, close, open, close, close, how long is the longest valid substring? And in open, open, close?',
+  'For the first string the answer is 4: the two pairs at indices 1 to 4. The first close has no open before it, and the last close is an extra one, so neither can be matched.',
+  'For the second string the answer is 2: the last two characters. The first open parenthesis never gets its own close, so the answer is not 3.',
+  'Remember it must be one contiguous piece. If an unmatched character sits in the middle, the valid substring breaks right there.'
+]});
+
+/* ===== 2 How would you count ===== */
+add({ch:2, title:'How would you count: <em>check every stretch</em>', vis:
+  gloss(0,[['balance counter','Add 1 for (, subtract 1 for )'],['O(n²)','n is the string length; about n times n steps']])
+  + q(1,'What is the most direct approach? At what moment does it get slow?')
+  + cards([[2,'A stretch is valid ⟺ the counter never drops below 0 and ends at exactly 0','Below 0: an extra ); not 0 at the end: an extra (','sky'],
+           [3,'"(()": count right from each start','Start 0: 1, 2, 1, never 0; start 1: 1, 0 → length 2; start 2: −1 right away','sky'],
+           [4,'n starts, each scans up to n steps','O(n²); listing substrings then checking each is O(n³)','amber'],
+           [5,'Length up to 30,000 → about 900 million steps','Every new start recounts the same characters: too slow','coral']]),
+  say:[
+  'A balance counter adds 1 for an open parenthesis and subtracts 1 for a close. Big O of n squared, where n is the string length, means the steps grow like n times n.',
+  'The question for this scene: what is the most direct approach, and at what moment does it get slow?',
+  'To check one stretch, a counter is enough. Count left to right; if it never drops below zero and ends at exactly zero, the stretch is valid. Below zero means an extra close; not zero at the end means extra opens.',
+  'Try it on open, open, close. From start 0: 1, 2, 1, never back to zero. From start 1: 1, 0, back to zero, length 2. From start 2: minus 1 right away, stop. The answer is 2.',
+  'There are n starting points, and each scans right up to n steps, so this is big O of n squared. If you first list every substring and then check each from scratch, it becomes big O of n cubed.',
+  'The length can be up to 30 thousand, so n squared is about 900 million steps, which is too slow. The slow part is this: every new starting point recounts the same characters. We want a single scan.'
+]});
+
+/* ===== 3 Key idea ===== */
+add({ch:3, title:'Key idea: <em>store indices in a stack</em>', vis:
+  gloss(0,[['index','A character\'s position in the string, starting from 0'],['push / pop','Push puts something on top; pop takes the top off'],['stack top stack[-1]','The element at the top of the stack']])
+  + q(1,'In a single scan, what two things must you know the instant you see a )?')
+  + cards([[2,'1. Who does it match?','The most recent ( that is still unmatched: exactly the stack top','sky'],
+           [3,'2. After matching, where does this valid run start?','Remember the index of the cell just before the run; length = i − that cell','sky'],
+           [4,'The rules','Push −1 first; ( → push i; ) → pop, if empty push i, else length = i − top','mint']]),
+  say:[
+  'An index is a character\'s position in the string, starting from zero. Push puts something on top of the stack, and pop takes the top off. In Python the stack top is written stack of minus 1.',
+  'The question for this scene: in a single scan, what two things must you know the instant you see a close parenthesis?',
+  'First: who does it match? The answer is the most recent open parenthesis that is still unmatched. The last one in is the first one out, which is exactly a stack. So every open parenthesis pushes its own index.',
+  'Second: after matching, where does the valid run ending here start? We do not store the start; we store the index of the cell just before it. The valid length is then i minus that cell.',
+  'So the rules are: push minus 1 first. For an open parenthesis, push its index. For a close parenthesis, pop first. If the stack is now empty, this close cannot be matched, so push its index. Otherwise, the length is i minus the stack top.'
+]});
+
+/* ===== 4 What the stack bottom means ===== */
+add({ch:4, title:'The stack bottom: <em>the wall before the valid run</em>', vis:
+  gloss(0,[['wall','A position that cannot be matched: no valid run can cross it']])
+  + q(1,'Why push −1 first? Why is the length i − top?')
+  + cards([[2,'Bottom = index of the latest unmatched )','Before any such ) exists, use −1: the cell just before the string','amber'],
+           [3,'The rest = indices of ( not matched yet','They are walls too: if they never get matched, no run can cross them','sky'],
+           [4,'After the pop, top = the wall closest to i','Everything from the cell after the wall up to i is matched: length = i − top','mint'],
+           [5,'"()": at i = 1, 1 − (−1) = 2','Without −1, the first ) would have nothing to subtract','mint']]),
+  say:[
+  'A wall is a position that cannot be matched. No valid run can cross it.',
+  'The question for this scene: why push minus 1 first, and why is the length i minus the stack top?',
+  'The stack bottom holds the index of the latest unmatched close parenthesis. Nothing to its left can ever join with something to its right into a valid run. At the start there is no such close yet, so minus 1 stands in for it: the cell just before the string begins.',
+  'Everything above the bottom is the index of an open parenthesis that is not matched yet. For now these are walls too: if they never get matched, no valid run can cross them.',
+  'So when a close parenthesis pops its matching open, the stack top is the wall closest to i. Everything from the cell after that wall up to i is fully matched, so the length is i minus the stack top.',
+  'The smallest example is open, close. At i equals 1, we pop 0, the top is minus 1, and 1 minus minus 1 is 2. Without that minus 1 at the bottom, the first close would have nothing to subtract.'
+]});
+
+/* ===== 5 Walk through: )()()) ===== */
+add({ch:5, title:'Walk through: <em>")()())" → 4</em>', vis:
+  gloss(0,[['amber ring','the current i'],['blue ring','the wall: stack top after the pop'],['green','the valid run ending at i']])
+  + duo(LP_viz(')()())',[
+      [2,null,[-1],'start: stack holds only <b>−1</b> · best = <em>0</em>',null],
+      [3,0,[0],'i = 0 is ): pop −1, empty → push <b>0</b> · best = <em>0</em>',null],
+      [4,1,[0,1],'i = 1 is (: push <b>1</b> · best = <em>0</em>',null],
+      [5,2,[0],'i = 2: pop 1, length 2 − 0 = <b>2</b> · best = <em>2</em>',[1,2]],
+      [6,3,[0,3],'i = 3 is (: push <b>3</b> · best = <em>2</em>',null],
+      [7,4,[0],'i = 4: pop 3, length 4 − 0 = <b>4</b> · best = <em>4</em>',[1,4]],
+      [8,5,[5],'i = 5: pop 0, empty → push <b>5</b> · best = <em>4</em>',null]]),
+    q(1,'Following the rules one cell at a time, how do the stack and best change?')
+    + cards([[9,'Return 4','The longest is "()()" at indices 1 to 4','mint']])),
+  say:[
+  'The amber ring is the current i. The blue ring is the wall, which is the stack top after the pop. Green is the valid run that ends at i.',
+  'The question for this scene: following the rules one cell at a time, how do the stack and best change? Best is the longest length seen so far.',
+  'At the start, the stack holds only minus 1, and best is zero.',
+  'i equals 0 is a close. We pop minus 1 and the stack is empty, so this close cannot be matched. We push 0; it becomes the new bottom, the new wall.',
+  'i equals 1 is an open, so we push 1.',
+  'i equals 2 is a close. We pop 1, a match. The top is 0, so the length is 2 minus 0, which is 2, and best becomes 2.',
+  'i equals 3 is an open, so we push 3.',
+  'i equals 4 is a close. We pop 3, and the top is still 0. The length is 4 minus 0, which is 4: the two pairs join up, and best becomes 4.',
+  'i equals 5 is a close. We pop 0 and the stack is empty again, so this close cannot be matched either. We push 5 as the new wall.',
+  'The scan is done, and we return 4, the run at indices 1 to 4. Each character was looked at only once.'
+]});
+
+/* ===== 6 Walk through: (() ===== */
+add({ch:6, title:'Walk through: <em>"(()" → 2</em>', vis:
+  gloss(0,[['unmatched (','An open parenthesis that never gets a ); its index stays in the stack']])
+  + duo(LP_viz('(()',[
+      [2,null,[-1],'start: stack holds only <b>−1</b> · best = <em>0</em>',null],
+      [3,0,[-1,0],'i = 0 is (: push <b>0</b> · best = <em>0</em>',null],
+      [4,1,[-1,0,1],'i = 1 is (: push <b>1</b> · best = <em>0</em>',null],
+      [5,2,[-1,0],'i = 2: pop 1, length 2 − 0 = <b>2</b> · best = <em>2</em>',[1,2]]]),
+    q(1,'This time the −1 at the bottom is never removed. Why is the answer not 2 − (−1) = 3?')
+    + cards([[6,'Return 2','The ( at index 0 stays in the stack: it is a wall','mint']])),
+  say:[
+  'An unmatched open parenthesis is one that never gets a close. Its index stays in the stack the whole time.',
+  'The question for this scene: this time the minus 1 at the bottom is never removed, so why is the answer not 2 minus minus 1, which is 3?',
+  'At the start, the stack holds only minus 1.',
+  'i equals 0 is an open, so we push 0.',
+  'i equals 1 is an open, so we push 1.',
+  'i equals 2 is a close. We pop 1, a match. Now the top is not minus 1 but 0. The length is 2 minus 0, which is 2.',
+  'So we return 2. The open parenthesis at index 0 never got matched, so in the stack it acts as a wall. We always subtract the top, not the bottom, so it never gets counted.'
+]});
+
+/* ===== 7 Write the code ===== */
+add({ch:7, title:'Code: <em>copy the rules down</em>', vis:
+  gloss(0,[['enumerate(s)','Gives the index i and the character ch together'],['best','The longest valid length seen so far']])
+  + q(1,'Which line of code matches each rule?')
+  + term('solution.py',[
+    [2,'o','def longestValidParentheses(s):'],
+    [2,'hl','    stack = [-1]          # wall: the cell before the string'],
+    [2,'o','    best = 0'],
+    [3,'o','    for i, ch in enumerate(s):'],
+    [3,'o','        if ch == "(":'],
+    [3,'o','            stack.append(i)'],
+    [4,'o','        else:'],
+    [4,'o','            stack.pop()'],
+    [4,'o','            if not stack:     # this ) cannot be matched'],
+    [4,'hl','                stack.append(i)'],
+    [5,'o','            else:'],
+    [5,'hl','                best = max(best, i - stack[-1])'],
+    [6,'o','    return best']]),
+  say:[
+  'enumerate of s gives the index i and the character ch together. Best is the longest valid length seen so far.',
+  'The question for this scene: which line of code matches each rule?',
+  'The first two lines: the stack starts with minus 1, the wall just before the string, and best starts at zero.',
+  'For an open parenthesis, append its index to the stack, to wait for a later close.',
+  'For a close parenthesis, pop first. If the stack is now empty, this close cannot be matched, so push i as the new wall.',
+  'If the stack is not empty, it was a match. The top is the nearest wall, so i minus the top is the run length; compare it with best and keep the larger.',
+  'Finally return best. For an empty string the loop never runs, and we return zero right away.'
+]});
+
+/* ===== 8 Complexity and pitfalls ===== */
+add({ch:8, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Each character is pushed and popped at most once']])
+  + q(1,'What are the time and space? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(n)','One scan; if every character is (, the stack holds n + 1 indices','sky'],
+           [3,'Forgetting to push −1','The first ) empties the stack, and there is nothing to measure from','coral'],
+           [4,'Not pushing i when the stack is empty','The next ) has no wall to subtract','coral'],
+           [4,'Computing the length before the pop','Pop the matching ( first; only then is the top the wall','coral']]),
+  say:[
+  'Big O of n means each character is handled once, pushed and popped at most once each.',
+  'The question for this scene: what are the time and space, and where is it easiest to go wrong?',
+  'Time is big O of n, a single scan. Space is also big O of n: in the worst case every character is an open, and the stack holds n plus 1 indices.',
+  'Pitfall one: forgetting to push minus 1. The first close parenthesis pops and empties the stack, and the length of the first valid run has nothing to measure from.',
+  'Pitfall two: not pushing i when the stack is empty, so the next close has no wall to subtract. Pitfall three: computing the length before the pop. Always pop the matching open first; only then is the top the wall.'
+]});
+
+/* ===== 9 Check three more examples ===== */
+add({ch:9, title:'Check <em>three more examples</em>', vis:
+  gloss(0,[['edge case','The shortest or most unusual input, where bugs hide']])
+  + q(1,'What do "", "()(())" and "())((())" return?')
+  + tbl(['Input','Key step','Returns'],[
+    [2,'""','The loop never runs','0'],
+    [3,'"()(())"','i = 5: pop 2, top −1, 5 − (−1) = 6','6'],
+    [4,'"())((())"','i = 2: empty, push 2 as a wall; i = 7: pop 4, top 3, 7 − 3 = 4','4']]),
+  say:[
+  'An edge case is the shortest or most unusual input, where bugs like to hide.',
+  'The question for this scene: what do the empty string, open close open open close close, and open close close open open open close close return?',
+  'The empty string: the loop never runs, and we return zero. That is exactly why best starts at zero.',
+  'Open close open open close close: at i equals 1, 1 minus minus 1 is 2. At the end, i equals 5 pops 2, the top is back to minus 1, and 5 minus minus 1 is 6. The whole string is valid.',
+  'Open close close open open open close close: at i equals 2 there is an extra close, the stack empties, and we push 2 as a wall. Later, the open at index 3 never gets matched, so it is a wall too. At i equals 7 we pop 4, the top is 3, and 7 minus 3 is 4. We return 4.'
+]});
+
+/* ===== 10 O(1) space ===== */
+add({ch:10, title:'O(1) space: <em>scan both ways</em>', vis:
+  gloss(0,[['open / close','How many ( and how many ) are in the current stretch'],['O(1) space','Only a few variables, no matter how big n is']])
+  + q(1,'Can we do it with two counters and no stack?')
+  + cards([[2,'Left to right','open == close → length 2 × close; close > open → reset both to 0','sky'],
+           [3,'"(()" is missed','open 2, close 1, never equal: left to right gives 0','coral'],
+           [4,'Then right to left, with the rule flipped','Reset when open > close; "(()" backwards is equal at the second character, giving 2','mint']])
+  + term('two_pass.py',[
+    [5,'o','def longestValidParentheses(s):'],
+    [5,'o','    def scan(chars, opener):'],
+    [5,'o','        best = opened = closed = 0'],
+    [5,'o','        for ch in chars:'],
+    [5,'o','            if ch == opener:'],
+    [5,'o','                opened += 1'],
+    [5,'o','            else:'],
+    [5,'o','                closed += 1'],
+    [5,'o','            if opened == closed:'],
+    [5,'o','                best = max(best, 2 * closed)'],
+    [5,'o','            elif closed > opened:'],
+    [5,'o','                opened = closed = 0'],
+    [5,'o','        return best'],
+    [5,'hl','    return max(scan(s, "("), scan(reversed(s), ")"))']]),
+  say:[
+  'Open and close are how many open and close parentheses the current stretch has. Big O of 1 space means only a few variables, no matter how big n is.',
+  'The question for this scene: can we do it with just two counters and no stack?',
+  'First scan left to right. When the two counts are equal, the stretch is exactly matched, and its length is 2 times close. When there are more closes than opens, an unmatched close has appeared, so reset both to zero and start again from the next cell.',
+  'But this misses open, open, close. There are 2 opens and 1 close, never equal, and the closes never outnumber the opens, so left to right gives zero. An extra open cannot be spotted from the left.',
+  'So scan again from right to left, with the rule flipped: reset when opens outnumber closes. Reading open, open, close backwards: close, then open, and now it is one to one, length 2. Then another open, too many opens, reset. Take the larger of the two scans: 2.',
+  'In the code both scans share one function: going right to left, the close parenthesis plays the role of the opener. Time is still big O of n, and space drops to big O of 1.'
+]});
+
+/* ===== 11 How to explain it in an interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the approach out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why do you push a −1 onto the stack first?"')
+  + flow([[2,'Brute force','count every stretch, O(n²)'],[3,'Stack of indices','start with −1'],[3,'Length','i − top'],[4,'Complexity','O(n) / O(n)'],[4,'Follow-up','two-pass counting, O(1)']])
+  + chips(4,['stack of indices','sentinel −1','unmatched index','two-pass counting','O(n) time','O(1) space']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why do you push a minus 1 onto the stack first?',
+  'Start with brute force: from each starting point, count to the right with a balance counter. That is big O of n squared, slow because the same stretch is recounted again and again. Then the approach: I keep a stack of indices, pushing on an open and popping on a close.',
+  'Then the why: the stack top is always the unmatched position closest to i, so after the pop, i minus the top is the valid length. Minus 1 is the cell just before the string, so the very first valid run also has a wall to subtract.',
+  'Time and space are both big O of n. If asked to save space, describe two-pass counting: left to right, then right to left, with big O of 1 space. The key English terms are stack of indices and sentinel.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Base','push −1'],[0,'(','push i'],[0,')','pop'],[0,'Empty','push i as a wall'],[0,'Not empty','i − top']])
+  + cards([[1,'1. Store indices, and push −1 first','−1 is the cell just before the string, the very first wall','amber'],
+           [2,'2. Top = the wall closest to i; length = i − top','A wall is an unmatched ), or a ( not matched yet','sky'],
+           [3,'3. To save space: two counters, scan both ways','Left to right, reset when closes win; right to left, reset when opens win','mint']]),
+  say:[
+  'One more pass over the main line: push minus 1 first; an open pushes its index; a close pops first; if the stack is empty, push i as a wall; if not, update best with i minus the top.',
+  'One: the stack holds indices, and you push minus 1 first. Minus 1 is the cell just before the string, the very first wall.',
+  'Two: after the pop, the stack top is the wall closest to i, and the length is i minus the top. A wall is an unmatched close, or an open that is not matched yet.',
+  'Three: to save space, use two counters and scan both ways. Left to right, reset when closes outnumber opens; right to left, reset when opens outnumber closes.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/692127e4b331.mp3", "0-1": "a/24a8c7d0a21b.mp3", "0-2": "a/551ed6055fad.mp3", "0-3": "a/38b02829234f.mp3", "1-0": "a/674642700d5a.mp3", "1-1": "a/5da8f6562c1a.mp3", "1-2": "a/90a10896be68.mp3", "1-3": "a/2cc8ae76ee97.mp3", "1-4": "a/2e05d4a5101b.mp3", "2-0": "a/8499a3583285.mp3", "2-1": "a/89bb452d9e31.mp3", "2-2": "a/064675adee34.mp3", "2-3": "a/ad0eac4b2140.mp3", "2-4": "a/8300065351a0.mp3", "2-5": "a/5736270afa18.mp3", "3-0": "a/943dbab0cf61.mp3", "3-1": "a/b7ec7d96fe67.mp3", "3-2": "a/bed726d73579.mp3", "3-3": "a/7ddf42c54ecf.mp3", "3-4": "a/e19a641fa6d9.mp3", "4-0": "a/7bf834cddf8a.mp3", "4-1": "a/90d52c644bef.mp3", "4-2": "a/2e06745a9511.mp3", "4-3": "a/b1393346cf1f.mp3", "4-4": "a/adecfb734be8.mp3", "4-5": "a/a1f81be8eabf.mp3", "5-0": "a/1699ab1bd867.mp3", "5-1": "a/a8a7ee9ae057.mp3", "5-2": "a/2a124a47d899.mp3", "5-3": "a/198c338d4f34.mp3", "5-4": "a/665260452c08.mp3", "5-5": "a/2befc07dfb04.mp3", "5-6": "a/1594ef621e1a.mp3", "5-7": "a/aac46619f0ca.mp3", "5-8": "a/57d6348f189d.mp3", "5-9": "a/f728b3c72815.mp3", "6-0": "a/6c9d0c0c9d7d.mp3", "6-1": "a/0b7d2f759bf2.mp3", "6-2": "a/4b2de199585d.mp3", "6-3": "a/63557fc387d3.mp3", "6-4": "a/665260452c08.mp3", "6-5": "a/d13864db1c4b.mp3", "6-6": "a/355cddf60ed2.mp3", "7-0": "a/7c9e1dc2e351.mp3", "7-1": "a/a9dae387d18c.mp3", "7-2": "a/a9bb44899a0f.mp3", "7-3": "a/50d46d0e3f0f.mp3", "7-4": "a/132c1f453daa.mp3", "7-5": "a/c27b59d83f51.mp3", "7-6": "a/885aff3a6f76.mp3", "8-0": "a/6e4590f325c1.mp3", "8-1": "a/3b394bf662cc.mp3", "8-2": "a/5492a1bf6623.mp3", "8-3": "a/931652e55620.mp3", "8-4": "a/2e16b648b7f6.mp3", "9-0": "a/af913d3f2872.mp3", "9-1": "a/273f34e25a29.mp3", "9-2": "a/681642282ed5.mp3", "9-3": "a/7929b3f694d1.mp3", "9-4": "a/383e94126de5.mp3", "10-0": "a/46c545d509d4.mp3", "10-1": "a/3e06b6237fa8.mp3", "10-2": "a/7a2a80160e5a.mp3", "10-3": "a/1a21e4047580.mp3", "10-4": "a/a369ab827491.mp3", "10-5": "a/729a2d3aabc2.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/0f7bff94df49.mp3", "11-2": "a/bbe3f43f8625.mp3", "11-3": "a/5749dbc9a81d.mp3", "11-4": "a/945170a7bc43.mp3", "12-0": "a/6efc1c76b45e.mp3", "12-1": "a/2498b80e40d6.mp3", "12-2": "a/83120efac169.mp3", "12-3": "a/6b446ab20fd6.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

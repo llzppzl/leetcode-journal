@@ -1,0 +1,744 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jump by Levels</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Jump by Levels', template:'prep', lang:'en', sub:'LeetCode 45 Jump Game II · animated walkthrough', key:'lc45envid', doc:'LeetCode 45', blurb:'Building on the boundary from 55: try every path, get it right with dp, notice that equal dp values sit together in one segment, then scan level by level, jump once more whenever i reaches the end of the current level, and count how many boundaries you cross.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: the fewest jumps','The problem: [2, 3, 1, 1, 4]','Recap 55: farthest is a boundary','The natural idea: try every path','dp: correct, but slow','The key: one level is one segment','Walk through: end and farthest','Check three more examples','Write the code','Stop at n − 2, and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a row of cells (same style as 55): colored band = which jump reaches it, amber ring = current i,
+   marker row = where end / far sit at this step, optional dp row ---------- */
+const LCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.jg{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.jg>div{position:relative;display:grid;place-items:center;height:2.6em;border-radius:8px}
+.jg>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.jg>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.jg>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.jg .tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(98,224,180,.35);transform:none}
+.jg .tint.s:not(.on){opacity:0}
+.jg .band.s{position:absolute;inset:0;border-radius:7px;transform:none}
+.jg .band.s:not(.on){opacity:0}
+.jg .band em{position:absolute;right:3px;bottom:1px;font-style:normal;font-family:var(--f-mono);font-size:.62em;color:var(--paper);opacity:.85}
+.jg .L0{background:rgba(110,190,255,.38)}
+.jg .L1{background:rgba(98,224,180,.38)}
+.jg .L2{background:rgba(255,190,90,.40)}
+.jg .L3{background:rgba(190,140,255,.42)}
+.jg i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.jg i.ring.s.now{opacity:1!important}
+.jg .goal{border-color:var(--sky)}
+.jg>.mk{height:2.3em;place-items:start center}
+.jg>.mk span.s{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:1px;font-family:var(--f-mono);font-size:.72em;line-height:1.1;transform:none}
+.jg>.mk span.only.s{opacity:0!important} .jg>.mk span.only.s.now{opacity:1!important}
+.jg>.mk em{font-style:normal}
+.jg>.mk em.e{color:var(--amber)} .jg>.mk em.f{color:var(--mint)}
+.jg>.dv{height:2.2em;border:1px dashed var(--line);font-family:var(--f-display);font-size:1.1em;color:var(--mint)}
+.jg>.dv .s:not(.on){opacity:0}
+</style>`;
+// o: band {k:[level, step]}, tint {k:step}, ring [[step,k]], mk [[step,end,far]], dp {k:[val,step]}
+function lc45_strip(nums, o={}){
+  const n = nums.length, band=o.band||{}, tint=o.tint||{}, ring=o.ring||[], mk=o.mk||[], dp=o.dp;
+  let h = LCSS + `<div class="jg" style="grid-template-columns:repeat(${n},2.8em)">`;
+  h += nums.map((_,k)=>`<div class="ix">${k}${k===n-1&&n>1?' end':''}</div>`).join('');
+  h += nums.map((v,k)=>`<div class="v ${k===n-1?'goal':''}"><b>${v}</b>${
+    tint[k]!=null?`<i class="tint s" data-s="${tint[k]}"></i>`:''}${
+    band[k]!=null?`<i class="band s L${band[k][0]}" data-s="${band[k][1]}"><em>${band[k][0]}</em></i>`:''}${
+    ring.filter(r=>r[1]===k).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('')}</div>`).join('');
+  if(mk.length) h += nums.map((_,k)=>`<div class="mk">${mk.map(([s,e,f])=>{
+    const p=(k===e?'<em class="e">end</em>':'')+(k===f?'<em class="f">far</em>':'');
+    return p?`<span class="only s" data-s="${s}">${p}</span>`:''; }).join('')}</div>`).join('');
+  if(dp) h += nums.map((_,k)=>`<div class="dv">${dp[k]?`<b class="s" data-s="${dp[k][1]}">${dp[k][0]}</b>`:''}</div>`).join('');
+  return h + `</div>`;
+}
+const LC45_A = [2,3,1,1,4];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Jump by Levels<br><em>LeetCode 45</em>', vis:
+  gloss(0,[['nums[i]','the most cells you can jump forward from cell i'],['fewest jumps','the minimum number of jumps from cell 0 to the last cell'],['level','the cells whose fewest jumps is exactly k: level k'],['farthest','the boundary from 55: the farthest index proven reachable']])
+  + flow([[1,'Recap 55','farthest is a boundary'],[1,'Natural idea','paths, then dp'],[2,'Spot the pattern','one level = one segment'],[2,'end / far','at end, jump again'],[3,'Code','one pass'],[3,'n − 2','never jump from the end']]),
+  say:[
+  'This lesson covers LeetCode 45, Jump Game Two. First, four words: nums of i is the most cells you can jump forward from cell i. Fewest jumps is the minimum number of jumps from cell zero to the last cell. Level k is the set of cells whose minimum is exactly k jumps. And farthest is the boundary from problem 55.',
+  'We will recap the boundary from 55, then walk through the natural ideas: try every path, and then get it right with dp.',
+  'Next we spot a pattern in the dp table: cells on the same level form one segment. So we only track two lines, end and farthest, and when i reaches end we must jump once more.',
+  'Finally we write the code and see why the loop only goes up to n minus 2.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The fewest <em>jumps</em>', vis:
+  gloss(0,[['guaranteed reachable','the problem promises the last cell can always be reached']])
+  + duo(lc45_strip(LC45_A,{ring:[[2,0],[2,1],[2,4]]}),
+    q(1,'[2, 3, 1, 1, 4]: starting from cell 0, what is the fewest number of jumps to the last cell?')
+    + cards([[2,'Answer: 2 jumps','0 → 1 → 4: jump 1 cell, then 3 cells','mint'],
+             [3,'Reachable is not the same as fewest','0 → 2 → 3 → 4 also works, but takes 3 jumps','coral'],
+             [4,'The difference from 55','55 asks whether you can; 45 promises you can and asks how many','sky']])),
+  say:[
+  'Guaranteed reachable means the problem promises you can always reach the last cell, so we never handle the stuck case.',
+  'The question for this scene: with 2, 3, 1, 1, 4, starting from cell zero, what is the fewest number of jumps to the last cell?',
+  'The answer is two. From cell zero jump just one cell, to cell one. From cell one jump three cells, landing exactly on index four.',
+  'Reachable is not the same as fewest. Zero, two, three, four also reaches the end, but it takes three jumps, so it is not the minimum.',
+  'That is the difference from 55: 55 asks whether you can reach the end, while 45 promises you can and asks for the fewest jumps.'
+]});
+
+/* ===== 2 Recap 55 ===== */
+add({ch:2, title:'Recap 55: <em>farthest is a boundary</em>', vis:
+  gloss(0,[['boundary','a line: every cell inside it is already proven reachable']])
+  + duo(lc45_strip(LC45_A,{tint:{0:2,1:2,2:2},ring:[[2,0]]}),
+    q(1,'What exactly is the farthest we kept in 55? Is it still useful here?')
+    + cards([[2,'After cell 0: farthest = 2','0 + 2 = 2: cells 0, 1 and 2 are all reachable','sky'],
+             [3,'A boundary, not a position','We chose no jump, and we are not "standing on 2"','coral'],
+             [4,'45 adds one question','Each extra jump pushes the boundary out by a segment: how many pushes?','mint']])),
+  say:[
+  'A boundary is a line, and every cell inside it is already proven reachable.',
+  'The question for this scene: what exactly is the farthest we kept in 55, and is it still useful here?',
+  'Look at cell zero: zero plus two is two, so farthest becomes two. That means cells zero, one and two are all reachable, the green stretch.',
+  'farthest is a boundary, not a position. We did not choose any jump, and we are not standing on cell two. Everything inside the boundary is reachable.',
+  'Problem 45 uses the same boundary, with one more question: each extra jump pushes the boundary out by one segment, so how many pushes in total? Keep that in mind while we look at the natural approach.'
+]});
+
+/* ===== 3 The natural idea ===== */
+add({ch:3, title:'The natural idea: <em>try every path</em>', vis:
+  gloss(0,[['path','a sequence of landing cells, like 0 → 1 → 4'],['exponential','add a little length and the count multiplies'],['dp[i]','the fewest jumps needed to reach cell i']])
+  + q(1,'The most direct approach is to try every way of jumping. Where is it slow, and how do we fix it?')
+  + cards([[2,'[2, 3, 1, 1, 4] has 4 paths','0→1→2→3→4, 0→1→3→4, 0→1→4, 0→2→3→4; the shortest is 2 jumps','sky'],
+           [3,'Every cell branches','An array of all 2s with length 21 already has 10946 paths','coral']])
+  + term('dp version',[
+    [4,'o','dp = [float("inf")] * n;  dp[0] = 0'],
+    [4,'o','for i in range(n):'],
+    [4,'o','    for j in range(i + 1, min(n, i + nums[i] + 1)):'],
+    [4,'hl','        dp[j] = min(dp[j], dp[i] + 1)    # one more jump from i']]),
+  say:[
+  'A path is a sequence of landing cells, like zero, one, four. Exponential means that adding a little length multiplies the count. dp of i is the fewest jumps needed to reach cell i.',
+  'The question for this scene: the most direct approach is to try every way of jumping. Where is it slow, and how do we fix it?',
+  'The array 2, 3, 1, 1, 4 has only four paths. Counting their lengths, the shortest is zero, one, four, with two jumps. By hand, on a tiny example, that is fine.',
+  'The trouble is that every cell branches. An array of all 2s with length 21 already has 10946 paths, and a bit longer is hopeless.',
+  'Many paths share the same first half, so we repeat work. The fix is dp: dp of i is the fewest jumps to reach cell i. From each i, every cell j it can land on gets updated with dp of i plus 1.'
+]});
+
+/* ===== 4 dp works ===== */
+add({ch:4, title:'dp: <em>correct, but slow</em>', vis:
+  gloss(0,[['O(n²)','n times n: every cell scans a big stretch ahead'],['non-decreasing','a later value is never smaller than an earlier one']])
+  + duo(lc45_strip(LC45_A,{ring:[[2,0],[3,0],[4,1],[5,2],[5,3]],dp:{0:[0,2],1:[1,3],2:[1,3],3:[2,4],4:[2,4]}}),
+    q(1,'Fill dp on [2, 3, 1, 1, 4]. Is the answer right? Where is it slow?')
+    + term('bottom row is dp',[
+      [2,'o','dp[0] = 0            start, no jump'],
+      [3,'o','i=0 → j=1,2        dp = 0 + 1 = 1'],
+      [4,'o','i=1 → j=2,3,4      dp[3] = dp[4] = 2'],
+      [5,'hl','i=2,3 nothing smaller   dp[4] = 2 ✓'],
+      [6,'e','0, 1, 1, 2, 2: equal values sit together']])),
+  say:[
+  'Big O of n squared means n times n: every cell scans a big stretch ahead. Non-decreasing means a later value is never smaller than an earlier one.',
+  'The question for this scene: fill dp on 2, 3, 1, 1, 4. Is the answer right, and where is it slow?',
+  'First, dp of zero is zero, because the start needs no jump. The bottom row is the dp table.',
+  'From cell zero, whose dp is zero, we can land on cells one and two, so both become zero plus 1, which is one.',
+  'From cell one, whose dp is one, we can land on two, three and four. Cell two is already one and stays. Cells three and four become two.',
+  'Cells two and three push further, but neither gives a smaller number. dp of four is two, which is correct.',
+  'It is slow because every cell scans nums of i cells ahead, which is big O of n squared in the worst case. But look at this row: 0, 1, 1, 2, 2. It never goes down, and equal values sit together. That is the opening.'
+]});
+
+/* ===== 5 One level is one segment ===== */
+add({ch:5, title:'The key: <em>one level is one segment</em>', vis:
+  gloss(0,[['BFS, breadth-first','expand one level at a time: find every 1-jump cell, then the 2-jump ones'],['segment [start, end]','the contiguous cells from start to end']])
+  + duo(lc45_strip(LC45_A,{band:{0:[0,2],1:[1,3],2:[1,3],3:[2,4],4:[2,4]}}),
+    q(1,'Why do equal dp values sit together? Can we compute one segment at a time?')
+    + term('by level',[
+      [2,'o','jump 0  [0, 0]   only the start'],
+      [3,'o','jump 1  [1, 2]   0 + 2 = 2'],
+      [4,'hl','jump 2  [3, 4]   max(1+3, 2+1) = 4, has the end']])
+    + cards([[5,'The rule','While scanning a level, track farthest; when i reaches this level\'s end, jump once more, and the next level ends at farthest','mint']])),
+  say:[
+  'BFS, breadth-first search, expands one level at a time: first find every cell one jump away, then the ones two jumps away. A segment is the contiguous cells from start to end.',
+  'The question for this scene: why do equal dp values sit together, and can we compute one segment at a time?',
+  'With zero jumps you reach only the start, cell zero. That segment is zero to zero, in blue.',
+  'Jump one: from cell zero the farthest is two, and cells one and two are both reachable, for the reason from 55: if you can reach far, you can reach near. Level one is one to two, in green.',
+  'Jump two: inside level one, take the farthest landing. One plus three is four, two plus one is three, so the max is four. Level two is three to four, in amber, and it contains the end, so the answer is two.',
+  'So the rule is: while scanning a level, keep tracking farthest. When i reaches this level\'s end, the level is done and you must jump once more, and the next level\'s end is farthest.'
+]});
+
+/* ===== 6 Walk through ===== */
+add({ch:6, title:'Walk through: <em>end and farthest</em>', vis:
+  gloss(0,[['end','the right edge of the current level'],['far','among the cells scanned, how far the next jump can go'],['corner number','which jump this cell belongs to']])
+  + duo(lc45_strip(LC45_A,{band:{0:[0,2],1:[1,3],2:[1,3],3:[2,5],4:[2,5]},ring:[[3,0],[4,1],[5,2],[6,3]],mk:[[2,0,0],[3,2,2],[4,2,4],[5,4,4],[6,4,4]]}),
+    q(1,'Scanning left to right, at which moment does jumps go up by 1?')
+    + term('each step',[
+      [2,'o','start     jumps=0  end=0  far=0'],
+      [3,'hl','i=0  far=2   i == end → jumps=1, end=2'],
+      [4,'o','i=1  far=4   not at end yet'],
+      [5,'hl','i=2  far=4   i == end → jumps=2, end=4'],
+      [6,'o','i=3  far=4   loop ends here → 2']])),
+  say:[
+  'end is the right edge of the current level. far is farthest: among the cells scanned so far, how far the next jump can go. The number in a cell\'s corner says which jump it belongs to.',
+  'The question for this scene: scanning left to right, at which moment does jumps go up by 1?',
+  'At the start, jumps is zero, and end and far both sit on cell zero. Level zero is just the start.',
+  'Look at cell zero: zero plus two is two, so far becomes two. i equals end, so level zero is done and we must jump once more: jumps becomes one, and end moves to two. Level one is one to two.',
+  'Look at cell one: one plus three is four, so far becomes four. But i has not reached end, so this level is not done, and we do not jump yet.',
+  'Look at cell two: two plus one is three, and far stays four. i equals end, so level one is done: jumps becomes two, and end moves to four. Level two is three to four, which contains the end.',
+  'Look at cell three: three plus one is four, nothing changes, and it is not end. Cell three is n minus 2, so the loop stops and returns two, the same answer as dp.'
+]});
+
+/* ===== 7 Check three more ===== */
+add({ch:7, title:'Check <em>three more examples</em>', vis:
+  gloss(0,[['crossing a boundary','the moment i reaches end, you step past one level']])
+  + duo(lc45_strip([1,2,1,1,1],{band:{0:[0,4],1:[1,4],2:[2,4],3:[2,4],4:[3,4]}}),
+    q(1,'With other inputs, does "count the boundary crossings" still work?')
+    + term('checks',[
+      [2,'o','[2, 3, 0, 1, 4]   jump at i=0, i=2 → 2'],
+      [3,'o','[1]               loop never runs → 0'],
+      [4,'hl','[1, 2, 1, 1, 1]   jump at i=0, 1, 3 → 3']])),
+  say:[
+  'Crossing a boundary is the moment i reaches end and steps past one level. The answer is how many such moments there are.',
+  'The question for this scene: with other inputs, does counting the boundary crossings still work?',
+  'For 2, 3, 0, 1, 4: cell two is a zero, but it does not matter, because far is already four after cell one. We jump once at i equals zero and once at two, so the answer is two.',
+  'For the single number 1: the start is the end. n minus 2 is minus 1, so the loop never runs, and the answer is zero.',
+  'For 1, 2, 1, 1, 1: the levels are zero, then one, then two to three, then four. We jump at i equals zero, one and three, so the answer is three. The colors show those four levels.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>three variables, one pass</em>', vis:
+  gloss(0,[['range(n − 1)','i goes from 0 to n − 2 and never touches the last cell']])
+  + term('solution.py',[
+    [2,'o','def jump(nums):'],
+    [2,'hl','    jumps, cur_end, farthest = 0, 0, 0'],
+    [3,'o','    for i in range(len(nums) - 1):'],
+    [3,'hl','        farthest = max(farthest, i + nums[i])  # how far the next level goes'],
+    [4,'o','        if i == cur_end:                       # this level is done'],
+    [4,'hl','            jumps += 1                         # must jump once more'],
+    [4,'o','            cur_end = farthest                 # next level ends at farthest'],
+    [4,'o','    return jumps']])
+  + q(1,'What does each of the three variables track? Where is the jump decision?'),
+  say:[
+  'range of n minus 1 means i goes from zero to n minus 2 and never touches the last cell.',
+  'The question for this scene: what does each of the three variables track, and where is the jump decision?',
+  'jumps is how many jumps so far. cur end is the right edge of the current level. farthest is the boundary from 55, how far the next level can go. All three start at zero.',
+  'For each cell, first update farthest with i plus nums of i.',
+  'Then if i equals cur end, this level is done: jumps goes up by 1, and cur end becomes farthest. At the end, return jumps.'
+]});
+
+/* ===== 9 n − 2 and pitfalls ===== */
+add({ch:9, title:'Stop at n − 2, and <em>pitfalls</em>', vis:
+  gloss(0,[['overcount','adding a jump the answer does not need']])
+  + q(1,'Why does the loop stop at n − 2? What else is easy to get wrong?')
+  + cards([[2,'At the end, no more jumps','The last cell is only a landing spot; we never jump from it','sky'],
+           [3,'Scanning to n − 1 overcounts','[2, 3, 1, 1, 4]: i=4 equals end → 3 ✗; [1] gives 1 ✗','coral'],
+           [4,'Update farthest first, then check','Reversed, the end cell\'s own jump is missed: [2, 3, 1, 1, 4] gives 1 ✗','coral'],
+           [5,'Time O(n), space O(1)','Each cell once, three variables','mint']]),
+  say:[
+  'Overcounting means adding a jump that the answer does not need.',
+  'The question for this scene: why does the loop stop at n minus 2, and what else is easy to get wrong?',
+  'Because once you are at the end, no more jumps are needed. The last cell is only a landing spot, and we never jump from it.',
+  'If you scan to n minus 1, then in 2, 3, 1, 1, 4, at i equals four, i equals end again, and you count one extra jump to get three, which is wrong. The single number 1 would give one, also wrong.',
+  'The second trap is order: always update farthest first, then check i against end. Reversed, the end cell\'s own jump is never counted, and 2, 3, 1, 1, 4 gives one.',
+  'Complexity: each cell is seen once, so time is big O of n. With only three variables, space is big O of 1.'
+]});
+
+/* ===== 10 Interview ===== */
+add({ch:10, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud, write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "Your dp is O(n²). Can you do better?" How do you answer?')
+  + flow([[2,'dp','correct, O(n²)'],[2,'one level, one segment','dp never goes down'],[3,'end / far','two lines'],[4,'i == end','jumps + 1'],[4,'n − 2','never jump from the end']])
+  + chips(4,['BFS by levels','greedy','current end','farthest','O(n)','O(1)']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, your dp is big O of n squared, can you do better?',
+  'You can say: dp is correct, but I noticed the dp values never go down, and the cells whose fewest jumps is k form one segment. So I can scan level by level, like BFS, where each level is a segment.',
+  'While scanning I track two lines: end, the right edge of the current level, and farthest, how far the next level can go.',
+  'When i reaches end, I jump once and set end to farthest. The loop runs to n minus 2, so time is big O of n and space is big O of 1. The key terms are BFS by levels and greedy.'
+]});
+
+/* ===== 11 Wrap-up ===== */
+add({ch:11, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Boundary','farthest from 55'],[0,'One segment','fewest = k is one stretch'],[0,'i == end','jump once more'],[0,'n − 2','never jump from the end']])
+  + cards([[1,'① Cells whose fewest jumps is k form one segment','That is BFS by levels, with the levels laid out on a line','amber'],
+           [2,'② When i reaches end, jumps + 1 and end becomes farthest','Update farthest first, then check','sky'],
+           [3,'③ The loop stops at n − 2','At the end you never jump again, or you overcount','mint']]),
+  say:[
+  'Let\'s review the main thread: trying every path explodes, dp is correct but big O of n squared, dp never goes down so each level is one segment, and with end and farthest we count the boundary crossings.',
+  'Number one: the cells whose fewest jumps is k form one segment. That is BFS by levels, with the levels laid out on a line.',
+  'Number two: when i reaches end, jumps goes up by 1 and end becomes farthest, and you update farthest before you check.',
+  'Number three: the loop stops at n minus 2, because at the end you never jump again, or you would overcount.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/b0448e7cf014.mp3", "0-1": "a/4009226a8c65.mp3", "0-2": "a/6c869a23dfee.mp3", "0-3": "a/e4fcf29f7eaf.mp3", "1-0": "a/7d6c94243263.mp3", "1-1": "a/15a241d4c9ff.mp3", "1-2": "a/28e011687f2a.mp3", "1-3": "a/3ff75e6beddf.mp3", "1-4": "a/fef4cf940be7.mp3", "2-0": "a/57a9fcaa0d75.mp3", "2-1": "a/74452698f4de.mp3", "2-2": "a/88ab97c37483.mp3", "2-3": "a/da0550ad9132.mp3", "2-4": "a/ff507ca8c183.mp3", "3-0": "a/86116503f608.mp3", "3-1": "a/afa1936df176.mp3", "3-2": "a/39a41debc5c1.mp3", "3-3": "a/71f19b9461e3.mp3", "3-4": "a/299a2d1099b0.mp3", "4-0": "a/e8547870942b.mp3", "4-1": "a/d7e9e92b4714.mp3", "4-2": "a/096759cdeb39.mp3", "4-3": "a/0220d0c2a384.mp3", "4-4": "a/58266071c697.mp3", "4-5": "a/6ebde90a54b1.mp3", "4-6": "a/790d2d41f3f8.mp3", "5-0": "a/b87813dbe49d.mp3", "5-1": "a/ba1256a9a0dc.mp3", "5-2": "a/d634d8316342.mp3", "5-3": "a/9ccfbf95c9c2.mp3", "5-4": "a/bdaf2160d18d.mp3", "5-5": "a/7f4ce47fcb15.mp3", "6-0": "a/7ede2e62ab40.mp3", "6-1": "a/596003d1fa0e.mp3", "6-2": "a/59183b8f67a3.mp3", "6-3": "a/ea1f1da2bd54.mp3", "6-4": "a/afff6a9f06b2.mp3", "6-5": "a/8339c354abd3.mp3", "6-6": "a/4353e26cc6e8.mp3", "7-0": "a/fc6070ba3725.mp3", "7-1": "a/117ffa2722ae.mp3", "7-2": "a/96d7e114598d.mp3", "7-3": "a/4cae75797143.mp3", "7-4": "a/21c494d9d616.mp3", "8-0": "a/596a40fee810.mp3", "8-1": "a/a0217a6b98ef.mp3", "8-2": "a/7b62d0554d58.mp3", "8-3": "a/8190e47c891a.mp3", "8-4": "a/bf68038e5872.mp3", "9-0": "a/8ea10731a2cf.mp3", "9-1": "a/24492f518461.mp3", "9-2": "a/49d51a53f0cc.mp3", "9-3": "a/82286c5dbbc8.mp3", "9-4": "a/73ebf30d2cd8.mp3", "9-5": "a/133ce93f935e.mp3", "10-0": "a/1a24693ed388.mp3", "10-1": "a/a7f1cc77cd67.mp3", "10-2": "a/f07d2da71d36.mp3", "10-3": "a/8b3c2eb270af.mp3", "10-4": "a/52d4a3af6423.mp3", "11-0": "a/619adfe544a8.mp3", "11-1": "a/09c4f4a35951.mp3", "11-2": "a/f86ccdbd9728.mp3", "11-3": "a/e8f2ca8db306.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

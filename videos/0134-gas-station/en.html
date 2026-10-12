@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fuel Around the Loop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Fuel Around the Loop', template:'prep', lang:'en', sub:'LeetCode 134 Gas Station · animated walkthrough', key:'lc134envid', doc:'LeetCode 134', blurb:'Start from trying every station and driving a full loop; then use the total fuel to decide whether any answer exists, and see why, the moment the tank goes negative, every start in between can be skipped, so one scan finds the start.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a loop of gas stations','The problem: fuel in, fuel out','First idea: try every start','Insight 1: is there enough in total','The moment the tank goes negative','Why "only less fuel"','Walk through: [1, 2, 3, 4, 5]','Check again: the answer is 4','Why it makes it all the way around','Write the code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- labels ---------- */
+const TK_L = {st:'S', start:'start', ring:'loop of gas stations'};
+
+const TCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.tk{width:100%;max-width:440px;margin:0 auto;display:block;overflow:visible}
+.tk .s:not(.on){opacity:0}
+.tk .only.s{opacity:0!important} .tk .only.s.now{opacity:1!important}
+.tk text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.tk text.lab{font-family:var(--f-body);font-size:13px;fill:var(--dim)}
+.tk text.g{font-family:var(--f-mono);font-size:15px;fill:var(--mint)}
+.tk text.c{font-family:var(--f-mono);font-size:15px;fill:var(--coral)}
+.tk text.v{font-family:var(--f-mono);font-size:13px}
+.tk text.flag{font-family:var(--f-body);font-size:13px;fill:var(--amber)}
+.tk text.x{font-size:26px;fill:var(--coral)}
+.tk circle.nd{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.tk circle.hot{fill:none;stroke:var(--amber);stroke-width:4}
+.tk path.road{fill:none;stroke:var(--sky);stroke-width:3}
+.tk path.road.hot{stroke:var(--amber);stroke-width:5}
+.tk line.base{stroke:var(--dim);stroke-width:1.5}
+.tk rect.pos{fill:rgba(98,224,180,.75)} .tk rect.neg{fill:rgba(255,122,107,.8)}
+.tk rect.col{fill:rgba(255,190,90,.12);stroke:var(--amber);stroke-width:2}
+.tk rect.col.fin{fill:rgba(98,224,180,.15);stroke:var(--mint)}
+.tk rect.skip{fill:rgba(255,122,107,.16)}
+.tkq{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative}
+.tkq .s{position:absolute;left:0;right:0}
+.tkq .only.s{opacity:0!important} .tkq .only.s.now{opacity:1!important}
+.tkq b{color:var(--amber)} .tkq em{font-style:normal;color:var(--mint)}
+</style>`;
+
+/* the circle of stations: + gas next to each station, − cost on the road to the next one; hot: [[step, k]] lights station k and road k → k+1 */
+function TK_ring(gas, cost, hot=[]){
+  const n = gas.length, cx = 170, cy = 130, R = 76, r = 18, D = Math.PI/180;
+  const ang = k => (-90 + k*360/n)*D, pt = (a, rr) => [cx + rr*Math.cos(a), cy + rr*Math.sin(a)];
+  const road = (k, cls) => { const a1 = ang(k) + (r+3)/R, a2 = ang(k+1) - (r+9)/R, [x1,y1] = pt(a1,R), [x2,y2] = pt(a2,R);
+    return `<path class="road ${cls}" marker-end="url(#tkah${cls?'h':''})" d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}"/>`; };
+  let s = TCSS + `<svg class="tk" viewBox="0 0 340 245" role="img" aria-label="${TK_L.ring}"><defs>
+    <marker id="tkah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sky)"/></marker>
+    <marker id="tkahh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--amber)"/></marker></defs>`;
+  for(let k=0;k<n;k++) s += road(k,'');
+  hot.forEach(([st,k]) => s += `<g class="only s" data-s="${st}">${road(k,'hot')}</g>`);
+  for(let k=0;k<n;k++){
+    const [x,y] = pt(ang(k),R), [gx,gy] = pt(ang(k),R+36), [mx,my] = pt(ang(k)+180/n*D,R-26);
+    s += `<circle class="nd" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/><text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${k}</text>`;
+    s += `<text class="g" x="${gx.toFixed(1)}" y="${gy.toFixed(1)}">+${gas[k]}</text><text class="c" x="${mx.toFixed(1)}" y="${my.toFixed(1)}">−${cost[k]}</text>`;
+  }
+  hot.forEach(([st,k]) => { const [x,y] = pt(ang(k),R); s += `<circle class="hot only s" data-s="${st}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r+6}"/>`; });
+  return s + `</svg>`;
+}
+
+/* tank bars: one column per station; bar = tank after leaving station i (green up, red down).
+   steps: [{s, i, v, st, t, fin}]  i = station just driven (null = none), v = tank after it, st = start after this step */
+function TK_bars(gas, cost, steps){
+  const n = gas.length, W = 60, x0 = (340 - n*W)/2, u = 8;
+  const vs = steps.filter(e=>e.i!=null).map(e=>e.v), mp = Math.max(1,...vs), mn = Math.max(0,...vs.map(v=>-v));
+  const top = 100, base = top + mp*u + 4, h = base + mn*u + 24, cx = k => x0 + k*W + W/2;
+  let s = TCSS + `<svg class="tk" viewBox="0 0 340 ${h}" role="img" aria-label="tank">`;
+  for(let k=0;k<n;k++) s += `<text class="lab" x="${cx(k)}" y="16">${TK_L.st} ${k}</text><text class="g" x="${cx(k)}" y="40">+${gas[k]}</text><text class="c" x="${cx(k)}" y="62">−${cost[k]}</text>`;
+  s += `<line class="base" x1="${x0}" y1="${base}" x2="${x0+n*W}" y2="${base}"/>`;
+  let prev = 0;
+  steps.forEach(e => {
+    if(e.i!=null) s += `<rect class="col only s" data-s="${e.s}" x="${x0+e.i*W+3}" y="2" width="${W-6}" height="${h-4}" rx="8"/>`;
+    if(e.fin) s += `<rect class="col fin only s" data-s="${e.s}" x="${x0+e.st*W+3}" y="2" width="${W-6}" height="${h-4}" rx="8"/>`;
+    if(e.i!=null){ const v = e.v, x = cx(e.i) - 15;
+      s += `<g class="s" data-s="${e.s}">` + (v>=0
+        ? `<rect class="pos" x="${x}" y="${base - v*u}" width="30" height="${Math.max(v*u,2)}" rx="3"/><text class="v" style="fill:var(--mint)" x="${cx(e.i)}" y="${base - v*u - 10}">${v}</text>`
+        : `<rect class="neg" x="${x}" y="${base}" width="30" height="${-v*u}" rx="3"/><text class="v" style="fill:var(--coral)" x="${cx(e.i)}" y="${base - v*u + 11}">${v}</text>`) + `</g>`; }
+    for(let k=prev;k<e.st;k++) s += `<g class="s" data-s="${e.s}"><rect class="skip" x="${x0+k*W+6}" y="4" width="${W-12}" height="70" rx="6"/><text class="x" x="${cx(k)}" y="${base - mp*u - 14}">✗</text></g>`;
+    prev = Math.max(prev, e.st);
+    s += `<text class="flag only s" data-s="${e.s}" x="${cx(e.st)}" y="84">▲ ${TK_L.start}</text>`;
+  });
+  s += `</svg><div class="tkq">${steps.map(e=>`<span class="only s" data-s="${e.s}">${e.t}</span>`).join('')}</div>`;
+  return s;
+}
+
+const A = [[1,2,3,4,5],[3,4,5,1,2]];
+const B = [[5,1,2,3,4],[4,4,1,5,1]];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Fuel Around the Loop<br><em>LeetCode 134</em>', vis:
+  gloss(0,[['circular route','The stations form a loop: after the last station you are back at the first'],['gas[i]','How much fuel you can add at station i'],['cost[i]','How much fuel it takes to drive from station i to the next one'],['tank','How much fuel is in the car right now; it can never go negative']])
+  + flow([[1,'The problem','which start makes a full loop'],[1,'First idea','try every start: O(n²)'],[2,'Insight 1','sum(gas) < sum(cost) → -1'],[2,'Insight 2','tank goes negative → start = i + 1'],[3,'Walk through','watch the tank bars'],[3,'Code','one scan, O(n)']]),
+  say:[
+  'This lesson is LeetCode 134, Gas Station. Four words first. A circular route means the stations form a loop, so after the last one you are back at the first. Gas of i is the fuel you can add at station i, and cost of i is the fuel it takes to drive to the next station. The tank is the fuel in the car right now, and it can never go negative.',
+  'We start from the most natural idea: actually drive a full loop from every possible start. It gives the right answer, but it is slow, big O of n squared.',
+  'Then come two insights. First, if total gas is less than total cost, nobody makes it back. Second, the moment the tank goes negative, every start in between can be skipped at once.',
+  'Finally we watch the tank bars rise and fall station by station on an example, and write code that scans just once.'
+]});
+
+/* ===== 1 The problem ===== */
+add({ch:1, title:'The problem: <em>fuel in, fuel out</em>', vis:
+  gloss(0,[['+ green','The fuel you can add at this station, gas[i]'],['− red','The fuel burned on the road to the next station, cost[i]']])
+  + duo(TK_ring(A[0],A[1],[[2,3],[3,4]]),
+    q(1,'gas = [1, 2, 3, 4, 5], cost = [3, 4, 5, 1, 2]: from which station can you drive all the way around and back?')
+    + cards([[2,'Station 3: add 4, burn 1','You reach station 4 with 3 left','sky'],
+             [3,'After station 4 comes station 0','That is the "circle": past the last station, back to the start','amber'],
+             [4,'Start with an empty tank; it can never go negative','If you make it back, return the start index; if not, return -1','mint']])),
+  say:[
+  'In the picture, the green plus is the fuel you can add at a station, which is gas of i. The red minus sits on the road, and it is the fuel burned getting to the next station, which is cost of i.',
+  'The question for this scene: gas is 1, 2, 3, 4, 5 and cost is 3, 4, 5, 1, 2. From which station can you drive all the way around and come back?',
+  'Look at one stretch of road. Start at station 3 with an empty tank, add 4 units of fuel, burn 1 driving to station 4, and you arrive with 3 left.',
+  'From station 4, the next stop is not station 5. It is station 0 again. That is the circle: past the last station, you are back at the beginning.',
+  'The rule is: the tank starts empty, at each station you fill up and then drive, and the fuel can never go negative on the way, though running exactly to zero is fine. If you make it back, return the start index; if not, return minus 1.'
+]});
+
+/* ===== 2 First idea ===== */
+add({ch:2, title:'First idea: <em>try a full loop from every start</em>', vis:
+  gloss(0,[['simulate','Follow the rules and actually drive it, station by station'],['O(n²)','n possible starts, each driving up to n stretches']])
+  + q(1,'The most natural idea: try a full loop from every start. Where does it get stuck?')
+  + term('a full loop from each start (tank after each stretch)',[
+    [2,'e','start 0: −2  ✗'],
+    [2,'e','start 1: −2  ✗      start 2: −2  ✗'],
+    [3,'hl','start 3: 3, 6, 4, 2, 0  ✓  → answer 3']])
+  + cards([[4,'This example is lucky','Each failing start runs out on its very first stretch','sky'],
+           [5,'Worst case: every start fails just before closing the loop','n starts × n stretches; with n up to 10⁵ that is about 10¹⁰ steps: too slow','coral']]),
+  say:[
+  'To simulate means to follow the rules and actually drive it, station by station. Big O of n squared means n possible starts, and each one drives up to n stretches.',
+  'The question for this scene: the most natural idea is to try a full loop from every start. Where does it get stuck?',
+  'Start at station 0: you add 1 but need 3, so you hit minus 2 halfway there and fail. Stations 1 and 2 are the same, minus 2 on the first stretch.',
+  'Start at station 3: the tank goes 3, 6, 4, 2, 0, and you arrive back at station 3 with exactly nothing left. It works, so the answer is 3.',
+  'This example is lucky. Every failing start runs out on its very first stretch, so trying them is quick.',
+  'In the worst case, every start drives almost a full loop before failing, which is n times n steps. With n up to a hundred thousand, that is about ten billion steps, too slow. What we want is for one failure to rule out a whole batch of starts.'
+]});
+
+/* ===== 3 Insight 1 ===== */
+add({ch:3, title:'Insight 1: <em>is there enough in total</em>', vis:
+  gloss(0,[['total gas','sum(gas): all the fuel you can add in one loop'],['total cost','sum(cost): all the fuel you burn in one loop']])
+  + q(1,'Is there a case where you know the answer is -1 without trying a single start?')
+  + cards([[2,'One loop: every station once, every road once','Wherever you start, you add sum(gas) and burn sum(cost)','sky'],
+           [3,'sum(gas) < sum(cost) → -1','[2, 3, 4] totals 9, [3, 4, 3] totals 10: short by 1, nobody makes it back','coral'],
+           [4,'If there is enough, exactly one start works','The problem guarantees it is unique. What is left: find it','mint']]),
+  say:[
+  'Total gas is sum of gas, all the fuel you can add in one loop. Total cost is sum of cost, all the fuel you burn in one loop.',
+  'The question for this scene: is there a case where you know the answer is minus 1 without trying a single start?',
+  'Yes. Whichever station you start from, one full loop visits every station exactly once and drives every road exactly once. So you always add the total gas and burn the total cost, no matter where you start.',
+  'If total gas is less than total cost, the tank must be negative by the end of the loop, so nobody makes it back, and we return minus 1. For example, gas 2, 3, 4 adds up to 9, and cost 3, 4, 3 adds up to 10, one unit short.',
+  'The other way around, if there is enough in total, the problem guarantees exactly one start works. What is left is to find it, and we want to do that in a single scan.'
+]});
+
+/* ===== 4 The moment the tank goes negative ===== */
+add({ch:4, title:'The moment <em>the tank goes negative</em>', vis:
+  gloss(0,[['net fuel','gas[i] − cost[i]: how much the tank gains after filling at station i and driving to the next one'],['bars','The tank after each stretch: green goes up, red goes down']])
+  + duo(TK_bars(B[0],B[1],[
+      {s:2,i:0,v:1,st:0,t:'S 0: 0 + 5 − 4 = <em>1</em>'},
+      {s:3,i:1,v:-2,st:0,t:'S 1: 1 + 1 − 4 = <b>−2</b>  out of fuel'},
+      {s:4,i:null,st:1,t:'start at S 1 instead: 0 + 1 − 4 = <b>−3</b>'}]),
+    q(1,'gas = [5, 1, 2, 3, 4], cost = [4, 4, 1, 5, 1]. Starting at station 0, you run out after station 1. Should you try station 1 next?')
+    + cards([[4,'Starting at station 1: −3, even less than −2','A wasted try. Stations 0 and 1 are both ruled out','coral']])),
+  say:[
+  'Net fuel is gas of i minus cost of i: how much the tank gains after filling up at station i and driving to the next one. The bars show the tank after each stretch, green going up and red going down.',
+  'The question for this scene: take another example, gas 5, 1, 2, 3, 4 and cost 4, 4, 1, 5, 1. Starting at station 0, you run out after station 1. Should you try station 1 next?',
+  'Start at station 0: add 5, burn 4, and you reach station 1 with 1 unit in the tank. That is the green bar.',
+  'At station 1: 1 unit plus 1 is 2, but the road needs 4, so you hit minus 2. Red bar, failure.',
+  'What if you start at station 1 instead? You reach station 1 with an empty tank, which is 1 unit less than the fuel you saved from station 0. 0 plus 1 minus 4 is minus 3, even less than minus 2, so it is a wasted try. Stations 0 and 1 are ruled out together, and the next one to try is station 2.'
+]});
+
+/* ===== 5 Why only less fuel ===== */
+add({ch:5, title:'Why <em>"only less fuel"</em>', vis:
+  gloss(0,[['middle station k','Any station between the start and station i, where things went wrong'],['jump to i + 1','The next candidate start; the tank resets to 0']])
+  + q(1,'Driving from start, the tank only goes negative at station i. Why do none of the stations between start and i need another try?')
+  + cards([[2,'If you reached middle station k, the tank was ≥ 0 there','If it had gone negative, you would have failed and jumped away before k','sky'],
+           [3,'Starting at k = arriving at k with a tank of 0','That throws away fuel that was ≥ 0','amber'],
+           [4,'The road after k is identical; you just start with less','At station i you have even less: still negative','coral'],
+           [5,'So: start = i + 1, tank = 0','Every start from start to i is ruled out; never look back','mint']]),
+  say:[
+  'A middle station k is any station between the start and station i, where things went wrong. Jumping to i plus 1 means making i plus 1 the next candidate start and resetting the tank to zero.',
+  'The question for this scene: driving from start, the tank only goes negative at station i. Why do none of the stations between start and i need another try?',
+  'First, one fact. If we managed to reach a middle station k, the tank was at least zero when we got there. If it had gone negative, we would have failed and jumped away before k, and never reached it.',
+  'So what happens if you start at k? Starting at k means arriving at k with a tank of zero. That throws away all the fuel saved between start and k, which was at least zero.',
+  'From k to i the road is exactly the same, the same fuel added and the same fuel burned. You just begin with less fuel, or the same. The tank was already negative at i, so now it can only be lower, still negative.',
+  'So every station from start to i fails, and we set start to i plus 1 and reset the tank to zero. That is the whole trick: one failure rules out a whole stretch of starts, and the scan never goes back.'
+]});
+
+/* ===== 6 Walk through ===== */
+add({ch:6, title:'Walk through: <em>[1, 2, 3, 4, 5]</em>', vis:
+  gloss(0,[['▲ start','The current candidate start'],['red cross','A start that has been ruled out']])
+  + duo(TK_bars(A[0],A[1],[
+      {s:2,i:null,st:0,t:'start = 0, tank = 0'},
+      {s:3,i:0,v:-2,st:1,t:'S 0: 0 + 1 − 3 = <b>−2</b> → start = 1, reset'},
+      {s:4,i:1,v:-2,st:2,t:'S 1: 0 + 2 − 4 = <b>−2</b> → start = 2, reset'},
+      {s:5,i:2,v:-2,st:3,t:'S 2: 0 + 3 − 5 = <b>−2</b> → start = 3, reset'},
+      {s:6,i:3,v:3,st:3,t:'S 3: 0 + 4 − 1 = <em>3</em>'},
+      {s:7,i:4,v:6,st:3,t:'S 4: 3 + 5 − 2 = <em>6</em>  scan done'},
+      {s:8,i:null,st:3,fin:true,t:'totals 15 = 15 → return <em>3</em>'}]),
+    q(1,'gas = [1, 2, 3, 4, 5], cost = [3, 4, 5, 1, 2]: with a single scan, where does the start end up?')),
+  say:[
+  'The orange triangle is the current candidate start, and a red cross marks a start that has been ruled out.',
+  'The question for this scene: gas is 1, 2, 3, 4, 5 and cost is 3, 4, 5, 1, 2. With a single scan, where does the start end up?',
+  'At the beginning, start is zero and the tank is zero.',
+  'Station 0: 0 plus 1 minus 3 is minus 2, negative. Station 0 is ruled out, start jumps to 1, and the tank resets.',
+  'Station 1: 0 plus 2 minus 4, minus 2 again. Station 1 is ruled out, start jumps to 2, and the tank resets.',
+  'Station 2: 0 plus 3 minus 5, still minus 2. Station 2 is ruled out, start jumps to 3, and the tank resets.',
+  'Station 3: 0 plus 4 minus 1 is 3, a green bar. Not negative, so start stays put.',
+  'Station 4: 3 plus 5 minus 2 is 6. We have reached the last station, and the tank never went negative again.',
+  'We already know total gas is 15 and total cost is 15, so an answer exists. Return start, which is 3. Same as the brute force, but each station was looked at only once.'
+]});
+
+/* ===== 7 Check again ===== */
+add({ch:7, title:'Check again: <em>the answer is 4</em>', vis:
+  gloss(0,[['reset','When you jump to a new start, the tank counts again from 0']])
+  + duo(TK_bars(B[0],B[1],[
+      {s:2,i:null,st:0,t:'start = 0, tank = 0'},
+      {s:3,i:0,v:1,st:0,t:'S 0: 0 + 5 − 4 = <em>1</em>'},
+      {s:4,i:1,v:-2,st:2,t:'S 1: 1 + 1 − 4 = <b>−2</b> → start = 2, reset'},
+      {s:5,i:2,v:1,st:2,t:'S 2: 0 + 2 − 1 = <em>1</em>'},
+      {s:6,i:3,v:-1,st:4,t:'S 3: 1 + 3 − 5 = <b>−1</b> → start = 4, reset'},
+      {s:7,i:4,v:3,st:4,t:'S 4: 0 + 4 − 1 = <em>3</em>  scan done'},
+      {s:8,i:null,st:4,fin:true,t:'totals 15 = 15 → return <em>4</em>'}]),
+    q(1,'gas = [5, 1, 2, 3, 4], cost = [4, 4, 1, 5, 1]: how many times does the start jump this time?')),
+  say:[
+  'Reset means that when you jump to a new start, the tank counts again from zero.',
+  'The question for this scene: back to the earlier example, gas 5, 1, 2, 3, 4 and cost 4, 4, 1, 5, 1. How many times does the start jump this time?',
+  'At the beginning, start is zero and the tank is zero.',
+  'Station 0: 0 plus 5 minus 4 is 1. No problem.',
+  'Station 1: 1 plus 1 minus 4 is minus 2. Stations 0 and 1 are ruled out together, start jumps to 2, and the tank resets. This is the whole stretch ruled out at once, from the last scene.',
+  'Station 2: 0 plus 2 minus 1 is 1.',
+  'Station 3: 1 plus 3 minus 5 is minus 1. Stations 2 and 3 are ruled out, start jumps to 4, and the tank resets.',
+  'Station 4: 0 plus 4 minus 1 is 3. The scan is done.',
+  'Total gas 15 equals total cost 15, so we return 4. The start jumped twice, and trying every start one by one confirms that only station 4 works.'
+]});
+
+/* ===== 8 Why it makes it around ===== */
+add({ch:8, title:'Why it <em>makes it all the way around</em>', vis:
+  gloss(0,[['deficit','The fuel lost, added up, over the stretches before start'],['savings','The fuel left in the tank after driving from start to the last station']])
+  + q(1,'The scan only drives to the last station; it never actually wraps around. Why is start sure to finish the loop?')
+  + cards([[2,'Before start: every stretch ends negative','[5, 1, 2, 3, 4]: first −2, then −1, a deficit of 3','coral'],
+           [3,'From start to the end: savings of 3','You wrap around to station 0 carrying 3','sky'],
+           [4,'total ≥ 0 ⟺ savings ≥ deficit','3 ≥ 3: enough to cover it, so you finish the loop','mint'],
+           [5,'[2, 3, 4] / [3, 4, 3]: deficit 2, savings only 1','Not enough; total 9 < 10, return −1','amber']]),
+  say:[
+  'The deficit is the fuel lost, added up, over the stretches before start. The savings are the fuel left in the tank after driving from start to the last station.',
+  'The question for this scene: the scan only drives to the last station and never actually wraps around. Why is start sure to finish the loop?',
+  'Look before start: every stretch there ended only when the tank went negative. In our example, the first stretch ended at minus 2 and the second at minus 1, a deficit of 3. And inside each stretch the tank never went negative; it only lost at the very end.',
+  'Now look from start to the end: driving from station 4 to the end saves up 3 units, and you wrap around to station 0 carrying those 3.',
+  'Total gas minus total cost is exactly the savings minus the deficit. If the total is at least zero, the savings are at least the deficit. Carrying that much fuel back through the earlier stretches, every one of them holds up, so you finish the loop.',
+  'Now the opposite case, gas 2, 3, 4 and cost 3, 4, 3. The first two stretches each lose 1, a deficit of 2, and the end only saves 1, not enough. Total gas 9 is less than 10, so return minus 1, the same as the total check.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>one start, one tank</em>', vis:
+  gloss(0,[['start','The current candidate start'],['tank','The fuel in the tank, driving from start up to now']])
+  + term('solution.py',[
+    [2,'o','def canCompleteCircuit(gas, cost):'],
+    [2,'hl','    if sum(gas) < sum(cost):          # insight 1: not enough in total'],
+    [2,'o','        return -1'],
+    [3,'o','    start = tank = 0'],
+    [4,'o','    for i in range(len(gas)):'],
+    [4,'o','        tank += gas[i] - cost[i]      # fill up, drive to the next one'],
+    [4,'hl','        if tank < 0:                  # insight 2: went negative'],
+    [4,'o','            start = i + 1             # start..i all ruled out'],
+    [4,'o','            tank = 0'],
+    [5,'hl','    return start']])
+  + q(1,'Which earlier scene does each part of the code come from?'),
+  say:[
+  'Start is the current candidate start, and tank is the fuel in the tank, driving from start up to now.',
+  'The question for this scene: which earlier scene does each part of the code come from?',
+  'The first part is insight 1: if total gas is less than total cost, return minus 1 right away.',
+  'Then start and tank both begin at zero.',
+  'In the loop, at each station the tank gains gas of i minus cost of i. As soon as it drops below zero, that is insight 2: every start from start to i is ruled out, start becomes i plus 1, and the tank resets.',
+  'Finally, return start. The total was already checked, and as the last scene showed, this start is sure to make it back around.'
+]});
+
+/* ===== 10 Complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Each station is looked at once'],['O(1)','Only two variables: start and tank']])
+  + q(1,'What are the time and space costs? Where is it easiest to slip?')
+  + cards([[2,'Time O(n), space O(1)','One scan, plus two sums','sky'],
+           [3,'Writing tank <= 0','Running exactly to empty still gets you there. gas = [1], cost = [1] would return 1; the answer is 0','coral'],
+           [4,'Jumping to i, not i + 1','Station i itself is ruled out too: its stretch is what made the tank negative','coral'],
+           [4,'Forgetting the total check','[2, 3, 4] / [3, 4, 3] would return 2; the answer is −1','coral']]),
+  say:[
+  'Big O of n means each station is looked at once. Big O of 1 means only two variables, start and tank.',
+  'The question for this scene: what are the time and space costs? Where is it easiest to slip?',
+  'One scan plus two sums gives time big O of n, and with only two variables, space is big O of 1.',
+  'Pitfall one: writing less than or equal to zero instead of less than zero. Running exactly to empty still gets you there. With gas 1 and cost 1, it would wrongly return 1, when the answer is 0.',
+  'Pitfall two: jumping start to i instead of i plus 1. Station i itself is ruled out too, since its stretch is what made the tank negative. Pitfall three: forgetting the total check. Gas 2, 3, 4 with cost 3, 4, 3 would return 2, when the answer is minus 1.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud first, and write code once the interviewer nods']])
+  + q(1,'The interviewer asks: "After the tank goes negative, why not retry from start + 1?"')
+  + flow([[2,'Brute force','a loop from every start, O(n²)'],[3,'Totals','sum(gas) < sum(cost) → -1'],[3,'Scan','tank < 0 → start = i + 1'],[4,'Why','middle starts only begin with less'],[4,'Complexity','O(n) / O(1)']])
+  + chips(4,['greedy','running sum','net gain','reset the start','prefix sum','O(n) one pass']),
+  say:[
+  'The interview habit is approach first: explain the method out loud, and start writing code once the interviewer nods.',
+  'The question for this scene: the interviewer asks, after the tank goes negative, why not retry from start plus 1?',
+  'First the method. Brute force drives a loop from every start, big O of n squared. Instead, I compare total gas with total cost and return minus 1 if it is short. Otherwise I scan left to right keeping a tank, and when it goes negative I jump the start to i plus 1 and reset the tank.',
+  'Then the why. At every middle station we reached, the tank was at least zero. Starting there throws that fuel away, so by station i you have even less, still negative. So the whole stretch can be skipped.',
+  'Finally the complexity: time big O of n, space big O of 1. The English keywords are greedy and running sum; the tank is just a sum that keeps adding up and resets when it goes negative.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Totals','short → -1'],[0,'Scan','tank += gas − cost'],[0,'Negative','start = i + 1, reset'],[0,'Return','start']])
+  + cards([[1,'① sum(gas) < sum(cost) → -1','What one loop adds and burns does not depend on the start','amber'],
+           [2,'② tank < 0 → start = i + 1, tank = 0','Middle stations only begin with less fuel: all ruled out','sky'],
+           [3,'③ If the total is enough, the final start makes it around','The savings after it cover the deficit before it','mint']]),
+  say:[
+  'One more pass over the main line: compare the totals first and return minus 1 if short; scan left to right adding each station\'s net fuel to the tank; when it goes negative, jump the start to the next station and reset the tank; finally return start.',
+  'Number one: if total gas is less than total cost, return minus 1, because what one loop adds and burns does not depend on where you start.',
+  'Number two: when the tank drops below zero, jump start to i plus 1 and reset the tank. Any middle station as a start only begins with less fuel, so they are all ruled out.',
+  'Number three: if the total is enough, the start left at the end is sure to make it around, because the fuel it saves afterwards covers the whole deficit before it.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/34412f611383.mp3", "0-1": "a/321683b96f50.mp3", "0-2": "a/e4dc3b053d36.mp3", "0-3": "a/60280659fbc3.mp3", "1-0": "a/94ada12cdf2c.mp3", "1-1": "a/c7463d20874f.mp3", "1-2": "a/e201eca7bac2.mp3", "1-3": "a/f3a28df810fb.mp3", "1-4": "a/7653feba4b3c.mp3", "2-0": "a/40d7befe7aa6.mp3", "2-1": "a/3e75fb0feb13.mp3", "2-2": "a/2fdbdc868c32.mp3", "2-3": "a/893d9de43926.mp3", "2-4": "a/f2ccf30df1f6.mp3", "2-5": "a/26408b1d2389.mp3", "3-0": "a/5a9337c2ec1f.mp3", "3-1": "a/7ebc2ab5c792.mp3", "3-2": "a/cb380fa2ffe4.mp3", "3-3": "a/17b8c7d07fc5.mp3", "3-4": "a/538ec914b9bd.mp3", "4-0": "a/3e9d19ea2cb5.mp3", "4-1": "a/db9e7a64970f.mp3", "4-2": "a/77911a5a02fe.mp3", "4-3": "a/b40d5ca2c577.mp3", "4-4": "a/87e931312285.mp3", "5-0": "a/e50a7de95128.mp3", "5-1": "a/7d951a2de7da.mp3", "5-2": "a/45f05f87aaf6.mp3", "5-3": "a/81e90e7fd35b.mp3", "5-4": "a/a18e9dda5e65.mp3", "5-5": "a/557406f77bda.mp3", "6-0": "a/0beb6da73fdb.mp3", "6-1": "a/a999e22f9f1d.mp3", "6-2": "a/ecf647402248.mp3", "6-3": "a/bd07f3973e6a.mp3", "6-4": "a/739acd1a7280.mp3", "6-5": "a/e34e2f835ccb.mp3", "6-6": "a/e642a70216e2.mp3", "6-7": "a/f98862dcab47.mp3", "6-8": "a/aaed8dcf5813.mp3", "7-0": "a/e5752274a90a.mp3", "7-1": "a/f5cd4459d1c0.mp3", "7-2": "a/ecf647402248.mp3", "7-3": "a/b7aa72da568a.mp3", "7-4": "a/32318707bc2f.mp3", "7-5": "a/cb56d25996aa.mp3", "7-6": "a/82bfa33b493a.mp3", "7-7": "a/af8afb110a6d.mp3", "7-8": "a/7bbccdb6c753.mp3", "8-0": "a/2a389fcb5df7.mp3", "8-1": "a/baf44948d7a0.mp3", "8-2": "a/617136b18aca.mp3", "8-3": "a/ca8a9d0aeb5e.mp3", "8-4": "a/8883b7fc27ec.mp3", "8-5": "a/298f0468ee64.mp3", "9-0": "a/3e8c6fca6013.mp3", "9-1": "a/74f9652d9fd7.mp3", "9-2": "a/7321861ca0ed.mp3", "9-3": "a/faac51cf41f5.mp3", "9-4": "a/d497b9b044ac.mp3", "9-5": "a/1c8b53e8e2ea.mp3", "10-0": "a/7a91b80631bc.mp3", "10-1": "a/fab3f43d53e1.mp3", "10-2": "a/6398d201b1ff.mp3", "10-3": "a/5eb1f6073510.mp3", "10-4": "a/b309384ad5af.mp3", "11-0": "a/807302f64e09.mp3", "11-1": "a/64747aa969bf.mp3", "11-2": "a/dd9d7d77e998.mp3", "11-3": "a/a7f19b36cb2f.mp3", "11-4": "a/7146d5655919.mp3", "12-0": "a/ca70ec2174c5.mp3", "12-1": "a/351931fb563d.mp3", "12-2": "a/4776679c4251.mp3", "12-3": "a/b9f08b3b86cf.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

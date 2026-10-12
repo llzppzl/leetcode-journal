@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Numbers Go Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Numbers Go Home', template:'prep', lang:'en', sub:'LeetCode 41 First Missing Positive · animated walkthrough', key:'lc41envid', doc:'LeetCode 41', blurb:'First see that the answer can only be between 1 and n + 1, then start from "just keep a set" and turn the array itself into the set: swap every number back to its home, then one scan finds the first cell that is not home.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: numbers go home','The problem: smallest missing positive','The answer is in 1 to n + 1','Instinct: use a set','Insight: the array is the set','The rule for going home: swap','Walk through: [3, 4, -1, 1]','One scan: read the answer','Write the code','Why the while is still O(n)','Duplicates: compare with the target cell','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip: one layer per step (.only + .now). green = value is home, amber ring = i, sky ring = target cell, red = answer / broken ---------- */
+const FCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.fm{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.fm>div{position:relative;display:grid;place-items:center;border-radius:8px}
+.fm>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.fm>.hm{height:1.3em;color:var(--mint);font-family:var(--f-mono);font-size:.72em;opacity:.85}
+.fm>.v{height:2.6em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.fm .ly.s{position:absolute;inset:0;border-radius:7px;display:grid;place-items:center;font-family:var(--f-display);font-size:1.35em;color:var(--paper);opacity:0!important;transform:none;box-shadow:none}
+.fm .ly.s.now{opacity:1!important;box-shadow:none}
+.fm .ly.s.home{background:rgba(98,224,180,.3)}
+.fm .ly.s.out{color:var(--dim)}
+.fm .ly.s.bad{background:rgba(255,122,107,.4)}
+.fm .ly.s.now.tgt{box-shadow:0 0 0 3px var(--sky)}
+.fm .ly.s.now.cur{box-shadow:0 0 0 3px var(--amber)}
+.fmcap{display:grid;margin-top:.5em;font-family:var(--f-mono);font-size:.82em;text-align:center;color:var(--dim)}
+.fmcap>span{grid-area:1/1}
+.fmcap .only.s{opacity:0!important;transform:none;box-shadow:none} .fmcap .only.s.now{opacity:1!important;box-shadow:none}
+.fmcap b{color:var(--amber)} .fmcap em{font-style:normal;color:var(--mint)} .fmcap i{font-style:normal;color:var(--coral)}
+</style>`;
+// st: [[step, arr, i|null, j|null, caption, badIdx|null]]; home row labels "for k+1"
+function FM_strip(st){
+  const n = st[0][1].length;
+  let h = FCSS + `<div class="fm" style="grid-template-columns:repeat(${n},2.9em)">`;
+  for(let k=0;k<n;k++) h += `<div class="ix">${k}</div>`;
+  for(let k=0;k<n;k++) h += `<div class="v">${st.map(([s,a,i,j,,bad])=>{
+    const v=a[k], cls=['ly','only','s'];
+    if(v===k+1) cls.push('home'); if(v<1||v>n) cls.push('out'); if(bad===k) cls.push('bad');
+    if(j===k) cls.push('tgt'); if(i===k) cls.push('cur');
+    return `<i class="${cls.join(' ')}" data-s="${s}">${v}</i>`; }).join('')}</div>`;
+  for(let k=0;k<n;k++) h += `<div class="hm">for ${k+1}</div>`;
+  h += `</div><div class="fmcap">${st.map(([s,,,,cap])=>`<span class="only s" data-s="${s}">${cap||'&nbsp;'}</span>`).join('')}</div>`;
+  return h;
+}
+// same array for steps a..b
+const FM_hold = (arr, a, b, cap='', bad=null) => Array.from({length:b-a+1},(_,t)=>[a+t, arr, null, null, cap, bad]);
+
+/* ===== 0 intro ===== */
+add({ch:0, cover:true, title:'Numbers Go Home<br><em>LeetCode 41</em>', vis:
+  gloss(0,[['positive integer','1, 2, 3 and so on; 0 and negatives do not count'],['O(1) extra space','besides the input array, only a few variables'],['in-place','change the input array directly, no new array']])
+  + flow([[1,'Range','answer in 1 to n + 1'],[1,'Instinct','a set: works, too much space'],[2,'Insight','the array is the set'],[2,'Swap','send v to index v − 1'],[3,'Scan','first cell not home'],[3,'Complexity','O(n) time, O(1) space']]),
+  say:[
+  'This lesson covers LeetCode 41, First Missing Positive. Three words first. A positive integer is 1, 2, 3 and so on; 0 and negatives do not count. O of 1 extra space means only a few variables besides the array. In-place means we change the input array directly.',
+  'Step one is to see that the answer can only be between 1 and n plus 1. Then we start from the most natural idea, a set that remembers every number. It is correct, but it breaks the space limit.',
+  'The key move is to use the array itself as the set. Every number v has a home, index v minus 1, and we send each number home by swapping.',
+  'Finally we scan for the first cell that is not home, and explain why the while loop is still big O of n, and why duplicates do not cause an infinite loop.'
+]});
+
+/* ===== 1 the problem ===== */
+add({ch:1, title:'The problem: <em>smallest missing positive</em>', vis:
+  gloss(0,[['missing','the number does not appear in the array'],['n','the length of the array']])
+  + duo(FM_strip(FM_hold([3,4,-1,1],0,4)),
+    q(1,'In [3, 4, -1, 1], what is the smallest positive integer that does not appear?')
+    + cards([[2,'1 is there, 2 is not → answer 2','ask from 1 upward: is it there?','mint'],
+             [3,'Ignore -1','negatives and 0 are never the answer','sky'],
+             [4,'Limits: O(n) time, O(1) extra space','this is what makes the problem hard','coral']])),
+  say:[
+  'Missing means the number does not appear in the array. n is the length of the array; in this example, n is 4.',
+  'The question for this scene: in 3, 4, minus 1, 1, what is the smallest positive integer that does not appear?',
+  'Ask one by one, starting from 1. Is 1 there? Yes, it is the last cell. Is 2 there? No. So the answer is 2.',
+  'Ignore minus 1. The problem only wants positive integers, so negatives and 0 are never the answer.',
+  'The real difficulty is the limits: big O of n time and big O of 1 extra space. That means no sorting, and no extra array.'
+]});
+
+/* ===== 2 answer in 1 to n + 1 ===== */
+add({ch:2, title:'The answer is in <em>1 to n + 1</em>', vis:
+  gloss(0,[['upper bound','the largest the answer can be'],['n + 1','the array length plus 1']])
+  + q(1,'With n numbers, what is the largest the answer can be?')
+  + cards([[2,'n numbers fill at most n positive integers','best case: exactly 1, 2, …, n','sky'],
+           [3,'[1, 2, 3, 4] → 5','1 to 4 are all there, so the answer is n + 1 = 5','mint'],
+           [4,'One gap, and the answer is in 1 to n','one number outside 1 to n leaves a slot empty','amber'],
+           [5,'Only values 1 to n matter','anything below 1 or above n can be ignored','mint']]),
+  say:[
+  'The upper bound is the largest the answer can be. n plus 1 is the array length plus 1.',
+  'The question for this scene: with n numbers, what is the largest the answer can be?',
+  'The premise: n numbers can fill at most n different positive integers. The best case is that they fill exactly 1, 2, and so on up to n.',
+  'For example, 1, 2, 3, 4. All four are filled, so the answer is n plus 1, which is 5.',
+  'If even one number is outside 1 to n, or there is a duplicate, some slot in 1 to n stays empty, and the answer is inside 1 to n.',
+  'Conclusion: the answer is always between 1 and n plus 1. So numbers below 1 or above n never help, and we can simply ignore them.'
+]});
+
+/* ===== 3 instinct: a set ===== */
+add({ch:3, title:'Instinct: <em>use a set</em>', vis:
+  gloss(0,[['set','a "is it there" list; each lookup is O(1)'],['sorting','putting numbers in order costs O(n log n)']])
+  + term('set version',[
+    [2,'o','def firstMissingPositive(nums):'],
+    [2,'hl','    seen = set(nums)          # {3, 4, -1, 1}'],
+    [3,'o','    ans = 1'],
+    [3,'o','    while ans in seen:        # 1 yes → 2 no'],
+    [3,'o','        ans += 1'],
+    [3,'o','    return ans                # 2']])
+  + q(1,'How would you do it yourself? Which limit does it break?')
+  + cards([[4,'Sorting: too slow','O(n log n), more than O(n)','coral'],
+           [5,'Set: correct, but too much space','seen holds n numbers: O(n) extra space','coral']]),
+  say:[
+  'A set is an "is it there" list, and each lookup is big O of 1. Sorting puts numbers in order and costs big O of n log n.',
+  'The question for this scene: how would you do it yourself, and which limit does it break?',
+  'The most natural way: put every number into a set. 3, 4, minus 1, 1, all remembered.',
+  'Then ask from 1 upward. 1 is in the set, so check 2. 2 is not, so return 2. Correct, and the time is big O of n.',
+  'Another idea is to sort first and then search from the front. But sorting costs big O of n log n, which is more than big O of n.',
+  'The set version gets stuck on space: seen holds n numbers, which is big O of n extra space, and we only get big O of 1. So the question becomes: without a separate set, can we still know whether each number is there?'
+]});
+
+/* ===== 4 insight ===== */
+add({ch:4, title:'Insight: <em>the array is the set</em>', vis:
+  gloss(0,[['home','where value v belongs: index v − 1'],['index','the cell number, starting at 0']])
+  + duo(FM_strip([...FM_hold([1,2,3,4],0,3,'all there: cell k holds <em>k + 1</em>'),
+                  [4,[1,-1,3,4],null,null,'index 1 does not hold 2 → <i>2 is missing</i>',1],
+                  [5,[1,-1,3,4],null,null,'index 1 does not hold 2 → <i>2 is missing</i>',1]]),
+    q(1,'Without a separate set, how do we record whether each of 1 to n is there?')
+    + cards([[2,'The array has exactly n cells','and 1 to n is exactly n numbers','sky'],
+             [3,'Home of v = index v − 1','1 goes to index 0, 2 to index 1, …','amber'],
+             [4,'Once arranged, one look shows the gap','index k not holding k + 1 means k + 1 is missing','mint'],
+             [5,'The input array is the set','no extra space: O(1)','mint']])),
+  say:[
+  'Home is where value v belongs, which is index v minus 1. An index is the cell number, starting at 0.',
+  'The question for this scene: without a separate set, how do we record whether each of 1 to n is there?',
+  'The premise: the array has exactly n cells, and the values we care about, 1 to n, are exactly n numbers. One cell per number, just enough.',
+  'Say the home of each value v is index v minus 1. 1 goes to index 0, 2 goes to index 1, and n goes to index n minus 1. If 1 to 4 are all there, the arranged array is 1, 2, 3, 4, and every cell is green.',
+  'Once arranged, one look shows what is missing. Say it ends up as 1, minus 1, 3, 4. Index 1 does not hold 2, so 2 is missing.',
+  'So the input array itself is the set, with no extra space. Only one question is left: how do we send every number home in big O of n time?'
+]});
+
+/* ===== 5 the rule ===== */
+add({ch:5, title:'The rule for going home: <em>swap</em>', vis:
+  gloss(0,[['swap','two cells exchange their values'],['target cell','home of nums[i]: index nums[i] − 1']])
+  + term('pass 1: send home',[
+    [2,'o','for i in range(n):'],
+    [3,'hl','    while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:'],
+    [4,'o','        j = nums[i] - 1'],
+    [4,'o','        nums[i], nums[j] = nums[j], nums[i]']])
+  + q(1,'Standing on cell i and seeing a number, what do we do? When do we stop?')
+  + cards([[3,'Swap only if both hold','it is in 1 to n; its home does not hold it yet','amber'],
+           [4,'After the swap, it is home','the target cell now holds the right value','mint'],
+           [5,'while, not if','the value swapped back in needs placing too','sky']]),
+  say:[
+  'A swap means two cells exchange their values. The target cell is the home of nums of i, which is index nums of i minus 1.',
+  'The question for this scene: standing on cell i and seeing a number, what do we do, and when do we stop?',
+  'Walk from left to right and handle every cell.',
+  'Swap only when both conditions hold. First, the value is in 1 to n; otherwise it has no home. Second, its home does not hold it yet; otherwise there is nothing to move.',
+  'After the swap, that value is home. The target cell now holds the right value.',
+  'Notice this is a while, not an if. Another value has just been swapped into cell i, and it must be checked too, so we keep swapping on the same cell until the condition fails.'
+]});
+
+/* ===== 6 walk through ===== */
+add({ch:6, title:'Walk through: <em>[3, 4, -1, 1]</em>', vis:
+  gloss(0,[['amber ring','the current i'],['sky ring','the target cell: home of nums[i]'],['green','this cell already holds the right value']])
+  + duo(FM_strip([
+      [0,[3,4,-1,1],null,null,''],[1,[3,4,-1,1],null,null,''],
+      [2,[3,4,-1,1],0,2,'i=0: home of 3 is index 2, which holds -1 → <b>swap</b>'],
+      [3,[-1,4,3,1],0,null,'got -1: not in 1 to 4 → <em>stop</em>, move i on'],
+      [4,[-1,4,3,1],1,3,'i=1: home of 4 is index 3, which holds 1 → <b>swap</b>'],
+      [5,[-1,1,3,4],1,0,'got 1: home is index 0, which holds -1 → <b>swap again</b>'],
+      [6,[1,-1,3,4],1,null,'got -1 → <em>stop</em>; i=2 and i=3 are already home'],
+      [7,[1,-1,3,4],null,null,'<b>3</b> swaps in total']]),
+    q(1,'Which cells swap at each step? How many swaps until every number that has a home is home?')
+    + term('swap log',[
+      [2,'o','i=0  index 0 ↔ 2  → [-1, 4, 3, 1]'],
+      [4,'o','i=1  index 1 ↔ 3  → [-1, 1, 3, 4]'],
+      [5,'o','i=1  index 1 ↔ 0  → [1, -1, 3, 4]'],
+      [6,'o','i=2, i=3  no swap'],
+      [7,'hl','3 swaps total']])),
+  say:[
+  'The amber ring is the current i. The sky ring is the target cell, the home of nums of i. Green means the cell already holds the right value.',
+  'The question for this scene: which cells swap at each step, and how many swaps until every number that has a home is home?',
+  'i is 0, and we see 3. The home of 3 is index 2, which holds minus 1, not 3. Swap.',
+  'Now 3 is home and turns green. Cell 0 received minus 1, which is not between 1 and 4, so it has no home. Stop, and move i on.',
+  'i is 1, and we see 4. The home of 4 is index 3, which holds 1, not 4. Swap.',
+  '4 is home. Cell 1 received 1, whose home is index 0, which holds minus 1. Swap again. This is exactly why we need the while.',
+  '1 is home too, and cell 1 received minus 1, so we stop. When i is 2 and 3, the values 3 and 4 are already home, so nothing happens.',
+  'Only 3 swaps in total, and the array is now 1, minus 1, 3, 4.'
+]});
+
+/* ===== 7 one scan ===== */
+add({ch:7, title:'One scan: <em>the first cell not home</em>', vis:
+  gloss(0,[['scan','look at each cell in turn, starting at index 0']])
+  + duo(FM_strip([
+      [0,[1,-1,3,4],null,null,''],[1,[1,-1,3,4],null,null,''],
+      [2,[1,-1,3,4],0,null,'index 0 holds 1 = 0 + 1 → <em>home</em>'],
+      [3,[1,-1,3,4],1,null,'index 1 holds -1 ≠ 2 → <i>answer 2</i>',1],
+      [4,[1,-1,3,4],null,null,'',1],[5,[1,-1,3,4],null,null,'',1],[6,[1,-1,3,4],null,null,'',1]]),
+    q(1,'After sending everything home, how do we read off the answer?')
+    + cards([[3,'First nums[i] ≠ i + 1 → return i + 1','[1, -1, 3, 4] → 2','mint'],
+             [4,'[1, 2, 0] → 3','1 and 2 are already home; index 2 holds 0','sky'],
+             [5,'[7, 8, 9, 11, 12] → 1','all bigger than n = 5, no swaps; index 0 is not 1','sky'],
+             [6,'Every cell home → return n + 1','[1, 2, 3, 4] → 5','amber']])),
+  say:[
+  'A scan means looking at each cell in turn, starting at index 0.',
+  'The question for this scene: after sending everything home, how do we read off the answer?',
+  'Index 0 holds 1, which equals 0 plus 1. It is home, so 1 appeared.',
+  'Index 1 holds minus 1, not 2. So 2 never appeared; if it had, it would have been sent here. Return i plus 1, which is 2.',
+  'Now check 1, 2, 0. 1 and 2 are already home, and 0 has no home, so there are no swaps. Index 2 holds 0, not 3, so return 3.',
+  'Next, 7, 8, 9, 11, 12. Every value is bigger than n, which is 5, so none has a home and nothing swaps. Index 0 is not 1, so return 1.',
+  'If every cell is home, then 1 to n all appeared, and after the loop we return n plus 1.'
+]});
+
+/* ===== 8 code ===== */
+add({ch:8, title:'Code: <em>two loops</em>', vis:
+  gloss(0,[['j','the target index, saved before the swap']])
+  + term('solution.py',[
+    [2,'o','def firstMissingPositive(nums):'],
+    [2,'o','    n = len(nums)'],
+    [2,'o','    for i in range(n):'],
+    [2,'hl','        while 1 <= nums[i] <= n and nums[nums[i] - 1] != nums[i]:'],
+    [3,'o','            j = nums[i] - 1                 # target cell, save it first'],
+    [3,'hl','            nums[i], nums[j] = nums[j], nums[i]'],
+    [4,'o','    for i in range(n):'],
+    [4,'o','        if nums[i] != i + 1:                # first cell not home'],
+    [4,'o','            return i + 1'],
+    [4,'hl','    return n + 1']])
+  + q(1,'Which part of the code is which step? Why save j first?'),
+  say:[
+  'j is the target index, saved before the swap.',
+  'The question for this scene: which part of the code is which step, and why save j first?',
+  'The first part sends numbers home. For each i, as long as the value is in 1 to n and its home does not hold it yet, keep swapping.',
+  'Before the swap, store the target index in j. If you write nums of i, comma, nums of nums of i minus 1 directly, Python changes nums of i first and then uses the new value to compute the index, so it swaps the wrong cell. On 3, 4, minus 1, 1, that version loops forever.',
+  'The second part is the scan. At the first position where nums of i is not i plus 1, return i plus 1. If every cell is home, return n plus 1.'
+]});
+
+/* ===== 9 why O(n) ===== */
+add({ch:9, title:'A while inside a for: <em>why still O(n)</em>', vis:
+  gloss(0,[['amortized','count the total work of the whole run, not one loop at a time']])
+  + q(1,'There is a while inside a for, which looks like O(n²). Why is it actually O(n)?')
+  + cards([[2,'Each swap sends one number home','after it, the target cell holds the right value','sky'],
+           [3,'A number at home is never swapped out','"its home does not hold it" is never true for that cell again','mint'],
+           [4,'At most n cells can be fixed → at most n swaps','[3, 4, -1, 1] took only 3','amber'],
+           [5,'O(n) time, O(1) extra space','two for loops of n + at most n swaps in total','mint']]),
+  say:[
+  'Amortized means we do not count how many times one loop spins; we count the total work of the whole run.',
+  'The question for this scene: there is a while inside a for, which looks like big O of n squared. Why is it actually big O of n?',
+  'Look at what one swap does: it sends nums of i into its home, and afterwards the target cell holds the right value.',
+  'A number that is home is never swapped out again. To swap into that cell, the condition says its home must not hold it yet, but that cell already holds it, so the condition is never true.',
+  'The array has only n cells, and each swap fixes one cell for good, so the whole run makes at most n swaps. On 3, 4, minus 1, 1, it made only 3.',
+  'So the time is two for loops of n steps each, plus at most n swaps in total, which is still big O of n. The extra space is just i and j, big O of 1.'
+]});
+
+/* ===== 10 duplicates ===== */
+add({ch:10, title:'Duplicates: <em>why compare with the target cell</em>', vis:
+  gloss(0,[['infinite loop','the condition stays true forever, the loop never stops'],['duplicate','the same number appears more than once']])
+  + duo(FM_strip([
+      [0,[1,1],null,null,''],[1,[1,1],null,null,''],
+      [2,[1,1],1,0,'i=1: home of 1 is index 0, which already holds 1 → <em>stop</em>'],
+      [3,[1,1],1,0,'wrong test nums[i] ≠ i + 1: 1 ≠ 2 → <i>swap, still [1, 1]</i>',1],
+      [4,[1,1],null,null,'scan: index 1 holds 1 ≠ 2 → <i>answer 2</i>',1]]),
+    q(1,'Why is the condition nums[nums[i] − 1] != nums[i], and not nums[i] != i + 1?')
+    + cards([[2,'Right: does the target cell already hold it?','home already has a 1, so the second 1 stays','mint'],
+             [3,'Wrong: only ask "am I home?"','two 1s swap, nothing changes, condition stays true → infinite loop','coral'],
+             [4,'[1, 1] → 2','the extra 1 stays put and becomes the "not home" cell in the scan','sky']])),
+  say:[
+  'An infinite loop means the condition stays true forever and the loop never stops. A duplicate means the same number appears more than once.',
+  'The question for this scene: why does the while condition ask whether the target cell already holds the value, instead of asking whether I am home?',
+  'Take 1, 1. When i is 1, we see 1. Its home is index 0, which already holds 1. The target cell already holds it, so the condition fails. Stop, no swap.',
+  'If the condition were nums of i not equal to i plus 1: 1 is not 2, so it holds, and we swap with index 0. But both are 1, so the array is still 1, 1, the condition still holds, and we swap forever.',
+  'With the right condition, the extra 1 stays at index 1. In the scan, index 1 does not hold 2, so we return 2. Comparing with the target cell is why duplicates cannot cause an infinite loop.'
+]});
+
+/* ===== 11 interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Does your while loop make this O(n²)?"')
+  + flow([[2,'Range','answer in 1 to n + 1'],[2,'Instinct','a set works, but O(n) space'],[3,'In-place','put v at index v − 1'],[3,'Scan','first nums[i] ≠ i + 1'],[4,'Complexity','O(n) time, O(1) space']])
+  + chips(4,['cyclic sort','in-place hashing','index as key','amortized O(n)','swap until home','268 Missing Number']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, does your while loop make this big O of n squared?',
+  'Start with the idea. The answer is always between 1 and n plus 1. A set works, but costs big O of n space. So I use the array itself as the set, and swap each value v to index v minus 1.',
+  'Then the details. After the swaps, one scan finds the first position where nums of i is not i plus 1; if all match, return n plus 1. The condition compares with the target cell, so duplicates cannot loop forever.',
+  'Finally, the complexity. Each swap sends one number home for good, so there are at most n swaps, big O of n in total, with big O of 1 space. The keywords are cyclic sort, also called in-place hashing.'
+]});
+
+/* ===== 12 wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Range','1 to n + 1'],[0,'Go home','v to index v − 1'],[0,'Scan','first cell not home'],[0,'Complexity','each swap sends one home']])
+  + cards([[1,'① The answer is only in 1 to n + 1','n numbers fill at most 1 to n','amber'],
+           [2,'② The array is the set: home of v is index v − 1','swap with while; compare with the target cell so duplicates stop','sky'],
+           [3,'③ Each swap sends one number home for good → O(n)','then scan: first nums[i] ≠ i + 1 returns i + 1','mint']]),
+  say:[
+  'One more time, the main line: the answer is between 1 and n plus 1; swap each value v to index v minus 1; scan for the first cell that is not home; each swap sends one number home, so it is big O of n.',
+  'First: the answer is only between 1 and n plus 1, because n numbers fill at most 1 to n.',
+  'Second: the array is the set, and the home of v is index v minus 1. Keep swapping with a while, and compare with the target cell so duplicates never loop forever.',
+  'Third: each swap sends one number home for good, at most n swaps, so it is big O of n. Then scan, and at the first nums of i not equal to i plus 1, return i plus 1.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/9823844f6173.mp3", "0-1": "a/1cf842719e5c.mp3", "0-2": "a/6a5f83bedef1.mp3", "0-3": "a/d29aba030aa6.mp3", "1-0": "a/4ef65573ff11.mp3", "1-1": "a/5db887fecc46.mp3", "1-2": "a/d94f40cd1af3.mp3", "1-3": "a/ef7c6b30f884.mp3", "1-4": "a/d9f58f84e742.mp3", "2-0": "a/88d01badb598.mp3", "2-1": "a/86ca5c229fbe.mp3", "2-2": "a/af6592479f19.mp3", "2-3": "a/9f1bce735e71.mp3", "2-4": "a/e6c0c801cbf8.mp3", "2-5": "a/5d3ab68297c3.mp3", "3-0": "a/ec3550bb98c7.mp3", "3-1": "a/17b524e963cb.mp3", "3-2": "a/7b460e92972f.mp3", "3-3": "a/602e09941083.mp3", "3-4": "a/fc49f8df0eca.mp3", "3-5": "a/730d0cf780ac.mp3", "4-0": "a/086933585a3f.mp3", "4-1": "a/9680bad4b4d4.mp3", "4-2": "a/b45c580f40a7.mp3", "4-3": "a/35b6865ee762.mp3", "4-4": "a/2e0de290ecd9.mp3", "4-5": "a/48b77546d879.mp3", "5-0": "a/94d054f3b27d.mp3", "5-1": "a/41bee550619a.mp3", "5-2": "a/685e9bba2cf4.mp3", "5-3": "a/1fbb4eaa3ba3.mp3", "5-4": "a/2a7c6ed267d1.mp3", "5-5": "a/7e9e02cf7a2f.mp3", "6-0": "a/af390580ce03.mp3", "6-1": "a/2d21eae9f66c.mp3", "6-2": "a/67306a680e0f.mp3", "6-3": "a/158b8fdeee47.mp3", "6-4": "a/e3ea391a8f56.mp3", "6-5": "a/b1d62e7989aa.mp3", "6-6": "a/47e98082aacd.mp3", "6-7": "a/1da63c093940.mp3", "7-0": "a/123d194f4606.mp3", "7-1": "a/96d79e96dad1.mp3", "7-2": "a/ec31f2be7bbb.mp3", "7-3": "a/61efe75d7fa0.mp3", "7-4": "a/9dca52b9cdf3.mp3", "7-5": "a/67b00f189242.mp3", "7-6": "a/b7ef31b888c9.mp3", "8-0": "a/1c1d564279c8.mp3", "8-1": "a/c017a3a1d8e9.mp3", "8-2": "a/5ebccf352d0d.mp3", "8-3": "a/70de5c2f39ce.mp3", "8-4": "a/420e977c007d.mp3", "9-0": "a/ec254d648181.mp3", "9-1": "a/11900f9eced9.mp3", "9-2": "a/829d22517b9b.mp3", "9-3": "a/b9854973e85a.mp3", "9-4": "a/abb422805e5e.mp3", "9-5": "a/43b14b97b214.mp3", "10-0": "a/44b0d2a33955.mp3", "10-1": "a/5f9ec6179057.mp3", "10-2": "a/191053689536.mp3", "10-3": "a/e9eaecaf2e08.mp3", "10-4": "a/6aa0d5a6fd24.mp3", "11-0": "a/0fde160b795f.mp3", "11-1": "a/0b6861a07d6e.mp3", "11-2": "a/cfc5adc3768d.mp3", "11-3": "a/1b26230bfd3e.mp3", "11-4": "a/d8b6d6f96edb.mp3", "12-0": "a/1db9995bdf12.mp3", "12-1": "a/bf14e150b802.mp3", "12-2": "a/98d4b207bc34.mp3", "12-3": "a/e374201d084b.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

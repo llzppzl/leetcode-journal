@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Subtract Two Prefixes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'Subtract Two Prefixes', template:'prep', lang:'en', sub:'LeetCode 560 Subarray Sum Equals K · animated walkthrough', key:'lc560envid', doc:'LeetCode 560', blurb:'Start from trying every subarray, see why negative numbers break the sliding window, then turn "the sum of a stretch" into "one prefix minus another" and count everything in one pass with a dict that starts at {0: 1}.'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a row of numbers','The problem: count the slow way','Sliding window: beaten by negatives','Prefix sums from zero','The key step: look for prefix − k','Why start with {0: 1}','Walk through: [1, 2, 3]','Walk through: [1, 1, 1]','Check: negatives and zero','Write the code','Complexity and three pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- array strip: optional "empty" column, nums row, prefix row; blue tint / amber ring / state lines are per-step ---------- */
+const P5CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.p5{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.p5>div{position:relative;display:grid;place-items:center;height:2.4em;border-radius:8px}
+.p5>.lb{justify-items:end;padding-right:.35em;color:var(--dim);font-size:.75em}
+.p5>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.p5>.v{border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.p5>.v b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.3em}
+.p5>.emp{border:1px dashed var(--line);color:var(--dim);font-size:.72em}
+.p5>.pf b{font-family:var(--f-mono);font-weight:400;color:var(--sky);font-size:1.1em}
+.p5 .s:not(.on){opacity:0}
+.p5 .s.now{box-shadow:none}
+.p5 i.tint.s{position:absolute;inset:0;border-radius:7px;background:rgba(110,190,255,.3);transform:none;opacity:0!important}
+.p5 i.tint.s.now{opacity:1!important}
+.p5 i.ring.s{position:absolute;inset:-4px;border-radius:10px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none}
+.p5 i.ring.s.now{opacity:1!important}
+.p5st{position:relative;min-height:5.6em;margin-top:10px}
+.p5st>.s{position:absolute;left:0;right:0;top:0;opacity:0!important;transform:none;box-shadow:none;text-align:center}
+.p5st>.s.now{opacity:1!important}
+.p5st .ln{font-family:var(--f-mono);font-size:.85em;color:var(--dim);line-height:1.6}
+.p5st .ln b{color:var(--amber);font-weight:400} .p5st .ln em{font-style:normal;color:var(--mint)}
+.p5st .dict{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:4px}
+.p5st .dict span{font-family:var(--f-mono);font-size:.82em;padding:.1em .45em;border-radius:6px;border:1px solid var(--line);background:rgba(10,17,36,.8)}
+.p5st .dict span.hit{border-color:var(--amber);color:var(--amber)}
+.p5st .dict span.new{border-color:var(--mint);color:var(--mint)}
+.p5st .dict i{font-style:normal;color:var(--dim);font-size:.78em;align-self:center}
+</style>`;
+const P5_fm = v => v < 0 ? '−' + (-v) : String(v);
+// o: {noEmpty, jrow, pref:[[col,value,step]], tint:[[step,[cols]]], ring:[[step,col]], st:[[step,html]]}; col 0 = empty prefix, col i+1 = nums[i]
+function P5_strip(nums, o={}){
+  const n = nums.length, emp = !o.noEmpty, cols = [...Array(n+1).keys()].filter(c => emp || c > 0);
+  const deco = col => (o.tint||[]).filter(([,cs])=>cs.includes(col)).map(([s])=>`<i class="tint s" data-s="${s}"></i>`).join('')
+    + (o.ring||[]).filter(r=>r[1]===col).map(([s])=>`<i class="ring s" data-s="${s}"></i>`).join('');
+  let h = P5CSS + `<div class="p5" style="grid-template-columns:3.6em repeat(${cols.length},2.6em)">`;
+  h += `<div class="lb ix">index</div>` + cols.map(c=>`<div class="ix">${c ? c-1 : ''}</div>`).join('');
+  h += `<div class="lb">nums</div>` + cols.map(c=> c ? `<div class="v"><b>${P5_fm(nums[c-1])}</b>${deco(c)}</div>` : `<div class="emp">empty${deco(0)}</div>`).join('');
+  if(o.pref) h += `<div class="lb">prefix</div>` + cols.map(c=>`<div class="pf">${o.pref.filter(p=>p[0]===c).map(([,v,s])=>`<b class="s" data-s="${s}">${v}</b>`).join('')}</div>`).join('');
+  if(o.jrow) h += `<div class="lb ix">j</div>` + cols.map(c=>`<div class="ix">j = ${c}</div>`).join('');
+  h += `</div>`;
+  if(o.st) h += `<div class="p5st">${o.st.map(([s,html])=>`<div class="s" data-s="${s}">${html}</div>`).join('')}</div>`;
+  return h;
+}
+// the algorithm itself, run step by step: s0 = the "start" step, then one step per number; keep = step that repeats the final state
+function P5_run(nums, k, s0, keep){
+  const cnt = new Map([[0,1]]); let p = 0, ans = 0;
+  const pref = [[0,'0',s0]], ring = [[s0,0]], st = [];
+  const dict = (hit, nw) => `<div class="dict"><i>dict</i>${[...cnt].map(([key,v])=>`<span class="${key===hit?'hit':key===nw?'new':''}">${P5_fm(key)} : ${v}</span>`).join('')}</div>`;
+  st.push([s0, `<div class="ln">prefix = <em>0</em>　count = <em>0</em></div><div class="ln">start with the empty prefix 0</div>` + dict(null, 0)]);
+  nums.forEach((x, i) => {
+    const s = s0 + 1 + i, old = p; p += x;
+    const need = p - k, f = cnt.get(need) || 0; ans += f; cnt.set(p, (cnt.get(p) || 0) + 1);
+    pref.push([i+1, P5_fm(p), s]); ring.push([s, i+1]);
+    st.push([s, `<div class="ln">prefix = ${P5_fm(old)} ${x<0?'−':'+'} ${Math.abs(x)} = <em>${P5_fm(p)}</em></div><div class="ln">look for ${P5_fm(p)} − ${P5_fm(k)} = <b>${P5_fm(need)}</b>: <b>${f}</b> found　count = <em>${ans}</em></div>` + dict(f ? need : null, p)]);
+  });
+  if(keep != null) st.push([keep, st[st.length-1][1]]);
+  return P5_strip(nums, {pref, ring, st});
+}
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'Subtract Two Prefixes<br><em>LeetCode 560</em>', vis:
+  gloss(0,[['subarray','A contiguous stretch of the array; you cannot skip elements'],['prefix sum','The sum from the start up to here'],['dict','A hash map: one key looks up its value in one step']])
+  + flow([[1,'Read','count stretches that sum to k'],[1,'Slow way','try every stretch, O(n²)'],[2,'Sliding window','beaten by negatives'],[2,'Prefix sums','a stretch = one prefix minus another'],[3,'Dict','look for prefix − k'],[3,'Code','one pass, O(n)']]),
+  say:[
+  'This lesson covers LeetCode 560, Subarray Sum Equals K. First, three words. A subarray is a contiguous stretch; you cannot skip elements. A prefix sum is the sum from the start up to here. A dict is a hash map: a key looks up its value in one step.',
+  'We start with the slowest way, trying every stretch to count the answer. Then we try a sliding window and watch negative numbers beat it.',
+  'Then we build prefix sums from zero: the sum of any stretch is one prefix minus another. So the question becomes: how many earlier prefixes equal the current prefix minus k?',
+  'Finally we walk through several examples step by step, write the code, and cover complexity and three pitfalls.'
+]});
+
+/* ===== 1 The problem + slow way ===== */
+add({ch:1, title:'The problem: <em>count the slow way first</em>', vis:
+  gloss(0,[['k','The target sum: count subarrays whose sum is exactly k'],['contiguous','In [1, 2, 3], [1, 3] does not count; it skips the 2']])
+  + q(1,'nums = [1, 2, 3], k = 3. How many subarrays sum to 3?')
+  + tbl(['Start','Subarray','Sum'],[
+    [2,'0','[1]','1'],[2,'0','[1, 2]','3 ✓'],[2,'0','[1, 2, 3]','6'],
+    [3,'1','[2]','2'],[3,'1','[2, 3]','5'],
+    [4,'2','[3]','3 ✓']])
+  + cards([[5,'Answer 2, but you try n(n+1)/2 stretches','O(n²): about 200 million when n = 20,000; too slow','coral']]),
+  say:[
+  'k is the target sum; we count the subarrays whose sum is exactly k. Contiguous means that in 1, 2, 3, the pair 1 and 3 is not a stretch, because it skips the 2.',
+  'The question for this scene: nums is 1, 2, 3 and k equals 3. How many subarrays sum to 3?',
+  'The natural way: from each start, keep adding to the right. Starting at index 0: 1, plus 2 is 3, that is one hit; plus 3 is 6.',
+  'Starting at index 1: 2, plus 3 is 5. No hits.',
+  'Starting at index 2: just the 3, the second hit. So the answer is 2: the stretch 1, 2, and the 3 on its own.',
+  'The answer is right, but n numbers have n times n plus 1 over 2 stretches. That is big O of n squared. With n equal to twenty thousand, that is about two hundred million stretches. Too slow.'
+]});
+
+/* ===== 2 Sliding window fails ===== */
+add({ch:2, title:'Sliding window: <em>beaten by negatives</em>', vis:
+  gloss(0,[['sliding window','Two pointers frame a stretch: if the sum is too small, grow the right; if too big, shrink the left'],['blue','The cells inside the current window']])
+  + duo(P5_strip([1,-1,1], {noEmpty:true,
+      tint:[[2,[1]],[3,[1,2]],[4,[1,2,3]],[5,[3]]],
+      st:[[2,'<div class="ln">window [1]　sum = <em>1</em> = k　count <b>1</b></div>'],
+          [3,'<div class="ln">window [1, −1]　sum = <em>0</em> &lt; k　grow right</div>'],
+          [4,'<div class="ln">window [1, −1, 1]　sum = <em>1</em>　count <b>2</b></div><div class="ln">end of array: only 2 counted</div>'],
+          [5,'<div class="ln">missed: the lone [1] on the right</div><div class="ln">the right answer is <b>3</b></div>']]}),
+    q(1,'Can we use a sliding window? Try [1, −1, 1], k = 1.')
+    + cards([[5,'Misses the lone [1]','The sum equals k, not too big, so the left never shrinks','coral'],
+             [6,'Shrinking does not work either','Drop the 1: sum 0; drop the −1: sum is back to 1','coral'],
+             [7,'Negatives rule out the window','"A smaller window has a smaller sum" is no longer true','mint']])),
+  say:[
+  'A sliding window uses two pointers to frame a stretch: if the sum is too small, grow the right; if too big, shrink the left. Blue is the current window.',
+  'The question for this scene: can we use a sliding window? Try 1, minus 1, 1, with k equal to 1.',
+  'The window starts on the first 1. The sum is 1, equal to k, so count one.',
+  'Grow right to cover 1 and minus 1. The sum is 0, less than k, so keep growing.',
+  'Now it covers all three numbers and the sum is 1 again, so count two. The right end is done, and the window only counted two.',
+  'But the right answer is three: it missed the lone 1 on the right. By the rule, a sum equal to k is not too big, so the left never shrinks.',
+  'What if we shrink anyway? Drop the first 1 and the sum becomes 0; drop the minus 1 and the sum goes back up to 1. Removing a negative makes the sum bigger.',
+  'The sliding window relies on this: a bigger window has a bigger sum, a smaller window a smaller sum. Negative numbers break that, so we need another way.'
+]});
+
+/* ===== 3 Prefix sums ===== */
+add({ch:3, title:'Prefix sums: <em>from zero</em>', vis:
+  gloss(0,[['prefix[j]','The sum of the first j numbers'],['prefix[0] = 0','The first 0 numbers: take nothing, the sum is 0, the empty prefix']])
+  + duo(P5_strip([1,2,3], {jrow:true, pref:[[0,'0',2],[1,'1',2],[2,'3',2],[3,'6',2]], tint:[[3,[2,3]]], ring:[[3,1]]}),
+    q(1,'What are the prefix sums of [1, 2, 3]? How do they give the sum of the middle stretch [2, 3]?')
+    + cards([[2,'prefix = [0, 1, 3, 6]','Keep adding, with an extra 0 at the front','sky'],
+             [3,'[2, 3] = 6 − 1 = 5','The sum of the first 3, minus the sum of the first 1','amber'],
+             [4,'Stretch (i, j] = prefix[j] − prefix[i]','Drop the first i, keep numbers i + 1 through j','mint'],
+             [5,'Any stretch sum = one subtraction','No more adding one by one','mint']])),
+  say:[
+  'prefix of j is the sum of the first j numbers. prefix of 0 is the first zero numbers: take nothing, the sum is 0. We call it the empty prefix.',
+  'The question for this scene: what are the prefix sums of 1, 2, 3? And how do they give the sum of the middle stretch 2, 3?',
+  'Start at the empty prefix 0 and keep adding: 1, 3, 6. So prefix is 0, 1, 3, 6, one cell longer than the array.',
+  'The stretch 2, 3 is the sum of the first three numbers, 6, minus the sum of the first one, 1. 6 minus 1 is 5.',
+  'In general, drop the first i numbers and keep numbers i plus 1 through j. That stretch sums to prefix of j minus prefix of i. We write it as i to j, open on the left and closed on the right.',
+  'So the sum of any stretch is just one prefix minus another: a single subtraction, no more adding one by one.'
+]});
+
+/* ===== 4 The key step ===== */
+add({ch:4, title:'The key step: <em>look for prefix − k</em>', vis:
+  gloss(0,[['ending here','The last number of the stretch is the current cell'],['move a term','Shift a number to the other side of the equation; plus becomes minus']])
+  + duo(P5_strip([1,2,3], {pref:[[0,'0',2],[1,'1',2],[2,'3',2],[3,'6',2]], tint:[[4,[1,2]]], ring:[[4,3]]}),
+    q(1,'Standing on a cell, how do we instantly know how many stretches ending here sum to k?')
+    + cards([[2,'prefix[j] − prefix[i] = k','The stretch (i, j] sums to k','sky'],
+             [3,'⟺ prefix[i] = prefix[j] − k','We are looking for an earlier prefix','amber'],
+             [4,'At the 3: prefix = 6, look for 6 − 3 = 3','Prefix 3 was seen: drop [1, 2], keep [3]','sky'],
+             [5,'A dict of "how many times each prefix appeared"','That many stretches; each lookup is O(1)','mint']])),
+  say:[
+  'Ending here means the last number of the stretch is the current cell. Moving a term means shifting a number to the other side of the equation, so plus becomes minus.',
+  'The question for this scene: standing on a cell, how do we instantly know how many stretches ending here sum to k?',
+  'From the last scene, a stretch sum is one prefix minus another. So a stretch summing to k means prefix of j minus prefix of i equals k.',
+  'Move a term: prefix of i equals prefix of j minus k. j is where we stand, and i is before it. The question becomes: is there an earlier prefix equal to the current prefix minus k?',
+  'An example: at the 3, the current prefix is 6, so look for 6 minus 3, which is 3. There is a prefix 3 before it, from 1 plus 2. Drop 1, 2, and the 3 that remains is one stretch.',
+  'So as we walk, a dict records how many times each prefix value has appeared. However many equal the current prefix minus k, that is how many stretches. Each lookup is big O of 1.'
+]});
+
+/* ===== 5 Why start with {0: 1} ===== */
+add({ch:5, title:'Why start with <em>{0: 1}</em>', vis:
+  gloss(0,[['empty prefix','Take nothing; the sum is 0'],['{0: 1}','In the dict: prefix value 0 appeared once']])
+  + duo(P5_strip([1,2,3], {pref:[[0,'0',2],[1,'1',2],[2,'3',2],[3,'6',2]], tint:[[3,[1,2]],[4,[1,2]]], ring:[[2,2],[3,0],[4,0]]}),
+    q(1,'Why does the dict not start empty, but with {0: 1}?')
+    + cards([[2,'At the 2: prefix = 3, look for 3 − 3 = 0','We want [1, 2]','sky'],
+             [3,'[1, 2] starts at index 0','Nothing is dropped in front: we drop the empty prefix, sum 0','amber'],
+             [4,'Empty dict → 0 is not found','[1, 2] is missed, and the answer becomes 1','coral'],
+             [5,'Start with {0: 1}','Every stretch that starts at index 0 depends on it','mint']])),
+  say:[
+  'The empty prefix means taking nothing, so the sum is 0. Curly brace 0 colon 1 means the prefix value 0 has appeared once in the dict.',
+  'The question for this scene: why does the dict not start empty, but with 0 colon 1?',
+  'Again 1, 2, 3 with k equal to 3. At the second number, 2, the current prefix is 3, so we look for 3 minus 3, which is 0. The stretch we want is 1, 2.',
+  'The stretch 1, 2 starts at index 0, so nothing in front of it is dropped. Dropping nothing means dropping the empty prefix, whose sum is 0.',
+  'If the dict started empty, 0 would not be found. That stretch would be missed, and the answer would be 1, which is wrong.',
+  'So we start with 0 colon 1: the empty prefix has appeared once. Every stretch that starts at index 0 is counted only because of it.'
+]});
+
+/* ===== 6 Walk through [1, 2, 3] ===== */
+add({ch:6, title:'Walk through: <em>[1, 2, 3], k = 3</em>', vis:
+  gloss(0,[['prefix','The prefix sum up to here'],['dict prefix : times','How many times each prefix value appeared'],['amber / green','Amber is the prefix just found; green is the one just recorded']])
+  + duo(P5_run([1,2,3], 3, 2, 6),
+    q(1,'Walking and checking the dict, how many do we count for [1, 2, 3], k = 3?')
+    + cards([[6,'count = 2','[1, 2] and [3], same as the slow way','mint']])),
+  say:[
+  'prefix is the prefix sum up to here. The dict records how many times each prefix value has appeared. Amber is the prefix found in this step; green is the one just recorded.',
+  'The question for this scene: walking and checking the dict, how many do we count for 1, 2, 3, with k equal to 3?',
+  'Start: prefix is 0, count is 0, and the dict holds the empty prefix, 0, seen once.',
+  'At the 1: prefix becomes 1. Look for 1 minus 3, which is minus 2. It is not in the dict, so count stays 0. Then record 1.',
+  'At the 2: prefix becomes 3. Look for 3 minus 3, which is 0. The dict has one, the empty prefix, so count becomes 1, for the stretch 1, 2. Then record 3.',
+  'At the 3: prefix becomes 6. Look for 6 minus 3, which is 3. The dict has one, so count becomes 2, for the lone 3. Then record 6.',
+  'Count ends at 2, the same as the slow way, but in a single pass.'
+]});
+
+/* ===== 7 Walk through [1, 1, 1] ===== */
+add({ch:7, title:'Walk through: <em>[1, 1, 1], k = 2</em>', vis:
+  gloss(0,[['same steps','Compute prefix, look up prefix − k, then record prefix in the dict']])
+  + duo(P5_run([1,1,1], 2, 2, 6),
+    q(1,'[1, 1, 1], k = 2: which prefix finds each of the two stretches that sum to 2?')
+    + cards([[6,'count = 2','Index 0 to 1, and index 1 to 2: same numbers, different starts','mint']])),
+  say:[
+  'Every step is the same: compute prefix, look up prefix minus k in the dict, then record prefix in the dict.',
+  'The question for this scene: 1, 1, 1 with k equal to 2. Which prefix finds each of the two stretches that sum to 2?',
+  'Start: prefix is 0, and the dict holds only the empty prefix, 0.',
+  'First 1: prefix is 1. Look for 1 minus 2, which is minus 1. Not there. Record 1.',
+  'Second 1: prefix is 2. Look for 2 minus 2, which is 0. That finds the empty prefix, so count becomes 1. This stretch is index 0 to 1. Record 2.',
+  'Third 1: prefix is 3. Look for 3 minus 2, which is 1. That finds prefix 1, so count becomes 2. Drop the first 1, and the stretch is index 1 to 2. Record 3.',
+  'The answer is 2. Both stretches hold the same numbers, 1 and 1, but they start at different places, so they count twice.'
+]});
+
+/* ===== 8 Check ===== */
+add({ch:8, title:'Check: <em>negatives and zero</em>', vis:
+  gloss(0,[['found','How many times prefix − k appeared in the dict; add that many'],['check','Try a few harder examples and see if the answer is right']])
+  + q(1,'Does it work with negatives and zeros? [1, −1, 0], k = 0; and [3, 4, 7, 2, −3, 1, 4, 2], k = 7.')
+  + tbl(['Index','Num','prefix','Look for','Found','count'],[
+    [2,'0','1','1','1','0','0'],[2,'1','−1','0','0','1','1'],
+    [3,'2','0','0','0','2','3']])
+  + tbl(['Index','Num','prefix','Look for','Found','count'],[
+    [4,'0','3','3','−4','0','0'],[4,'1','4','7','0','1','1'],[4,'2','7','14','7','1','2'],
+    [5,'3','2','16','9','0','2'],[5,'4','−3','13','6','0','2'],[5,'5','1','14','7','1','3'],
+    [6,'6','4','18','11','0','3'],[6,'7','2','20','13','1','4']]),
+  say:[
+  'Found means how many times prefix minus k appeared in the dict; count goes up by that many. A check means trying a few harder examples to see if the answer is right.',
+  'The question for this scene: does it work with negatives and zeros? First 1, minus 1, 0 with k equal to 0; then a longer one with k equal to 7.',
+  'First example: at the 1, look for 1, not there. At the minus 1, prefix drops back to 0; look for 0, which finds the empty prefix, so count is 1. Then 0 is in the dict twice.',
+  'At the 0, prefix is still 0, and 0 has appeared twice, so count jumps by 2, to 3. The three stretches: 1, minus 1; 1, minus 1, 0; and the lone 0. That is why the dict stores counts.',
+  'Second example: the first three prefixes are 3, 7, 14. They find two stretches: 3, 4, and the lone 7. Count is 2.',
+  'Next the prefixes are 16, 13, 14. 14 minus 7 is 7, which finds prefix 7 again, for the stretch 7, 2, minus 3, 1. Count is 3.',
+  'Last, the prefixes are 18 and 20. 20 minus 7 is 13, which finds the stretch 1, 4, 2. The answer is 4, the same as trying every stretch.'
+]});
+
+/* ===== 9 Write the code ===== */
+add({ch:9, title:'Code: <em>look up first, then record</em>', vis:
+  gloss(0,[['defaultdict(int)','A key that has never appeared defaults to 0'],['count[p]','How many times prefix value p has appeared']])
+  + term('solution.py',[
+    [2,'o','class Solution:'],
+    [2,'o','    def subarraySum(self, nums: List[int], k: int) -> int:'],
+    [2,'o','        count = defaultdict(int)'],
+    [2,'hl','        count[0] = 1                # empty prefix: sum 0, seen once'],
+    [2,'o','        prefix = 0'],
+    [2,'o','        ans = 0'],
+    [3,'o','        for x in nums:'],
+    [3,'o','            prefix += x             # prefix sum up to here'],
+    [4,'hl','            ans += count[prefix - k]  # look up: earlier prefixes equal to prefix − k'],
+    [5,'o','            count[prefix] += 1      # record: add the current prefix'],
+    [5,'o','        return ans']])
+  + q(1,'Which step of the animation does each line of code match?'),
+  say:[
+  'defaultdict of int is a dict where a key that has never appeared defaults to 0. count of p is how many times the prefix value p has appeared.',
+  'The question for this scene: which step of the animation does each line of code match?',
+  'The first four lines are setup: the dict starts with 0 colon 1, the empty prefix, and prefix and the answer both start at 0.',
+  'The first line in the loop moves to the next number and adds it to prefix.',
+  'The second line looks up first: however many times prefix minus k has appeared, add that to the answer.',
+  'The third line records next: add the current prefix to the dict, one more time. After the loop, return the answer. The order is look up, then record; the next scene explains why.'
+]});
+
+/* ===== 10 Complexity and three pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(n)','Each number is seen once, and each dict lookup is O(1)'],['look up, then record','During the lookup, the dict must hold only earlier prefixes']])
+  + q(1,'What are the time and space? Where is it easiest to go wrong?')
+  + cards([[2,'Time O(n), space O(n)','The dict holds at most n + 1 prefix values','sky'],
+           [3,'Forgetting {0: 1}','[1, 2, 3], k = 3 gives 1: misses [1, 2], which starts at index 0','coral'],
+           [4,'Recording before the lookup','[1, −1, 0], k = 0 gives 6: with k = 0 you find yourself and count an empty stretch','coral'],
+           [5,'A set that only says yes or no','[1, −1, 0], k = 0 gives 2: prefix 0 appeared twice but adds only 1','coral']]),
+  say:[
+  'Big O of n means each number is seen once, and each dict lookup is big O of 1. Look up, then record means that during the lookup, the dict must hold only earlier prefixes.',
+  'The question for this scene: what are the time and space? Where is it easiest to go wrong?',
+  'Time is big O of n, a single pass. Space is also big O of n: the dict holds at most n plus 1 prefix values, the extra one being the empty prefix.',
+  'Pitfall one: forgetting to start with 0 colon 1. 1, 2, 3 with k equal to 3 gives 1, missing the stretch 1, 2, which starts at index 0.',
+  'Pitfall two: recording before the lookup. With k equal to 0, you look for the current prefix itself, find the copy you just stored, and count an empty stretch. 1, minus 1, 0 gives 6 instead of 3.',
+  'Pitfall three: a set that only says yes or no. In 1, minus 1, 0, prefix 0 appears twice, but a set adds only 1, giving 2. The dict must store counts.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','Explain the method out loud first; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why not a sliding window? Why does the dict start with {0: 1}?"')
+  + flow([[2,'Slow way','try every stretch, O(n²)'],[2,'No window','negatives break monotonic sums'],[3,'Subtract prefixes','look for prefix − k'],[4,'Count in a dict','start with {0: 1}'],[4,'Complexity','O(n) / O(n)']])
+  + chips(4,['prefix sum','hash map','running sum','subarray','O(n)','974 Subarray Sums Divisible by K']),
+  say:[
+  'The interview habit is idea first: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why not a sliding window? And why does the dict start with 0 colon 1?',
+  'Start with where you came from: trying every stretch is big O of n squared. A sliding window needs a bigger window to mean a bigger sum, and negatives break that.',
+  'Then the method: a stretch sum is one prefix minus another. At each position, look up how many earlier prefixes equal the current one minus k, add that to the answer, then record the current prefix.',
+  'Finally the details: 0 colon 1 is there to count stretches that start at index 0. Time and space are both big O of n. The keywords are prefix sum and hash map, and problem 974 uses the same pattern.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Prefix sums','a stretch = one prefix minus another'],[0,'Look up','how often prefix − k appeared'],[0,'Record','prefix count plus 1'],[0,'Start','{0: 1}']])
+  + cards([[1,'① Stretch sum = prefix[j] − prefix[i]','With negatives, a sliding window does not work','amber'],
+           [2,'② Ending here with sum k ⟺ an earlier prefix = prefix − k','The dict stores counts; look up, then record','sky'],
+           [3,'③ The dict starts with {0: 1}','The empty prefix: lets stretches from index 0 be counted','mint']]),
+  say:[
+  'The main line once more: one prefix minus another; look up prefix minus k, then record prefix; the dict starts at 0 colon 1.',
+  'One: a stretch sum equals prefix of j minus prefix of i. With negative numbers, a sliding window does not work.',
+  'Two: stretches ending here with sum k match the earlier prefixes equal to the current prefix minus k. The dict stores counts; look up first, then record.',
+  'Three: the dict starts with 0 colon 1. That is the empty prefix, and it lets stretches that start at index 0 be counted.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/0842791054d0.mp3", "0-1": "a/c5fc8f001e6b.mp3", "0-2": "a/94ff66caf246.mp3", "0-3": "a/68fbcac70d10.mp3", "1-0": "a/7dfaf7c6b921.mp3", "1-1": "a/cbf30491fbe5.mp3", "1-2": "a/f4192ad32b04.mp3", "1-3": "a/fa8763e6a165.mp3", "1-4": "a/540a58ca5c5e.mp3", "1-5": "a/4c9bf6c7bdc8.mp3", "2-0": "a/53e9a78f7164.mp3", "2-1": "a/af37b6d9d8f1.mp3", "2-2": "a/61a48cfc4bf0.mp3", "2-3": "a/8273807c64ed.mp3", "2-4": "a/2781ac2f2d7c.mp3", "2-5": "a/f95058bf8bd1.mp3", "2-6": "a/06e9a6119580.mp3", "2-7": "a/0591ef6203f9.mp3", "3-0": "a/0d72e3144d48.mp3", "3-1": "a/55546bc063fd.mp3", "3-2": "a/ebb95c4d0740.mp3", "3-3": "a/aefea03b580c.mp3", "3-4": "a/803cf065084e.mp3", "3-5": "a/eb07632b1bd3.mp3", "4-0": "a/fa1b619bcabf.mp3", "4-1": "a/d2b0551ceaae.mp3", "4-2": "a/c1b27ccb580f.mp3", "4-3": "a/905d4c06da3b.mp3", "4-4": "a/6b7fcfbee942.mp3", "4-5": "a/790169e6f694.mp3", "5-0": "a/2132ee495c57.mp3", "5-1": "a/c0a8212079ad.mp3", "5-2": "a/32ad6520a7da.mp3", "5-3": "a/5dd4d6ef5894.mp3", "5-4": "a/0dd2f80a1351.mp3", "5-5": "a/226fdb692e6a.mp3", "6-0": "a/e7bbb21d9b18.mp3", "6-1": "a/76ef8e59781e.mp3", "6-2": "a/c83c3ad525e3.mp3", "6-3": "a/ab32dc6a833b.mp3", "6-4": "a/7bc44b6f39cd.mp3", "6-5": "a/5b916a1a3539.mp3", "6-6": "a/317a44fbc548.mp3", "7-0": "a/774aa4f1bf33.mp3", "7-1": "a/483c784c4e84.mp3", "7-2": "a/161d9b2a4eb7.mp3", "7-3": "a/ff901116e4bf.mp3", "7-4": "a/cf55a27149a2.mp3", "7-5": "a/1815ca11ca90.mp3", "7-6": "a/b83625d6f558.mp3", "8-0": "a/483dd8285af4.mp3", "8-1": "a/d2e53e943456.mp3", "8-2": "a/5ebb64a18af5.mp3", "8-3": "a/d5e4a45f3ce0.mp3", "8-4": "a/d31db680fe92.mp3", "8-5": "a/d8c6da57e2ca.mp3", "8-6": "a/cea4b0065636.mp3", "9-0": "a/8402a55d9d5a.mp3", "9-1": "a/6bcfc2530612.mp3", "9-2": "a/75e876cb58d2.mp3", "9-3": "a/7b716932192e.mp3", "9-4": "a/7fcf8f35bf50.mp3", "9-5": "a/403427725bcb.mp3", "10-0": "a/3365772e7e00.mp3", "10-1": "a/6d13bcec227a.mp3", "10-2": "a/057d27ae648c.mp3", "10-3": "a/7e1a3374b51e.mp3", "10-4": "a/72fcd6140c25.mp3", "10-5": "a/92910a5ffabb.mp3", "11-0": "a/1d238990ef15.mp3", "11-1": "a/2828f5c6f427.mp3", "11-2": "a/0b58442ed4c0.mp3", "11-3": "a/fcddfa9e3a64.mp3", "11-4": "a/b3b8a45a3cf2.mp3", "12-0": "a/cdab16c4253d.mp3", "12-1": "a/31c5a967099b.mp3", "12-2": "a/60712f9d92f0.mp3", "12-3": "a/39c89386df4c.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

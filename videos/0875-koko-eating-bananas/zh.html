@@ -1,0 +1,776 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>猴子吃香蕉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'猴子吃香蕉', template:'prep', sub:'LeetCode 875 Koko Eating Bananas · 算法动画', key:'lc875vid', doc:'LeetCode 875 题', blurb:'从"一小时只吃一堆"的规则讲起，先试 k = 1、2、3 看它慢在哪，再用"速度越快、小时越少"把速度分成太慢和够快两段，在速度上二分，找第一个够快的 k。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：一只吃香蕉的猴子','读题：一小时只吃一堆','一堆要几小时：向上取整','直觉：从 k = 1 开始试','慢在哪：10 的 9 次方','关键：速度越快，小时越少','二分答案：在速度上二分','动画：[3, 6, 7, 11]，h = 8','再验证：h = 5 和 h = 6','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- speed number line: top row = speed k, bottom row = hours(k); lo / mid / hi markers per step ---------- */
+const KK_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.kl{display:grid;gap:3px;justify-content:center;margin:0 auto}
+.kl>div{position:relative;display:grid;place-items:center;border-radius:6px}
+.kl>.k{height:2.3em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.kl>.k b{position:relative;z-index:1;font-family:var(--f-display);font-weight:400;font-size:1.1em}
+.kl>.hr{height:1.7em;font-family:var(--f-mono);font-size:.8em;color:var(--amber)}
+.kl>.hr .s:not(.on){opacity:0}
+.kl i.t.s{position:absolute;inset:0;border-radius:5px;transform:none}
+.kl i.t.s:not(.on){opacity:0}
+.kl i.slow{background:rgba(255,122,107,.38)} .kl i.ok{background:rgba(98,224,180,.35)}
+.kl i.dim.s{position:absolute;inset:0;border-radius:5px;background:rgba(10,17,36,.85);transform:none;z-index:2}
+.kl i.dim.s:not(.on){opacity:0}
+.kl i.ans.s{position:absolute;inset:-4px;border-radius:8px;box-shadow:0 0 0 3px var(--mint);transform:none;z-index:3}
+.kl i.ans.s:not(.on){opacity:0}
+.kl>.mk{height:2.7em;align-items:start}
+.kl .mk span.s{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;line-height:1.05;font-family:var(--f-mono);font-size:.66em;font-weight:700;opacity:0!important;transform:none}
+.kl .mk span.s.now{opacity:1!important}
+.kl .mk .lo{color:var(--sky)} .kl .mk .mid{color:var(--amber)} .kl .mk .hi{color:var(--coral)}
+.kl-cap{text-align:center;font-size:.75em;color:var(--dim);margin-top:.3em}
+.qrow{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--dim);min-height:1.5em;position:relative;margin-top:.4em}
+.qrow .s{position:absolute;left:0;right:0}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber)} .qrow em{font-style:normal;color:var(--mint)} .qrow i{font-style:normal;color:var(--coral)}
+.kp{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.kp>div{border:1px solid var(--line);border-radius:8px;padding:.3em .5em;background:rgba(10,17,36,.85);text-align:center;min-width:4.2em}
+.kp>div small{display:block;color:var(--dim);font-size:.7em}
+.kp>div span{font-size:1.1em;letter-spacing:2px;color:var(--amber)}
+.kp>div span u{text-decoration:none;color:var(--line)}
+</style>`;
+// o: {ks, hours:[...], hoursStep, zone:[step, firstOk], st:[[step, lo, hi, mid|null]], test:[[step, k, ok]], ans:[step,k], txt:[[step, html]], cap}
+function KK_line(o){
+  const ks = o.ks, n = ks.length;
+  let h = KK_CSS + `<div class="kl" style="grid-template-columns:repeat(${n},1.6em)">`;
+  h += ks.map((k,i)=>{
+    let x = `<b>${k}</b>`;
+    if(o.zone) x += `<i class="t s ${k<o.zone[1]?'slow':'ok'}" data-s="${o.zone[0]}"></i>`;
+    (o.test||[]).filter(t=>t[1]===k).forEach(([s,,ok])=>x+=`<i class="t s ${ok?'ok':'slow'}" data-s="${s}"></i>`);
+    const out = (o.st||[]).find(([,l,r])=>k<l||k>r);
+    if(out) x += `<i class="dim s" data-s="${out[0]}"></i>`;
+    if(o.ans&&o.ans[1]===k) x += `<i class="ans s" data-s="${o.ans[0]}"></i>`;
+    return `<div class="k">${x}</div>`;
+  }).join('');
+  if(o.hours) h += o.hours.map(v=>`<div class="hr"><span class="s" data-s="${o.hoursStep}">${v}</span></div>`).join('');
+  if(o.st) h += ks.map(k=>`<div class="mk">${o.st.map(([s,l,r,m])=>{
+    const t = [k===l?'<em class="lo">lo</em>':'', k===m?'<em class="mid">mid</em>':'', k===r?'<em class="hi">hi</em>':''].filter(Boolean).join('');
+    return t?`<span class="s" data-s="${s}">${t}</span>`:''; }).join('')}</div>`).join('');
+  h += `</div>`;
+  if(o.cap) h += `<div class="kl-cap">${o.cap}</div>`;
+  if(o.txt) h += `<div class="qrow">${o.txt.map(([s,t])=>`<span class="only s" data-s="${s}">${t}</span>`).join('')}</div>`;
+  return h;
+}
+const KK_KS = [1,2,3,4,5,6,7,8,9,10,11];
+const KK_H = [27,15,10,8,8,6,5,5,5,5,4];
+// one pile eaten hour by hour: groups = bananas eaten each hour, k = speed
+const KK_pile = (s, groups, k, lab) => KK_CSS + `<div class="kp s" data-s="${s}">${groups.map((g,i)=>`<div><small>${lab(i+1)}</small><span>${'●'.repeat(g)}<u>${'○'.repeat(k-g)}</u></span></div>`).join('')}</div>`;
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'猴子吃香蕉<br><em>LeetCode 875</em>', vis:
+  gloss(0,[['速度 k','每小时最多吃几根香蕉'],['向上取整 ceil','有小数就进一：2.3 变成 3'],['单调','一个量变大，另一个只往一个方向变'],['二分答案','不在数组里二分，而在答案可能的取值上二分']])
+  + flow([[1,'读题','一小时只吃一堆'],[1,'直觉','k 从 1 开始试'],[2,'太慢','10 的 9 次方'],[2,'单调','越快，小时越少'],[3,'二分','在速度上找'],[3,'代码','O(n log max)']]),
+  say:[
+  '这节课讲力扣 875 题，爱吃香蕉的珂珂。先认四个词：速度 k，是每小时最多吃几根。向上取整，是有小数就进一。单调，是一个量变大，另一个只往一个方向变。二分答案，是在答案可能的取值上二分。',
+  '我们先把规则读清楚：一小时只能吃一堆。然后用最直接的办法，k 从 1 开始一个个试。',
+  '接着看它在大数据上慢在哪，再用一个观察救场：吃得越快，用的小时只会越少。',
+  '有了这个单调性，就能在速度上二分。最后一步步走一遍动画，写出代码。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>一小时只吃一堆</em>', vis:
+  gloss(0,[['piles','每一堆香蕉的根数，比如 [3, 6, 7, 11]'],['h','警卫离开的小时数，必须在这之前吃完'],['k','珂珂选定的速度，整个过程不变']])
+  + q(1,'piles = [3, 6, 7, 11]，h = 8。最小的 k 是多少？')
+  + cards([[2,'规则：每小时选一堆，最多吃 k 根','这堆不到 k 根，吃完这一小时就歇着，不去别的堆','amber'],
+           [3,'k = 4：1 + 2 + 2 + 3 = 8 小时','正好用完 8 小时，来得及','mint'],
+           [4,'k = 3：1 + 2 + 3 + 4 = 10 小时','超过 8，来不及；所以答案是 4','coral']]),
+  say:[
+  'piles 是每一堆香蕉的根数。h 是警卫离开的小时数，珂珂必须在这之前吃完。k 是她选定的速度，选好就不变。',
+  '这一幕要回答的是：四堆香蕉 3、6、7、11，h 等于 8，最小的 k 是多少？',
+  '规则只有一条：每小时选一堆，最多吃 k 根。这堆不到 k 根，吃完了这一小时也就结束了，不会去吃别的堆。',
+  '试 k 等于 4：3 根要一小时，6 根两小时，7 根两小时，11 根三小时，加起来正好 8，来得及。',
+  '试 k 等于 3：一加二加三加四，是 10 小时，超过 8，来不及。所以最小的 k 是 4。'
+]});
+
+/* ===== 2 向上取整 ===== */
+add({ch:2, title:'一堆要几小时：<em>向上取整</em>', vis:
+  gloss(0,[['//','整除，去掉小数部分：9 // 3 = 3，8 // 3 = 2'],['余数','除不尽剩下的部分：7 除以 3 余 1']])
+  + q(1,'速度 k = 3，7 根香蕉的一堆，要几小时？')
+  + KK_pile(2,[3,3,1],3,i=>`第 ${i} 小时`)
+  + cards([[3,'小时数 = ceil(p / k)','7 / 3 = 2.33…，有小数就进一：3 小时','sky'],
+           [4,'不用小数：(p + k − 1) // k','(7 + 2) // 3 = 3；正好整除时 (6 + 2) // 3 = 2','mint']]),
+  say:[
+  '两个斜杠是整除，去掉小数部分。余数是除不尽剩下的部分，7 除以 3 余 1。',
+  '这一幕要回答的是：速度是 3，一堆 7 根香蕉，要几小时？',
+  '第一小时吃 3 根，第二小时吃 3 根，还剩 1 根。第三小时只吃这 1 根，剩下的时间空着，因为不能去别的堆。所以是 3 小时。',
+  '写成公式，就是 p 除以 k 向上取整。7 除以 3 是 2 点 33，有小数就进一，得 3。',
+  '代码里不用小数，写成 p 加 k 减一，再整除 k。只要有余数，加上的 k 减一就会把它推过下一个整倍数。7 加 2 整除 3 是 3；6 正好整除，6 加 2 整除 3 还是 2。'
+]});
+
+/* ===== 3 直觉：从 1 开始试 ===== */
+add({ch:3, title:'直觉：<em>k 从 1 开始试</em>', vis:
+  gloss(0,[['枚举','从小到大一个个试，不跳过'],['总小时','每一堆的小时数加起来']])
+  + q(1,'最直接的办法：k = 1、2、3……一个个试，第一个来得及的就是答案？')
+  + tbl(['k','每堆几小时','总小时','≤ 8？'],[
+    [2,'1','3, 6, 7, 11','27','✗'],
+    [3,'2','2, 3, 4, 6','15','✗'],
+    [3,'3','1, 2, 3, 4','10','✗'],
+    [4,'4','1, 2, 2, 3','8','✓']])
+  + cards([[5,'对，而且一定是最小的','比它小的都试过了，全都来不及','mint']]),
+  say:[
+  '枚举，就是从小到大一个个试，不跳过。总小时，是每一堆的小时数加起来。',
+  '这一幕要回答的是：最直接的办法，k 从 1 开始一个个试，第一个来得及的就是答案吗？',
+  'k 等于 1，每小时一根，一共 27 小时，远远超过 8。',
+  'k 等于 2，一共 15 小时；k 等于 3，一共 10 小时，都还来不及。',
+  'k 等于 4，一共 8 小时，来得及，停下。',
+  '这个答案是对的，而且一定是最小的，因为比它小的速度都试过了，全都来不及。问题只有一个：它快不快。'
+]});
+
+/* ===== 4 慢在哪 ===== */
+add({ch:4, title:'慢在哪：<em>10 的 9 次方</em>', vis:
+  gloss(0,[['约束','题目保证的数据范围：每堆最多 10⁹ 根，最多 10⁴ 堆'],['O(max · n)','最多试 max 个速度，每次算 n 堆']])
+  + q(1,'piles = [10⁹]，h = 1。从 k = 1 开始试，要试多少次？')
+  + cards([[2,'只有 k = 10⁹ 来得及','一小时吃完一整堆，速度至少是整堆的根数','coral'],
+           [3,'要试 10⁹ 个速度','每试一个还要把 n 堆全算一遍：O(max · n)','amber'],
+           [4,'最坏 10⁹ × 10⁴ = 10¹³ 次','Python 一秒大约 10⁷ 次：要跑十多天','coral']]),
+  say:[
+  '题目的约束是：每堆最多 10 的 9 次方根，最多 10 的 4 次方堆。所以枚举的复杂度是 O max 乘 n：最多试 max 个速度，每次算 n 堆。',
+  '这一幕要回答的是：只有一堆，10 的 9 次方根，h 等于 1。从 k 等于 1 开始试，要试多少次？',
+  '一小时就得吃完一整堆，速度至少是整堆的根数，所以只有 k 等于 10 的 9 次方来得及。',
+  '从 1 一路试到它，要试 10 的 9 次方个速度。而且每试一个，还要把所有堆都算一遍。',
+  '最坏是 10 的 9 次方乘 10 的 4 次方，10 的 13 次方次。Python 一秒大约一千万次，要跑十多天。慢就慢在：我们一个一个地试，没有利用任何规律。'
+]});
+
+/* ===== 5 单调 ===== */
+add({ch:5, title:'关键：<em>速度越快，小时越少</em>', vis:
+  gloss(0,[['hours(k)','速度为 k 时，吃完所有堆的总小时'],['单调不增','k 变大时，hours(k) 只会变小或不变，从不变大']])
+  + duo(KK_line({ks:KK_KS, hours:KK_H, hoursStep:2, zone:[3,4], ans:[4,4], cap:'上：速度 k　下：总小时'}),
+    q(1,'把 k = 1 到 11 的总小时全写出来，你看到什么规律？')
+    + cards([[2,'k 越大，总小时只会变少或不变','每一堆的 ceil(p / k) 都不会变大','sky'],
+             [3,'分成两段：太慢 | 够快','1 到 3 超过 8；4 到 11 全都 ≤ 8','amber'],
+             [4,'答案 = 第一个够快的 k','k = 4：找"分界线"，不用一个个试','mint']])),
+  say:[
+  'hours k，是速度为 k 时吃完所有堆的总小时。单调不增，是 k 变大时它只会变小或不变，从不变大。',
+  '这一幕要回答的是：把 k 从 1 到 11 的总小时全写出来，你看到什么规律？',
+  '27、15、10、8、8、6、5、5、5、5、4。速度越快，总小时只会变少或不变，因为每一堆的小时数都不会变多。',
+  '拿 h 等于 8 一比，速度被切成两段：1 到 3 是红色，太慢；4 到 11 是绿色，全都够快。绿色一旦开始，就再也不会变回红色。',
+  '我们要的，就是第一个绿色，k 等于 4。问题变成了找红绿的分界线，而找分界线，正是二分查找最擅长的事。'
+]});
+
+/* ===== 6 二分答案 ===== */
+add({ch:6, title:'二分答案：<em>在速度上二分</em>', vis:
+  gloss(0,[['lo、hi','答案一定在 lo 到 hi 之间'],['mid','中间的那个速度：(lo + hi) // 2']])
+  + q(1,'在哪个范围里找？每一步怎么扔掉一半？')
+  + cards([[2,'范围 [1, max(piles)]','k = max 时每堆 1 小时，共 n 小时 ≤ h，一定够快','sky'],
+           [3,'hours(mid) ≤ h → hi = mid','mid 够快，它还可能就是答案，要留着','mint'],
+           [4,'hours(mid) > h → lo = mid + 1','mid 太慢，不可能是答案；比它慢的更不行','coral'],
+           [5,'和 153 题同一句话','"mid 还可能是答案吗？"能 → 留着；不能 → +1 扔掉','amber']]),
+  say:[
+  'lo 和 hi 是范围的两头，答案一定在它们之间。mid 是中间的那个速度，lo 加 hi 整除二。',
+  '这一幕要回答的是：在哪个范围里找？每一步怎么扔掉一半？',
+  '最慢是 1。最快取最大那堆的根数：这时每堆一小时，一共 n 小时。题目保证 h 大于等于 n，所以它一定够快，再快也不会更少。',
+  '算出 hours mid。如果小于等于 h，mid 够快，绿色。它可能就是第一个绿色，不能扔，hi 等于 mid。',
+  '如果大于 h，mid 太慢，红色。它不可能是答案，比它慢的更不行，连 mid 一起扔掉，lo 等于 mid 加一。',
+  '这和 153 题是同一句话：mid 还可能是答案吗？能，就留着；不能，就加一扔掉。循环条件是 lo 小于 hi，两头相遇时就是答案。'
+]});
+
+/* ===== 7 动画 ===== */
+add({ch:7, title:'走一遍：<em>[3, 6, 7, 11]，h = 8</em>', vis:
+  gloss(0,[['绿 / 红','试过的速度：够快 / 太慢；变暗的已经扔出范围']])
+  + duo(KK_line({ks:KK_KS,
+      st:[[2,1,11,6],[3,1,6,3],[4,4,6,5],[5,4,5,4],[6,4,4,null]],
+      test:[[2,6,true],[3,3,false],[4,5,true],[5,4,true]],
+      ans:[6,4],
+      txt:[[2,'mid=6：1+1+2+2 = <b>6</b> ≤ 8 → <em>hi = 6</em>'],
+           [3,'mid=3：1+2+3+4 = <b>10</b> &gt; 8 → <i>lo = 4</i>'],
+           [4,'mid=5：1+2+2+3 = <b>8</b> ≤ 8 → <em>hi = 5</em>'],
+           [5,'mid=4：1+2+2+3 = <b>8</b> ≤ 8 → <em>hi = 4</em>'],
+           [6,'lo = hi = 4　答案 <em>4</em>']]}),
+    q(1,'范围 [1, 11]，每一轮 mid 是几？总小时是几？范围怎么缩？')),
+  say:[
+  '绿色是试过、够快的速度，红色是试过、太慢的速度。变暗的格子，已经被扔出范围。',
+  '这一幕要回答的是：范围从 1 到 11，每一轮 mid 是几，总小时是几，范围怎么缩？',
+  '第一轮：lo 是 1，hi 是 11，mid 是 6。四堆各要一、一、二、二小时，共 6 小时，不超过 8，够快。6 可能是答案，hi 等于 6。',
+  '第二轮：范围 1 到 6，mid 是 3。一加二加三加四，10 小时，超过 8，太慢。3 不可能是答案，lo 等于 4。',
+  '第三轮：范围 4 到 6，mid 是 5。一加二加二加三，正好 8 小时，够快，hi 等于 5。',
+  '第四轮：范围 4 到 5，mid 是 4。还是 8 小时，够快，hi 等于 4。',
+  '这时 lo 等于 hi 等于 4，循环结束，答案是 4。这个小例子看不出差距；可速度范围到 10 的 9 次方时，枚举要试十亿次，二分只要大约 30 轮。'
+]});
+
+/* ===== 8 再验证 ===== */
+add({ch:8, title:'再验证：<em>h = 5 和 h = 6</em>', vis:
+  gloss(0,[['n','堆数，这里是 5']])
+  + q(1,'piles = [30, 11, 23, 4, 20]。h = 5 和 h = 6，答案各是多少？')
+  + term('每一轮的 mid 和总小时',[
+    [2,'o','h = 5   范围 [1, 30]'],
+    [2,'o','mid=15 → 8 > 5   lo = 16'],
+    [2,'o','mid=23 → 6 > 5   lo = 24'],
+    [2,'o','mid=27 → 6 > 5   lo = 28'],
+    [2,'o','mid=29 → 6 > 5   lo = 30'],
+    [3,'hl','答案 30'],
+    [4,'o','h = 6   范围 [1, 30]'],
+    [4,'o','mid=15 → 8 > 6   lo = 16'],
+    [4,'o','mid=23 → 6 ≤ 6   hi = 23'],
+    [4,'o','mid=19 → 8 > 6   lo = 20'],
+    [4,'o','mid=21 → 7 > 6   lo = 22'],
+    [4,'o','mid=22 → 7 > 6   lo = 23'],
+    [5,'hl','答案 23']]),
+  say:[
+  'n 是堆数，这个例子里是 5 堆。',
+  '这一幕要回答的是：五堆香蕉 30、11、23、4、20。h 等于 5 和 h 等于 6，答案各是多少？',
+  '先看 h 等于 5。mid 依次是 15、23、27、29，总小时是 8、6、6、6，都超过 5，lo 一路往右推到 30。',
+  '答案是 30。道理很直接：h 等于堆数，每堆只能分到一小时，速度必须是最大那堆，30 根。',
+  '再看 h 等于 6。mid 等于 15 时 8 小时，太慢；23 时正好 6 小时，够快，hi 等于 23；之后 19、21、22 分别是 8、7、7 小时，都太慢。',
+  '答案是 23。这时 30 那堆吃两小时，其余各一小时，共 6 小时。换成 22，23 那堆也要两小时，变成 7，来不及。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>二分 + 算总小时</em>', vis:
+  gloss(0,[['sum(… for p in piles)','把每一堆的小时数加起来']])
+  + term('solution.py',[
+    [2,'o','def minEatingSpeed(piles, h):'],
+    [2,'hl','    lo, hi = 1, max(piles)'],
+    [3,'o','    while lo < hi:'],
+    [3,'o','        mid = (lo + hi) // 2'],
+    [3,'hl','        hours = sum((p + mid - 1) // mid for p in piles)'],
+    [4,'o','        if hours <= h:          # 够快：mid 还可能是答案'],
+    [4,'hl','            hi = mid'],
+    [4,'o','        else:                   # 太慢：mid 不可能是答案'],
+    [4,'hl','            lo = mid + 1'],
+    [5,'o','    return lo']])
+  + q(1,'前面讲的范围、取整、两种更新，分别落在哪几行？'),
+  say:[
+  'sum 加一个 for，意思是把每一堆的小时数加起来。',
+  '这一幕要回答的是：前面讲的范围、取整、两种更新，分别落在哪几行？',
+  '第一行定范围：lo 是 1，hi 是最大那堆的根数。',
+  '循环条件是 lo 小于 hi。每轮取 mid，用 p 加 mid 减一、整除 mid 算出每堆的小时，再加起来。',
+  '小于等于 h，mid 够快，可能是答案，hi 等于 mid；否则 mid 太慢，lo 等于 mid 加一。每一轮范围都严格变小。',
+  '两头相遇时，lo 就是第一个够快的速度，返回 lo。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(n log max)','二分 log max 轮，每轮算 n 堆'],['死循环','范围不再变小，循环停不下来']])
+  + q(1,'现在要算多少次？最容易错在哪？')
+  + cards([[2,'时间 O(n log max)，空间 O(1)','log₂ 10⁹ ≈ 30 轮 × 10⁴ 堆 = 3 × 10⁵ 次','sky'],
+           [3,'写成 hours < h','"正好用完"被当成来不及：[3, 6, 7, 11] 会返回 6，不是 4','coral'],
+           [4,'lo 从 0 开始','mid 可能是 0，除以 0 直接报错；最慢也得是 1','coral'],
+           [4,'模板混用','while lo <= hi 配 hi = mid：lo == hi 时范围不变，死循环','coral']]),
+  say:[
+  'O n log max，是二分 log max 轮，每轮把 n 堆算一遍。死循环，是范围不再变小，循环停不下来。',
+  '这一幕要回答的是：现在要算多少次？最容易错在哪？',
+  'log 以二为底 10 的 9 次方，大约 30 轮，每轮 10 的 4 次方堆，一共三十万次，一眨眼就算完。空间只用几个变量，O 一。',
+  '坑一：写成小于 h。正好用完 h 小时也算来得及。写错的话，3、6、7、11 会返回 6，不是 4。',
+  '坑二：lo 从 0 开始，mid 可能是 0，除以 0 直接报错，最慢也得是 1。坑三：模板混用。while lo 小于等于 hi 配上 hi 等于 mid，两头相遇时范围不变，就死循环了。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："为什么能在速度上二分？"')
+  + flow([[2,'规则','ceil(p / k)'],[2,'暴力','O(max · n)'],[3,'单调','k ↑ 小时 ↓'],[3,'二分','[1, max]'],[4,'更新','hi = mid / lo = mid + 1'],[4,'复杂度','O(n log max)']])
+  + chips(4,['binary search on the answer','monotonic','feasibility check','ceiling division','O(n log max)','1011 Ship Packages']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，为什么能在速度上二分？',
+  '先讲规则和暴力：每堆要 p 除以 k 向上取整小时。从 1 开始试每个速度是 O max 乘 n，max 到 10 的 9 次方就太慢。',
+  '再讲为什么能二分：速度越快，总小时只会变少或不变，所以速度分成太慢和够快两段，答案是第一个够快的。',
+  '更新时问 mid 还可能是答案吗：够快就 hi 等于 mid，太慢就 lo 等于 mid 加一。复杂度 O n log max。英文关键词是 binary search on the answer；1011 题运包裹，是同一个模板。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'规则','一小时一堆'],[0,'单调','越快越少'],[0,'二分','第一个够快'],[0,'更新','留 mid / 扔 mid']])
+  + cards([[1,'① 一堆要 (p + k − 1) // k 小时','一小时只吃一堆，剩一根也占满一小时','amber'],
+           [2,'② 速度越快，小时越少 → 二分答案','速度分成太慢 | 够快，在 [1, max] 里找分界线','sky'],
+           [3,'③ 够快 hi = mid，太慢 lo = mid + 1','问"mid 还可能是答案吗"，和 153 题一样','mint']]),
+  say:[
+  '回顾一遍主线：一小时只吃一堆；速度越快，小时越少；在速度上二分，找第一个够快的；够快留着 mid，太慢扔掉 mid。',
+  '第一句：一堆要 p 加 k 减一、整除 k 小时。一小时只吃一堆，剩一根也要占满一小时。',
+  '第二句：速度越快，总小时越少，所以能二分答案。速度分成太慢和够快两段，在 1 到最大那堆之间找分界线。',
+  '第三句：够快，hi 等于 mid；太慢，lo 等于 mid 加一。判断方法和 153 题一样，问一句 mid 还可能是答案吗。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/5a3048da0413.mp3", "0-1": "a/30e1c4a5e795.mp3", "0-2": "a/e92b0fa573aa.mp3", "0-3": "a/7953c2b6c20d.mp3", "1-0": "a/becaefcbce40.mp3", "1-1": "a/c84774b70da3.mp3", "1-2": "a/a1ced49a19c5.mp3", "1-3": "a/7eecebcdfd64.mp3", "1-4": "a/4567677b776c.mp3", "2-0": "a/1ab86663d127.mp3", "2-1": "a/8bb65e453ab9.mp3", "2-2": "a/38c447de1fa4.mp3", "2-3": "a/75389fd6fa31.mp3", "2-4": "a/d3702743cf00.mp3", "3-0": "a/ea8aa338f7d9.mp3", "3-1": "a/ea11140522ff.mp3", "3-2": "a/c6ad0c2c2038.mp3", "3-3": "a/c42d3258c801.mp3", "3-4": "a/4617ee2ee90c.mp3", "3-5": "a/13c8f568421e.mp3", "4-0": "a/c0d828e2ed9d.mp3", "4-1": "a/01acc4dce5da.mp3", "4-2": "a/95ccec389bc6.mp3", "4-3": "a/85503d52dd6c.mp3", "4-4": "a/c8bb89c6dd6b.mp3", "5-0": "a/9edbba44921a.mp3", "5-1": "a/86e30bcaaf9c.mp3", "5-2": "a/9fb46e2846fa.mp3", "5-3": "a/fc6f1adabc75.mp3", "5-4": "a/c4fe6c5a2348.mp3", "6-0": "a/84e39c4df0aa.mp3", "6-1": "a/b0c6aab03baa.mp3", "6-2": "a/8ba22f947a3c.mp3", "6-3": "a/0efcd2bf7f7f.mp3", "6-4": "a/29d64c5aeb13.mp3", "6-5": "a/9fc41b4a73d9.mp3", "7-0": "a/42cbbe34d46d.mp3", "7-1": "a/698f97a43237.mp3", "7-2": "a/79a8e470bfe5.mp3", "7-3": "a/9db9dddf5b19.mp3", "7-4": "a/5db107e6ab27.mp3", "7-5": "a/7a7a9de65749.mp3", "7-6": "a/737d903b9d47.mp3", "8-0": "a/b151041b4899.mp3", "8-1": "a/205a6ed18f3d.mp3", "8-2": "a/e62629a14397.mp3", "8-3": "a/89a9d871b629.mp3", "8-4": "a/624291d2b965.mp3", "8-5": "a/106afd3394ab.mp3", "9-0": "a/3ef45656c6c5.mp3", "9-1": "a/65d839aabaa1.mp3", "9-2": "a/420902cf3e98.mp3", "9-3": "a/71e814149f83.mp3", "9-4": "a/71366fbd3148.mp3", "9-5": "a/db8e2a82fadf.mp3", "10-0": "a/4b6b0abca398.mp3", "10-1": "a/67b0d4861bf7.mp3", "10-2": "a/96d6065ed028.mp3", "10-3": "a/e5da86f53c48.mp3", "10-4": "a/860aa563b5b5.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/c0a3cc7bf331.mp3", "11-2": "a/5a6ee6be9c59.mp3", "11-3": "a/4f7ab8ad997c.mp3", "11-4": "a/88eb5cb8fdeb.mp3", "12-0": "a/c9f8d2950117.mp3", "12-1": "a/8b91e1d54790.mp3", "12-2": "a/a1b966ed1dd1.mp3", "12-3": "a/b3ec0a76d3ab.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

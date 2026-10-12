@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>卖完歇一天</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"需确认 · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:"："}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · 看过";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>第 <b id="sNum">1</b> / <b id="sTot">1</b> 幕</span><span>经验值 <b id="xp">0</b></span><span>答对 <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="动画画面">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="点击跳转"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>按 ▶ 开始。每一幕 20～60 秒，随时可以暂停、跳章。</span></div>
+
+  <div class="notes"><label for="note" class="hint">这一幕的笔记（只存在这个浏览器里）</label><textarea id="note" rows="2" placeholder="想到什么就打下来……"></textarea><div class="row"><button class="btn" id="bCopy">复制全部笔记</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="上一幕 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>上一幕</button>
+    <button class="btn primary" id="bPlay" title="播放 / 暂停 (空格)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">播放</span></button>
+    <button class="btn" id="bStep" title="只往下讲一句 (↓)">下一句</button>
+    <button class="btn" id="bNext" title="下一幕 (→)">下一幕<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="配音开关">配音 开</button>
+    <button class="btn" id="bSpeed" title="语速">语速 1.0×</button>
+  </div>
+  <div class="hint">快捷键：空格 播放/暂停 · ← → 换幕 · ↓ 下一句。点画面也能往下讲一句。进度会记在这个浏览器里。</div>
+
+  <h2 class="sec-h">章节</h2>
+  <nav class="chapters" id="chapters" aria-label="章节"></nav>
+</div>
+<div class="toast" id="toast">+10 经验</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">英文关键词</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'卖完歇一天', template:'prep', sub:'LeetCode 309 Best Time to Buy and Sell Stock with Cooldown · 算法动画', key:'lc309vid', doc:'LeetCode 309 题', blurb:'先回忆 122 题"涨就赚"的贪心，看冷冻期怎么让它违规；再把每天收盘时的处境画成 hold、sold、rest 三个状态，用昨天的三个数推出今天的三个数。'};
+/* ---------- chapters ---------- */
+const CH = ['开场：买、卖、歇一天','读题：[1, 2, 3, 0, 2]','回忆 122：涨就赚','冷冻期让贪心违规','每天收盘只有三种处境','画箭头：今天从哪来','买只能从 rest 来','逐天推：三个数','坑：一定要用昨天的值','写代码','复杂度和易错点','面试怎么讲','收尾：三句必记'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>这一幕的问题</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- shared CSS: price strip, state machine, day table ---------- */
+const SM_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.pz{display:grid;gap:5px;justify-content:center;margin:0 auto}
+.pz>div{position:relative;display:grid;place-items:center;border-radius:8px}
+.pz>.ix{height:1.3em;color:var(--dim);font-family:var(--f-mono);font-size:.78em}
+.pz>.v{height:2.6em;border:1px solid var(--line);background:rgba(10,17,36,.85)}
+.pz>.v b{font-family:var(--f-display);font-weight:400;font-size:1.35em}
+.pz>.lb{min-height:1.9em;font-size:.82em}
+.pz>.lb span{grid-area:1/1;padding:.05em .45em;border-radius:6px;border:1px solid currentColor;white-space:nowrap}
+.pz .s:not(.on){opacity:0}
+.pz .buy{color:var(--mint)} .pz .sell{color:var(--amber)} .pz .cool{color:var(--sky)} .pz .bad{color:var(--coral);background:rgba(255,122,107,.18)}
+.sm{width:100%;max-width:400px;margin:0 auto;display:block;overflow:visible}
+.sm .s:not(.on){opacity:0}
+.sm .only.s{opacity:0!important} .sm .only.s.now{opacity:1!important}
+.sm path{fill:none;stroke:var(--sky);stroke-width:3}
+.sm path.no{stroke:var(--coral);stroke-dasharray:6 5}
+.sm circle{fill:var(--term);stroke:var(--sky);stroke-width:3}
+.sm circle.ring{fill:none;stroke:var(--amber);stroke-width:4}
+.sm text{fill:var(--paper);font-family:var(--f-mono);font-size:16px;text-anchor:middle;dominant-baseline:central}
+.sm text.sub{font-family:var(--f-body);font-size:12px;fill:var(--dim)}
+.sm text.el{font-family:var(--f-body);font-size:13px;fill:var(--amber)}
+.sm text.x{fill:var(--coral);font-size:22px;font-weight:700}
+.dt{display:grid;gap:4px;justify-content:center;margin:0 auto}
+.dt>div{position:relative;display:grid;place-items:center;height:2.2em;border-radius:7px;border:1px solid var(--line);background:rgba(10,17,36,.85);font-family:var(--f-mono)}
+.dt>.hd{border:0;background:none;height:1.5em;color:var(--dim);font-size:.75em}
+.dt>.lb{border:0;background:none;justify-items:end;padding-right:.3em;font-size:.82em;color:var(--dim)}
+.dt>.pr{color:var(--sky);background:none}
+.dt b{font-weight:400;color:var(--mint)} .dt b.neg{color:var(--coral)}
+.dt .s:not(.on){opacity:0}
+.dt i.col.s{border-radius:9px;box-shadow:0 0 0 3px var(--amber);opacity:0!important;transform:none;pointer-events:none}
+.dt i.col.s.now{opacity:1!important}
+.qrow{display:grid;font-family:var(--f-mono);font-size:.8em;text-align:center;color:var(--dim);margin-top:.5em;line-height:1.5}
+.qrow>span{grid-area:1/1}
+.qrow .only.s{opacity:0!important} .qrow .only.s.now{opacity:1!important}
+.qrow b{color:var(--amber);font-weight:400}
+</style>`;
+
+// price strip. labels: [[day, text, step, tone]]  tone: buy / sell / cool / bad
+function SM_strip(prices, labels=[]){
+  const n = prices.length;
+  let h = SM_CSS + `<div class="pz" style="grid-template-columns:repeat(${n},3.1em)">`;
+  h += prices.map((_,k)=>`<div class="ix">第 ${k} 天</div>`).join('');
+  h += prices.map(v=>`<div class="v"><b>${v}</b></div>`).join('');
+  h += prices.map((_,k)=>`<div class="lb">${labels.filter(l=>l[0]===k).map(([,t,s,tone])=>`<span class="s ${tone}" data-s="${s}">${t}</span>`).join('')}</div>`).join('');
+  return h + `</div>`;
+}
+
+// state machine: rest (left), hold (top), sold (right)
+const SM_P = {rest:[70,175], hold:[170,75], sold:[270,175]}, SM_R = 28;
+function SM_edge([x1,y1],[x2,y2],bend,cls=''){
+  const dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+  const sx=x1+ux*SM_R, sy=y1+uy*SM_R, ex=x2-ux*(SM_R+6), ey=y2-uy*(SM_R+6);
+  const cx=(sx+ex)/2-uy*bend, cy=(sy+ey)/2+ux*bend;
+  return `<path class="${cls}" marker-end="url(#sm-${cls||'a'})" d="M${sx.toFixed(1)},${sy.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}"/>`;
+}
+const SM_G = (st, inner) => st==null ? '' : (st===0 ? inner : `<g class="s" data-s="${st}">${inner}</g>`);
+// o: {nodes:{hold,sold,rest: step}, arr:{buy,sell,cool,keep,wait: step}, no: step, ring:[[step,id]], sub:{hold,sold,rest}, lab:{buy,sell,cool,keep,wait}}
+function SM_svg(o){
+  const n = o.nodes||{}, a = o.arr||{};
+  let s = SM_CSS + `<svg class="sm" viewBox="0 0 340 250" role="img" aria-label="三个状态和它们之间的箭头"><defs>
+    <marker id="sm-a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--sky);stroke:none"/></marker>
+    <marker id="sm-no" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--coral);stroke:none"/></marker></defs>`;
+  const L = o.lab;
+  s += SM_G(a.buy, SM_edge(SM_P.rest,SM_P.hold,-18) + `<text class="el" x="86" y="103">${L.buy}</text>`);
+  s += SM_G(a.sell, SM_edge(SM_P.hold,SM_P.sold,-18) + `<text class="el" x="256" y="103">${L.sell}</text>`);
+  s += SM_G(a.cool, SM_edge(SM_P.sold,SM_P.rest,-24) + `<text class="el" x="170" y="212">${L.cool}</text>`);
+  s += SM_G(a.keep, `<path marker-end="url(#sm-a)" d="M156,51 C128,2 212,2 186,49"/><text class="el" x="232" y="24">${L.keep}</text>`);
+  s += SM_G(a.wait, `<path marker-end="url(#sm-a)" d="M46,160 C-2,136 -2,214 44,192"/><text class="el" x="22" y="138">${L.wait}</text>`);
+  if(o.no!=null) s += `<g class="s" data-s="${o.no}">${SM_edge(SM_P.sold,SM_P.hold,-18,'no')}<text class="x" x="212" y="133">✕</text></g>`;
+  Object.entries(SM_P).forEach(([id,[x,y]])=>{
+    s += SM_G(n[id]==null?0:n[id], `<circle cx="${x}" cy="${y}" r="${SM_R}"/><text x="${x}" y="${y}">${id}</text><text class="sub" x="${x}" y="${y+(id==='hold'?-40:42)}">${o.sub[id]}</text>`);
+  });
+  (o.ring||[]).forEach(([st,id])=>{ const [x,y]=SM_P[id]; s += `<circle class="ring only s" data-s="${st}" cx="${x}" cy="${y}" r="${SM_R+7}"/>`; });
+  return s + `</svg>`;
+}
+const SM_SUB = {hold:'手里有一股', sold:'今天刚卖', rest:'空手，能买'};
+const SM_LAB = {buy:'买 −p', sell:'卖 +p', cool:'冷冻', keep:'拿着', wait:'等'};
+const SM = o => SM_svg({sub:SM_SUB, lab:SM_LAB, ...o});
+
+// day table. cols: [[header, price, hold, sold, rest, step]], row labels
+function SM_table(cols, rowLab){
+  const fmt = v => v===-Infinity ? '−∞' : (v<0 ? '−'+(-v) : ''+v);
+  let h = SM_CSS + `<div class="dt" style="grid-template-columns:3.6em repeat(${cols.length},2.75em)">`;
+  ['','价格','hold','sold','rest'].forEach((t,r)=>{ h += `<div class="${r===0?'hd':'lb'}" style="grid-row:${r+1};grid-column:1">${r===0?'':rowLab[r-1]}</div>`; });
+  cols.forEach(([hd,p,ho,so,re,st],c)=>{
+    const col = c+2;
+    h += `<div class="hd" style="grid-row:1;grid-column:${col}">${hd}</div>`;
+    h += `<div class="pr" style="grid-row:2;grid-column:${col}">${p}</div>`;
+    [ho,so,re].forEach((v,r)=>{ h += `<div style="grid-row:${r+3};grid-column:${col}"><b class="s ${v<0?'neg':''}" data-s="${st}">${fmt(v)}</b></div>`; });
+    h += `<i class="col only s" data-s="${st}" style="grid-row:1/6;grid-column:${col}"></i>`;
+  });
+  return h + `</div>`;
+}
+const SM_qrow = list => `<div class="qrow">${list.map(([st,t])=>`<span class="only s" data-s="${st}">${t}</span>`).join('')}</div>`;
+
+const P = [1,2,3,0,2];
+
+/* ===== 0 开场 ===== */
+add({ch:0, cover:true, title:'卖完歇一天<br><em>LeetCode 309</em>', vis:
+  gloss(0,[['买入 buy','花当天的价钱，买进一股'],['卖出 sell','把手里那一股按当天价卖掉，赚的是差价'],['冷冻期 cooldown','卖出后的第二天不能买，必须歇一天'],['状态机','每天结束时只会处在几种处境之一，按箭头从一种走到下一种']])
+  + flow([[1,'读题','[1, 2, 3, 0, 2] → 3'],[1,'回忆 122','涨就赚'],[2,'冷冻期','贪心违规'],[2,'三种状态','hold / sold / rest'],[3,'逐天推','用昨天的值'],[3,'代码','O(n) 时间 O(1) 空间']]),
+  say:[
+  '这节课讲力扣 309 题，带冷冻期的买卖股票。先认四个词：买入，是花当天的价钱买进一股；卖出，是按当天价卖掉，赚差价；冷冻期，是卖出后的第二天不能买；状态机，是每天结束时只会处在几种处境之一，按箭头从一种走到下一种。',
+  '路线是这样的：先读懂题，然后回忆 122 题的贪心：只要明天涨，就赚这一段。',
+  '接着看冷冻期怎么让这个贪心违规，再把每天收盘时的处境画成三个状态：hold、sold、rest。',
+  '最后在一个例子上逐天推这三个数，写出代码，讲清复杂度、易错点和面试怎么说。'
+]});
+
+/* ===== 1 读题 ===== */
+add({ch:1, title:'读题：<em>[1, 2, 3, 0, 2]</em>', vis:
+  gloss(0,[['prices[i]','第 i 天的股价'],['利润 profit','每一笔卖价减买价，所有笔加起来']])
+  + duo(SM_strip(P,[[0,'买',3,'buy'],[1,'卖',3,'sell'],[2,'冷冻',4,'cool'],[3,'买',4,'buy'],[4,'卖',4,'sell']]),
+    q(1,'prices = [1, 2, 3, 0, 2]，最多能赚多少？')
+    + cards([[2,'三条规则','手里最多一股；先买后卖；卖出的第二天不能买','amber'],
+             [5,'答案是 3','(2 − 1) + (2 − 0) = 3','mint']])),
+  say:[
+  'prices i 是第 i 天的股价。利润，是每一笔的卖价减买价，所有笔加起来。',
+  '这一幕要回答的是：股价是 1、2、3、0、2，最多能赚多少？',
+  '先把规则说清楚：手里最多拿一股；必须先买后卖；卖出之后的第二天不能买，这一天叫冷冻期。交易次数不限。',
+  '看一种做法：第 0 天花 1 块买，第 1 天以 2 块卖，赚 1 块。',
+  '第 2 天是冷冻期，什么都不能买。第 3 天花 0 块买，第 4 天以 2 块卖，又赚 2 块。',
+  '一共赚 3 块，这就是答案。注意，如果第 2 天以 3 块卖，第 3 天就是冷冻期，买不到那只 0 块的，总共只赚 2。'
+]});
+
+/* ===== 2 回忆 122 ===== */
+add({ch:2, title:'回忆 122：<em>涨就赚</em>', vis:
+  gloss(0,[['122 题','同样的买卖，交易次数不限，但没有冷冻期'],['上涨日','价格比前一天高的那一天']])
+  + duo(SM_strip(P,[[1,'+1',2,'sell'],[2,'+1',2,'sell'],[4,'+2',2,'sell']]),
+    q(1,'没有冷冻期时，[1, 2, 3, 0, 2] 最多赚多少？')
+    + cards([[3,'把每个上涨日都吃掉','1 + 1 + 2 = 4','mint'],
+             [4,'为什么可以这样拆','1 买 3 卖 = (1 → 2) + (2 → 3)：今天卖了，今天再买回来','sky']])),
+  say:[
+  '122 题和这道题一样，交易次数不限，但没有冷冻期。上涨日，是价格比前一天高的那一天。',
+  '这一幕要回答的是：没有冷冻期的时候，1、2、3、0、2 最多能赚多少？',
+  '找上涨日：第 1 天比前一天涨 1，第 2 天又涨 1，第 4 天从 0 涨到 2，涨 2。',
+  '122 的贪心就是把每个上涨日都吃掉：1 加 1 加 2，等于 4。',
+  '为什么能这样拆？1 块买、3 块卖赚的 2，正好等于 1 到 2 加上 2 到 3。等于每天卖掉再立刻买回来，没有冷冻期，这样做完全合法。'
+]});
+
+/* ===== 3 冷冻期让贪心违规 ===== */
+add({ch:3, title:'冷冻期，<em>让贪心违规</em>', vis:
+  gloss(0,[['贪心 greedy','每一步只看眼前最好的选择，不回头'],['二选一','两段利润挨得太近，冷冻期让它们不能同时拿']])
+  + duo(SM_strip(P,[[0,'买',2,'buy'],[2,'卖',2,'sell'],[3,'买？',3,'bad'],[4,'卖',2,'sell']]),
+    q(1,'加上冷冻期，"吃掉每个上涨日"还行吗？')
+    + cards([[3,'第 2 天卖，第 3 天就不能买','贪心要的 4，违反了冷冻期','coral'],
+             [4,'只能二选一','放弃 2 → 3 的 +1：得 3；放弃 0 → 2 的 +2：得 2','sky'],
+             [5,'今天能做什么，取决于昨天做了什么','所以要记住每天的"处境"','mint']])),
+  say:[
+  '贪心，是每一步只看眼前最好的选择，不回头。二选一，是两段利润挨得太近，冷冻期让它们不能同时拿到。',
+  '这一幕要回答的是：加上冷冻期，吃掉每个上涨日的做法还行吗？',
+  '贪心的计划是：第 0 天买，一直拿到第 2 天以 3 块卖，再在第 3 天以 0 块买，第 4 天卖。',
+  '问题就在第 3 天：第 2 天刚卖，第 3 天是冷冻期，不能买。贪心要的 4，是违规的。',
+  '只能二选一：放弃 2 到 3 那一段的 1 块，在第 1 天卖，得 3；或者放弃 0 到 2 那一段的 2 块，得 2。哪个好，要看后面的价格。',
+  '关键在这里：今天能不能买，取决于昨天是不是刚卖过。所以我们要记住每天结束时的处境。'
+]});
+
+/* ===== 4 三种处境 ===== */
+add({ch:4, title:'每天收盘，<em>只有三种处境</em>', vis:
+  gloss(0,[['收盘时','当天的买卖都做完了，看你处在哪种处境'],['存的数','走到这种处境时，最多已经赚了多少；买进花的钱算负的']])
+  + duo(SM({nodes:{hold:2,sold:3,rest:4}}),
+    q(1,'每天结束时，你只可能处在哪几种处境？')
+    + cards([[2,'hold：手里有一股','今天买的，或者之前买了一直拿着','sky'],
+             [3,'sold：今天刚卖掉','明天是冷冻期','amber'],
+             [4,'rest：空手，明天能买','不是今天卖的','mint']])),
+  say:[
+  '收盘时，就是当天的买卖都做完了，看你处在哪种处境。每种处境存一个数：走到这里时最多已经赚了多少，买进花的钱算负的。',
+  '这一幕要回答的是：每天结束时，你只可能处在哪几种处境？',
+  '第一种，hold：手里有一股。可能是今天买的，也可能是之前买了一直拿着。',
+  '第二种，sold：今天刚把股票卖掉。它的特别之处是，明天是冷冻期。',
+  '第三种，rest：空手，而且不是今天卖的，明天可以自由买入。就这三种，每天只要记三个数。'
+]});
+
+/* ===== 5 画箭头 ===== */
+add({ch:5, title:'画箭头：<em>今天从哪来</em>', vis:
+  gloss(0,[['转移','从昨天的处境，走到今天的处境'],['max','有两条路能走到同一个处境时，取赚得多的那条']])
+  + duo(SM({arr:{keep:2,buy:2,sell:3,cool:4,wait:4}}),
+    q(1,'今天的每个处境，能从昨天的哪些处境走过来？')
+    + cards([[2,'hold = max(hold, rest − p)','昨天就拿着；或者昨天空手，今天买','sky'],
+             [3,'sold = hold + p','只有一条路：昨天拿着，今天卖','amber'],
+             [4,'rest = max(rest, sold)','昨天就空手；或者昨天刚卖，今天冷冻完','mint']])),
+  say:[
+  '转移，就是从昨天的处境走到今天的处境。如果有两条路能走到同一个处境，用 max 取赚得多的那条。p 是今天的价格。',
+  '这一幕要回答的是：今天的每个处境，能从昨天的哪些处境走过来？',
+  '今天 hold，有两条路：昨天就拿着，继续拿着，钱不变；或者昨天是 rest，今天花 p 买进。所以 hold 等于 hold 和 rest 减 p 取大的。',
+  '今天 sold，只有一条路：昨天拿着，今天以 p 卖掉。所以 sold 等于昨天的 hold 加 p。',
+  '今天 rest，也有两条路：昨天就是 rest，继续等；或者昨天刚卖，今天是冷冻日，歇完变成 rest。所以 rest 等于 rest 和 sold 取大的。'
+]});
+
+/* ===== 6 买只能从 rest 来 ===== */
+add({ch:6, title:'买，<em>只能从 rest 来</em>', vis:
+  gloss(0,[['冷冻日','sold 的下一天'],['缺的箭头','图上故意没有画的那条路']])
+  + duo(SM({arr:{keep:0,buy:0,sell:0,cool:0,wait:0}, no:3, ring:[[2,'sold'],[4,'rest'],[5,'rest']]}),
+    q(1,'为什么"买"的箭头只从 rest 出发，不从 sold 出发？')
+    + cards([[2,'昨天 sold → 今天是冷冻日','今天不能买','amber'],
+             [3,'没有 sold → hold 这条箭头','冷冻规则就藏在这条缺的箭头里','coral'],
+             [4,'sold 的唯一出路：歇一天变 rest','第二天才能从 rest 买','sky'],
+             [5,'122 题没有冷冻期','sold 和 rest 可以合成一个"空手"','mint']])),
+  say:[
+  '冷冻日，就是 sold 的下一天。缺的箭头，是图上故意没有画的那条路。',
+  '这一幕要回答的是：为什么买的箭头只从 rest 出发，不从 sold 出发？',
+  '看 sold：它表示昨天刚卖。按规则，卖出的第二天是冷冻期，今天不能买。',
+  '所以图上没有从 sold 直接到 hold 的箭头。冷冻规则不用额外判断，它就藏在这条缺的箭头里。',
+  'sold 的唯一出路，是歇一天，走到 rest。到了 rest，第二天才可以买。所以从卖到再买，中间至少隔了一天。',
+  '对比 122 题：没有冷冻期，sold 和 rest 没有区别，可以合成一个空手状态，买可以从任何空手的一天出发。'
+]});
+
+/* ===== 7 逐天推 ===== */
+add({ch:7, title:'逐天推：<em>三个数怎么变</em>', vis:
+  gloss(0,[['−∞','负无穷：这个处境不可能走到'],['一列','某一天收盘时的三个数，全部用前一列算出来']])
+  + q(1,'prices = [1, 2, 3, 0, 2]，三个数每天怎么变？')
+  + SM_table([['开始','',-Infinity,0,0,2],['第0天',1,-1,-Infinity,0,3],['第1天',2,-1,1,0,4],['第2天',3,-1,2,1,5],['第3天',0,1,-1,2,6],['第4天',2,1,3,2,7]],['价格','hold','sold','rest'])
+  + SM_qrow([[2,'还没开始：<b>hold = −∞</b>（不可能有股）<br>sold = 0，rest = 0'],
+             [3,'价 1：hold = max(−∞, 0 − 1) = <b>−1</b><br>sold = −∞ + 1 = −∞<br>rest = max(0, 0) = 0'],
+             [4,'价 2：hold = max(−1, 0 − 2) = −1<br>sold = −1 + 2 = <b>1</b><br>rest = max(0, −∞) = 0'],
+             [5,'价 3：hold = max(−1, 0 − 3) = −1<br>sold = −1 + 3 = 2<br>rest = max(0, 1) = <b>1</b>'],
+             [6,'价 0：hold = max(−1, 1 − 0) = <b>1</b><br>sold = −1 + 0 = −1<br>rest = max(1, 2) = 2'],
+             [7,'价 2：hold = max(1, 2 − 2) = 1<br>sold = 1 + 2 = <b>3</b><br>rest = max(2, −1) = 2']])
+  + cards([[8,'答案 = max(sold, rest) = 3','倒推：第 0 天买，第 1 天卖，第 2 天冷冻，第 3 天买，第 4 天卖','mint']]),
+  say:[
+  '负无穷，表示这个处境不可能走到。表格里每一列，是某一天收盘时的三个数，全部用前一列算出来。',
+  '这一幕要回答的是：股价 1、2、3、0、2，三个数每天怎么变？',
+  '开始之前，手里不可能有股，hold 记负无穷。sold 和 rest 都是 0，一分钱没赚。',
+  '第 0 天，价格 1。hold 等于负无穷和 0 减 1 取大，是负 1，意思是花 1 块买了。第一天不可能卖，sold 还是负无穷。rest 是 0。',
+  '第 1 天，价格 2。hold 还是负 1，拿着比 0 减 2 好。sold 等于昨天的 hold 负 1 加 2，等于 1。rest 用的是昨天的 sold，负无穷，所以还是 0。',
+  '第 2 天，价格 3。hold 负 1，sold 等于负 1 加 3，等于 2。rest 等于 0 和昨天的 sold 1 取大，是 1。这个 1，就是第 1 天卖完、第 2 天冷冻。',
+  '第 3 天，价格 0。hold 等于负 1 和昨天的 rest 1 减 0 取大，是 1：冷冻完了，花 0 块再买进。sold 是负 1，rest 是 2。',
+  '第 4 天，价格 2。hold 还是 1。sold 等于昨天的 hold 1 加 2，等于 3。rest 是 2 和负 1 取大，还是 2。',
+  '最后手里不该还拿着股，答案是 sold 和 rest 取大，等于 3。倒着看箭头：第 0 天买，第 1 天卖，第 2 天冷冻，第 3 天买，第 4 天卖。'
+]});
+
+/* ===== 8 坑：用昨天的值 ===== */
+add({ch:8, title:'坑：<em>一定要用昨天的值</em>', vis:
+  gloss(0,[['原地更新','算出新的 hold，马上覆盖旧的，下一行就读到了新值'],['同时赋值','Python 的 a, b = x, y：先把右边全部算完，再一起赋值']])
+  + q(1,'如果三行按顺序一行行更新，会出什么错？')
+  + term('wrong.py',[
+    [2,'e','hold = max(hold, rest - p)'],
+    [2,'e','sold = hold + p          # 用了今天的 hold'],
+    [2,'e','rest = max(rest, sold)   # 用了今天的 sold']])
+  + cards([[3,'第 2 天：rest 直接变成 2','今天刚卖，却当成了已经冷冻完','coral'],
+           [4,'第 3 天：hold = 2 − 0 = 2','卖完第二天就买，冷冻期被跳过','coral'],
+           [5,'最后得到 4','正是 122 那个违规的答案；改成同时赋值就对了','mint']]),
+  say:[
+  '原地更新，是算出新的 hold 就马上覆盖旧的，下一行读到的已经是新值。同时赋值，是 Python 的 a 逗号 b 等于 x 逗号 y：先把右边全部算完，再一起赋值。',
+  '这一幕要回答的是：如果三行按顺序一行行更新，会出什么错？',
+  '看这三行：sold 用的是刚算出来的今天的 hold，rest 用的是刚算出来的今天的 sold。它们本该用昨天的值。',
+  '在 1、2、3、0、2 上跑：第 2 天以 3 块卖，sold 是 2，下一行 rest 马上读到这个 2。今天刚卖，却被当成了已经冷冻完。',
+  '于是第 3 天，hold 等于 rest 2 减 0，等于 2：卖完第二天就买进，冷冻期被跳过了。',
+  '最后算出 4，正是 122 那个违规的答案。修法很简单：用同时赋值，或者先用临时变量把昨天的三个数存起来。'
+]});
+
+/* ===== 9 写代码 ===== */
+add({ch:9, title:'代码：<em>三个数，一个循环</em>', vis:
+  gloss(0,[["float('-inf')",'Python 里的负无穷'],['对拍','用暴力搜索算出正确答案，和新代码逐个比较']])
+  + q(1,'代码怎么写？怎么确认它是对的？')
+  + term('solution.py',[
+    [2,'o','def maxProfit(prices):'],
+    [2,'hl',"    hold, sold, rest = float('-inf'), 0, 0"],
+    [3,'o','    for p in prices:'],
+    [3,'hl','        hold, sold, rest = (max(hold, rest - p),  # 买只能从 rest 来'],
+    [3,'o','                            hold + p,             # 今天卖'],
+    [3,'o','                            max(rest, sold))      # 冷冻完变 rest'],
+    [4,'hl','    return max(sold, rest)']])
+  + cards([[5,'[1] → 0，[2, 1] → 0，[1, 2, 4] → 3','两万组随机小数组，和暴力搜索的答案全部一致','mint']]),
+  say:[
+  'float 负 inf 是 Python 里的负无穷。对拍，是用暴力搜索算出正确答案，和新代码逐个比较。',
+  '这一幕要回答的是：代码怎么写？怎么确认它是对的？',
+  '第一行是开始之前的三个数：hold 是负无穷，因为还不可能有股；sold 和 rest 都是 0。',
+  '循环里，每天一行同时赋值：右边用的全是昨天的三个数。hold 从自己和 rest 减 p 来，sold 从 hold 加 p 来，rest 从自己和 sold 来。',
+  '最后返回 sold 和 rest 取大。结束时还拿着股票，等于白花了买入的钱，不用考虑 hold。',
+  '验证几个边界：只有一天，返回 0；一直跌的 2、1，返回 0；1、2、4，第 0 天买第 2 天卖，返回 3。再用两万组随机小数组和暴力搜索对拍，答案全部一致。'
+]});
+
+/* ===== 10 复杂度和易错点 ===== */
+add({ch:10, title:'复杂度，和<em>三个坑</em>', vis:
+  gloss(0,[['O(n)','每一天只算一次'],['O(1)','不管多少天，只存三个数']])
+  + q(1,'时间空间各是多少？最容易错在哪？')
+  + cards([[2,'时间 O(n)，空间 O(1)','一次遍历，三个变量','sky'],
+           [3,'买写成从 sold 来','hold = max(hold, sold − p)：冷冻期失效，[1, 2, 3, 0, 2] 得 4','coral'],
+           [4,'hold 初值写成 0','等于白送一股：[2, 1] 会算出 2','coral'],
+           [5,'一行行原地更新','用了今天的值，冷冻期被跳过','coral']]),
+  say:[
+  'O n 是每一天只算一次。O 1 是不管多少天，只存三个数。',
+  '这一幕要回答的是：时间空间各是多少？最容易错在哪？',
+  '时间 O n，一次遍历；空间 O 1，只有 hold、sold、rest 三个变量。',
+  '坑一：买写成从 sold 来。那就等于卖完第二天也能买，冷冻期失效，1、2、3、0、2 会算出 4。',
+  '坑二：hold 的初值写成 0。这等于开局白送一股，2、1 这种一直跌的，会算出 2。初值要用负无穷。',
+  '坑三：一行行原地更新，用了今天的值，冷冻期同样被跳过。用同时赋值。'
+]});
+
+/* ===== 11 面试怎么讲 ===== */
+add({ch:11, title:'面试时，<em>这样讲</em>', vis:
+  gloss(0,[['思路先行','先口头讲方法，面试官点头再写代码']])
+  + q(1,'面试官问："冷冻期在你的代码里体现在哪？"')
+  + flow([[2,'三种状态','hold / sold / rest'],[2,'三条转移','max 取大'],[3,'冷冻期','买只从 rest 来'],[4,'答案','max(sold, rest)'],[4,'复杂度','O(n) / O(1)']])
+  + chips(4,['state machine','cooldown','hold / sold / rest','simultaneous update','122 unlimited','714 transaction fee']),
+  say:[
+  '面试的习惯是思路先行：先口头讲方法，面试官点头了再写代码。',
+  '这一幕要回答的是：面试官问，冷冻期在你的代码里体现在哪？',
+  '先讲做法：每天收盘只有三种状态，持有 hold、今天刚卖 sold、空手可买 rest。每个状态存最多赚多少，用昨天的三个数推出今天的三个数。',
+  '再回答问题：冷冻期就体现在买入只能从 rest 来。sold 必须先歇一天变成 rest，才能再买，所以不需要额外判断。',
+  '最后说答案是 sold 和 rest 取大，时间 O n，空间 O 1。英文关键词是 state machine 和 cooldown；同一系列还有 122 不限次数和 714 手续费。'
+]});
+
+/* ===== 12 收尾 ===== */
+add({ch:12, title:'三句<em>必记</em>', vis:
+  flow([[0,'回忆 122','涨就赚'],[0,'冷冻期','贪心违规'],[0,'三种状态','hold / sold / rest'],[0,'逐天推','用昨天的值']])
+  + cards([[1,'① 收盘只有三种处境','hold 手里有股，sold 今天刚卖，rest 空手能买','amber'],
+           [2,'② 买只能从 rest 来','sold 没有到 hold 的箭头：这就是冷冻期','sky'],
+           [3,'③ 用昨天的三个数算今天','同时赋值；答案 max(sold, rest)','mint']]),
+  say:[
+  '回顾一遍主线：122 的贪心是涨就赚；冷冻期让相邻的两段利润不能同时拿；于是记住每天收盘的三种处境，逐天推三个数。',
+  '第一句：收盘只有三种处境。hold 手里有股，sold 今天刚卖，rest 空手能买。',
+  '第二句：买只能从 rest 来。sold 没有通往 hold 的箭头，冷冻期就藏在这里。',
+  '第三句：用昨天的三个数算今天的三个数，Python 里用同时赋值。最后答案是 sold 和 rest 取大。'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|婷婷|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/15ba40820491.mp3", "0-1": "a/1e89188df583.mp3", "0-2": "a/36733e5b7575.mp3", "0-3": "a/becfe2cec582.mp3", "1-0": "a/8307bd3d7193.mp3", "1-1": "a/245a941a93f4.mp3", "1-2": "a/8018632dfead.mp3", "1-3": "a/9aca87d87f36.mp3", "1-4": "a/1a0a23eeedd2.mp3", "1-5": "a/30b4c09bbdb2.mp3", "2-0": "a/a81cdbe53b36.mp3", "2-1": "a/f37b00a93213.mp3", "2-2": "a/fa72c15f64e8.mp3", "2-3": "a/792843096748.mp3", "2-4": "a/64b5450f9cc4.mp3", "3-0": "a/eee3e0606701.mp3", "3-1": "a/1839ceb01105.mp3", "3-2": "a/2eae7cc76e12.mp3", "3-3": "a/f4f8113780d1.mp3", "3-4": "a/d14de24a5862.mp3", "3-5": "a/5da45236f401.mp3", "4-0": "a/441774411bc2.mp3", "4-1": "a/6929835d222d.mp3", "4-2": "a/70946d8be86e.mp3", "4-3": "a/61759bb26785.mp3", "4-4": "a/c2afd7388ecc.mp3", "5-0": "a/0dd64eee564d.mp3", "5-1": "a/b6b44517b3c4.mp3", "5-2": "a/5931f40d63d2.mp3", "5-3": "a/66f2e0f7b1f8.mp3", "5-4": "a/96fdbf93d700.mp3", "6-0": "a/32c16017ae47.mp3", "6-1": "a/7177d7bdd6eb.mp3", "6-2": "a/720438e73406.mp3", "6-3": "a/1da773ac3f03.mp3", "6-4": "a/9c6fe775dd4d.mp3", "6-5": "a/ab952390d611.mp3", "7-0": "a/590cacab3a6f.mp3", "7-1": "a/ef7e658b548a.mp3", "7-2": "a/1f9f94473d28.mp3", "7-3": "a/7f8dba47b90d.mp3", "7-4": "a/668d78ac1d31.mp3", "7-5": "a/76c8da4ac162.mp3", "7-6": "a/856255a9de23.mp3", "7-7": "a/85a45fd74106.mp3", "7-8": "a/7981b84e215e.mp3", "8-0": "a/e35acbf50652.mp3", "8-1": "a/f9a261777539.mp3", "8-2": "a/0760acbbf5d7.mp3", "8-3": "a/5cc766007dd7.mp3", "8-4": "a/faadb5977ee7.mp3", "8-5": "a/30efbbe06a84.mp3", "9-0": "a/948dda29951b.mp3", "9-1": "a/4fafbcd3ab80.mp3", "9-2": "a/4596e1c51193.mp3", "9-3": "a/8434b64bfc08.mp3", "9-4": "a/7960b570a820.mp3", "9-5": "a/1390a0bdc8ef.mp3", "10-0": "a/a586227216a0.mp3", "10-1": "a/20e48a3e9070.mp3", "10-2": "a/e1bec0f12520.mp3", "10-3": "a/3687cd922974.mp3", "10-4": "a/0508a6e1ee52.mp3", "10-5": "a/30acca27ec08.mp3", "11-0": "a/d20e68caeba7.mp3", "11-1": "a/ea52e452c569.mp3", "11-2": "a/de9012e4168c.mp3", "11-3": "a/d314b5aa1eed.mp3", "11-4": "a/1e735f6507dc.mp3", "12-0": "a/e0a3e6e80f98.mp3", "12-1": "a/ce3a5e37f9c7.mp3", "12-2": "a/b4d3b50dc5da.mp3", "12-3": "a/271493118746.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">第 ${sc.ch} 章</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}：<em>你来答</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">整份 ${esc(META.doc)}：${META.blurb}共 ${SC.length} 幕，约 ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join('').length:60),0)/280)} 分钟。</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ 开始看</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'按 ▶ 播放这一幕，或点画面一句一句看。'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'答对了！':'差一点。正确答案是 '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'。'}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 经验'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('小测验：'+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">轮到你了：点一个选项。</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'答对了！':'差一点。')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('先想一想：'+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}　<b>${t}</b> 秒</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">全部播完了。可以点章节回看，或者重做小测验。</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? '暂停' : '播放';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 先想一想：'+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">第 ${ci} 章 · ${idx.length} 幕</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`第 ${+k+1} 幕 · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'（还没有笔记）'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='已复制'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='已选中，按 Cmd+C 复制'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? '配音 不可用' : (voiceOn?'配音 开':'配音 关'); }
+function speedUI(){ $('bSpeed').textContent = '语速 '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

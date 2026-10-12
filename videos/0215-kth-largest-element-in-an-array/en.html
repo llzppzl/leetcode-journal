@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Top-k Threshold</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Top-k Threshold', template:'prep', lang:'en', sub:'LeetCode 215 Kth Largest Element in an Array · animated walkthrough', key:'lc215envid', doc:'LeetCode 215', blurb:'Sorting and taking index n − k works but costs O(n log n); keeping only the k largest in a min-heap of size k puts the answer on top; and quickselect cuts once and follows only the side that holds the answer, for average O(n).'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: find the kth largest','The problem: duplicates count','First idea: sort, take n − k','You only need the k largest','Heaps from zero','Walk through: a heap of size 2','Heap code and complexity','Faster: cut once, follow one side','Walk through: one cut','Quickselect code','Complexity and pitfalls','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- stacked states of labelled rows: amber frame = top / current / pivot, mint = kept, red = popped, dim = done or thrown away ---------- */
+const KCSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.kl{max-width:340px;margin:0 auto;width:100%}
+.kl .stk{display:grid}
+.kl .stk>.lay{grid-area:1/1}
+.kl .lay.s{transform:none;box-shadow:none!important}
+.kl .lay.s:not(.on){opacity:0}
+.kl .only.s{opacity:0!important} .kl .only.s.now{opacity:1!important}
+.kl .rw{margin-bottom:8px}
+.kl .lb{font-size:.78em;color:var(--dim);text-align:center;margin-bottom:4px}
+.kl .cells{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;min-height:2.3em}
+.kl .cw{display:flex;flex-direction:column;align-items:center;gap:2px}
+.kl .ix{font-family:var(--f-mono);font-size:.72em;color:var(--dim)}
+.kl i.v{font-style:normal;position:relative;width:2.4em;height:2.3em;display:grid;place-items:center;border:1px solid var(--line);border-radius:8px;background:rgba(10,17,36,.85);font-family:var(--f-display);font-size:1.15em;color:var(--paper)}
+.kl i.v.top{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber)}
+.kl i.v.mv{background:rgba(98,224,180,.32);border-color:var(--mint)}
+.kl i.v.bad{background:rgba(255,122,107,.42);border-color:var(--coral);text-decoration:line-through}
+.kl i.v.dm{opacity:.35}
+.kl .e{color:var(--dim);font-size:.85em;align-self:center}
+.kl .nt{text-align:center;font-size:.85em;color:var(--dim);margin-top:4px;min-height:2.6em}
+.kl .nt b{color:var(--amber)} .kl .nt em{font-style:normal;color:var(--mint)}
+.kt{width:100%;max-width:300px;margin:0 auto;display:block}
+.kt line{stroke:var(--sky);stroke-width:2.5}
+.kt circle{fill:var(--term);stroke:var(--sky);stroke-width:2.5}
+.kt circle.tp{stroke:var(--amber);stroke-width:3.5}
+.kt text{fill:var(--paper);font-family:var(--f-display);font-size:18px;text-anchor:middle;dominant-baseline:central}
+.kt text.lab{font-family:var(--f-body);font-size:12px;fill:var(--amber)}
+</style>`;
+// cell flags: '^' amber frame, '+' mint, '!' red popped, '~' dim
+function KL_cell(x, ix){
+  const f = String(x).replace(/[0-9]/g,''), v = String(x).replace(/[^0-9]/g,'');
+  const box = `<i class="v ${f.includes('^')?'top':''} ${f.includes('+')?'mv':''} ${f.includes('!')?'bad':''} ${f.includes('~')?'dm':''}">${v}</i>`;
+  return ix==null ? box : `<span class="cw">${box}<span class="ix">${ix}</span></span>`;
+}
+// states: [step, rows:[[label, cells[], showIdx]], note]; the last state stays on screen
+function KL_rows(states){
+  return KCSS + `<div class="kl"><div class="stk">${states.map(([st,rows,nt],i)=>`<div class="lay s ${i===states.length-1?'':'only'}" data-s="${st}">${
+    rows.map(([lb,cs,ix])=>`<div class="rw"><div class="lb">${lb}</div><div class="cells">${cs.length?cs.map((x,k)=>KL_cell(x, ix?k:null)).join(''):'<span class="e">empty</span>'}</div></div>`).join('')
+  }<div class="nt">${nt}</div></div>`).join('')}</div></div>`;
+}
+// a small min-heap drawn as a tree: every parent <= its children
+function KL_tree(){
+  const P = {1:[150,34],3:[85,104],2:[215,104],8:[45,174],5:[125,174]};
+  const E = [[1,3],[1,2],[3,8],[3,5]];
+  let s = KCSS + `<svg class="kt" viewBox="0 0 300 205" role="img" aria-label="min-heap">`;
+  E.forEach(([a,b])=>s+=`<line x1="${P[a][0]}" y1="${P[a][1]}" x2="${P[b][0]}" y2="${P[b][1]}"/>`);
+  Object.entries(P).forEach(([v,[x,y]])=>s+=`<circle class="${v==='1'?'tp':''}" cx="${x}" cy="${y}" r="20"/><text x="${x}" y="${y}">${v}</text>`);
+  return s + `<text class="lab" x="215" y="34">← top = smallest</text></svg>`;
+}
+
+/* ===== 0 intro ===== */
+add({ch:0, cover:true, title:'The Top-k Threshold<br><em>LeetCode 215</em>', vis:
+  gloss(0,[['kth largest','sort from big to small; the number in position k'],['min-heap','a pile of numbers where the smallest is always on top, visible in one step'],['pivot','the number you cut with: a bigger side and a smaller side']])
+  + flow([[1,'Read','duplicates count'],[1,'First idea','sort, take n − k'],[2,'Keep k','min-heap'],[2,'Heap top','kth largest'],[3,'Cut once','quickselect'],[3,'One side','average O(n)']]),
+  say:[
+  'This lesson is LeetCode 215, Kth Largest Element in an Array. Three words first. The kth largest is the number in position k when you sort from big to small. A min-heap keeps its smallest number on top. A pivot is the number you cut with.',
+  'The natural idea is to sort and read one index. It passes, but the interviewer will ask: can you do better?',
+  'First improvement: keep only the k largest numbers in a min-heap, and the top is the kth largest. We will build heaps from zero, then walk through one number at a time.',
+  'Second improvement is quickselect: cut once and follow only the side that holds the answer, for average big O of n.'
+]});
+
+/* ===== 1 the problem ===== */
+add({ch:1, title:'The problem: <em>duplicates count</em>', vis:
+  gloss(0,[['kth largest','sort from big to small, count to position k'],['duplicates','two 5s count as two; they are not merged']])
+  + q(1,'[3, 2, 1, 5, 6, 4], k = 2: what is the answer? And [3, 2, 3, 1, 2, 4, 5, 5, 6], k = 4?')
+  + cards([[2,'6, 5, 4, 3, 2, 1 → 5','big to small, position 2 is 5','sky'],
+           [3,'6, 5, 5, 4, … → 4','each 5 takes its own position; position 4 is 4','mint'],
+           [4,'Not "the kth distinct number"','dedupe and you count 6, 5, 4, 3 and answer 3, which is wrong','coral']]),
+  say:[
+  'The kth largest means: sort from big to small, and count to position k. Duplicates are not merged, so two 5s count as two.',
+  'The question for this scene: 3, 2, 1, 5, 6, 4 with k equal to 2. What is the answer? And for the second array, with k equal to 4?',
+  'For the first, big to small is 6, 5, 4, 3, 2, 1. Position 2 is 5.',
+  'For the second, big to small starts 6, 5, 5, 4. Each 5 takes its own position, so position 4 is 4.',
+  'The easy mistake: the problem does not want the kth distinct number. If you dedupe first, you count 6, 5, 4, 3 and answer 3, which is wrong.'
+]});
+
+/* ===== 2 first idea: sort ===== */
+add({ch:2, title:'First idea: <em>sort, take n − k</em>', vis:
+  gloss(0,[['index n − k','after sorting small to big, the kth largest is k cells from the end: index n minus k'],['O(n log n)','the time sorting takes; n is how many numbers there are']])
+  + duo(KL_rows([[2,[['original array',['3','2','1','5','6','4']]],'n = 6, k = 2'],
+                 [3,[['sorted small to big',['1','2','3','4','5','6'],1]],'2nd from the end is the 2nd largest'],
+                 [4,[['sorted small to big',['1~','2~','3~','4~','5^','6~'],1]],'index n − k = 6 − 2 = <b>4</b> → <em>5</em>']]),
+    q(1,'The natural idea: sort, then read it off. Is it correct? What is not good enough?')
+    + cards([[5,'Correct, but O(n log n)','all 6 numbers got sorted, and we used 1 cell; the interviewer asks: can you go faster?','coral']])),
+  say:[
+  'After sorting small to big, the kth largest is k cells from the end, at index n minus k. Sorting takes big O of n log n time, where n is how many numbers there are.',
+  'The question for this scene: the natural idea is to sort and read it off. Is it correct? What is not good enough?',
+  'The example is 3, 2, 1, 5, 6, 4. Six numbers, and k is 2.',
+  'Sort small to big: 1, 2, 3, 4, 5, 6. The 2nd largest is the 2nd cell from the end.',
+  'The index is 6 minus 2, which is 4, and it holds 5. Correct. In Python it is one line.',
+  'It is correct, but it costs big O of n log n. We sorted all 6 numbers and used 1 cell. The interviewer will ask: can you go faster?'
+]});
+
+/* ===== 3 only the k largest ===== */
+add({ch:3, title:'You only need <em>the k largest</em>', vis:
+  gloss(0,[['threshold','the smallest of the k largest; anything below it cannot make the top k']])
+  + q(1,'Sorting ranks every single number. What do we actually need to know?')
+  + cards([[2,'kth largest = the smallest of the k largest','in [3, 2, 1, 5, 6, 4] the 2 largest are 6 and 5; the smaller one is 5','sky'],
+           [3,'Keep only k numbers','a new number below the threshold cannot make the top k: drop it','sky'],
+           [4,'We need a container','holds k numbers, always shows the smallest, swaps fast','amber'],
+           [5,'That is a min-heap','top = smallest = threshold = kth largest','mint']]),
+  say:[
+  'The threshold is the smallest of the k largest numbers. Anything below it cannot make the top k.',
+  'The question for this scene: sorting ranks every single number. What do we actually need to know?',
+  'The kth largest is just the smallest of the k largest numbers. In 3, 2, 1, 5, 6, 4, the 2 largest are 6 and 5, and the smaller one, 5, is the 2nd largest.',
+  'So we only keep the k largest numbers seen so far. A new number below the threshold cannot make the top k, so drop it. One above the threshold pushes the threshold out.',
+  'That needs a container: it holds k numbers, always shows the smallest, and swaps fast.',
+  'That is a min-heap. Its top is the smallest one, which is the threshold, which is the kth largest.'
+]});
+
+/* ===== 4 heaps from zero ===== */
+add({ch:4, title:'Heaps <em>from zero</em>', vis:
+  gloss(0,[['min-heap','drawn as a tree: every parent is less than or equal to its children'],['top','the root of the tree; always the smallest'],['O(log n)','double n, and it takes only one more step']])
+  + q(1,'What does a min-heap look like? Why is seeing the smallest, and swapping, fast?')
+  + duo(`<div class="s" data-s="2">${KL_tree()}</div>`,
+    cards([[3,'Peek at the top: O(1)','the smallest is at the top; in Python, heap[0]','sky'],
+           [4,'Push / pop the smallest: O(log n)','only one top-to-bottom path is adjusted, and it is log n long','sky'],
+           [5,'Python: heapq','heappush(heap, x) adds; heappop(heap) removes the smallest','mint']])),
+  say:[
+  'A min-heap is drawn as a tree with one rule: every parent is less than or equal to its children. The root is the top, and it is always the smallest. Big O of log n means: double n, and it takes one more step.',
+  'The question for this scene: what does a min-heap look like? Why is seeing the smallest, and swapping, fast?',
+  'Look at this tree: 1 on top, 3 and 2 below it, and 8 and 5 under 3. Every parent is smaller than its children, so the smallest, 1, must be on top.',
+  'To see the smallest, just look at the top. One step, big O of 1. In Python the heap lives in a list, and heap of 0 is the top.',
+  'Pushing or popping a number only adjusts one top-to-bottom path. Each extra level doubles the count, so the path is log n long.',
+  'Python has heapq built in, and it is a min-heap: heappush adds a number, heappop removes the smallest.'
+]});
+
+/* ===== 5 walk through: a heap of size 2 ===== */
+const IN = ['3','2','1','5','6','4'];
+const inRow = i => ['input', IN.map((x,k)=>k<i?x+'~':k===i?x+'^':x)];
+add({ch:5, title:'Walk through: <em>a heap of size 2</em>', vis:
+  gloss(0,[['amber frame','in the input: the number being read; in the heap: the top'],['red','popped because there were more than k'],['layout','the heap is drawn small to big; the leftmost is the top']])
+  + duo(KL_rows([[2,[inRow(0),['min-heap · at most 2',['3^+']]],'push 3: just 1, not more than 2'],
+                 [3,[inRow(1),['min-heap · at most 2',['2^+','3']]],'push 2: 2 now, top is 2'],
+                 [4,[inRow(2),['min-heap · at most 2',['1!','2^','3']]],'push 1: 3 is more than 2, pop the smallest <b>1</b>'],
+                 [5,[inRow(3),['min-heap · at most 2',['2!','3^','5+']]],'push 5: pop <b>2</b>, top becomes 3'],
+                 [6,[inRow(4),['min-heap · at most 2',['3!','5^','6+']]],'push 6: pop <b>3</b>, top becomes 5'],
+                 [7,[inRow(5),['min-heap · at most 2',['4!','5^','6']]],'push 4: smaller than 5, popped right away'],
+                 [8,[['input',IN.map(x=>x+'~')],['min-heap · at most 2',['5^','6']]],'done: top <em>5</em> = 2nd largest']]),
+    q(1,'[3, 2, 1, 5, 6, 4], k = 2. How does the heap change with each number? What is the top at the end?')),
+  say:[
+  'The amber frame marks the number being read in the input, and the top in the heap. Red is a popped number. The heap is drawn small to big, with the top on the left.',
+  'The question for this scene: 3, 2, 1, 5, 6, 4 with k equal to 2. How does the heap change with each number? What is the top at the end?',
+  '3 arrives: push it. The heap holds 1 number, not more than 2, so nothing is popped.',
+  '2 arrives: push it. Now there are 2, exactly k. The top is 2, meaning the 2nd largest so far is 2.',
+  '1 arrives: push it and there are 3, more than 2, so pop the smallest, 1. It is below the threshold 2 and cannot make the top 2.',
+  '5 arrives: push it, more than 2, pop the smallest, 2. The heap keeps 3 and 5, and the threshold rises to 3.',
+  '6 arrives: push it, pop 3. The heap keeps 5 and 6, and the threshold rises to 5.',
+  '4 arrives: push it, and the smallest popped is 4 itself. It is below the threshold 5, so it leaves right away.',
+  'Done. The heap holds the 2 largest numbers overall, 5 and 6. The top, 5, is the 2nd largest, same as sorting.'
+]});
+
+/* ===== 6 heap code and complexity ===== */
+add({ch:6, title:'Heap code: <em>push, pop if too many</em>', vis:
+  gloss(0,[['O(n log k)','n numbers, each pushed and popped once on a heap of size k'],['O(k)','the heap holds at most k plus 1 numbers']])
+  + term('solution_heap.py',[
+    [2,'o','import heapq'],
+    [2,'o','def findKthLargest(nums, k):'],
+    [2,'o','    heap = []                     # min-heap: keep only the k largest'],
+    [3,'o','    for x in nums:'],
+    [3,'o','        heapq.heappush(heap, x)'],
+    [3,'hl','        if len(heap) > k:         # more than k'],
+    [3,'hl','            heapq.heappop(heap)   # drop the smallest: it cannot make the top k'],
+    [4,'hl','    return heap[0]                # top = threshold = kth largest']])
+  + q(1,'How do we write it? Why is it faster than sorting?')
+  + cards([[5,'Time O(n log k), space O(k)','when k is much smaller than n, far faster than O(n log n)','mint']]),
+  say:[
+  'Big O of n log k means n numbers, each pushed and popped once on a heap of size k. Big O of k means the heap holds at most k plus 1 numbers.',
+  'The question for this scene: how do we write it? Why is it faster than sorting?',
+  'Start with an empty list as the min-heap. It keeps only the k largest numbers so far.',
+  'For each number, push it. If the heap now holds more than k, pop the smallest, because it cannot make the top k.',
+  'After the loop, the top is the threshold, the kth largest. Return heap of 0.',
+  'Each push and pop works on a heap of about size k, so time is big O of n log k and space is big O of k. When k is much smaller than n, that beats sorting by a lot.'
+]});
+
+/* ===== 7 faster: cut once, follow one side ===== */
+add({ch:7, title:'Faster: <em>cut once, follow one side</em>', vis:
+  gloss(0,[['pivot','pick any number and use it as the divider'],['partition','one pass that splits numbers into: bigger than the pivot / equal / smaller'],['quickselect','after partitioning, go only into the group that holds the answer']])
+  + q(1,'The heap still costs O(n log k). Can we cut once like quicksort, and care about only one side?')
+  + cards([[2,'Cut once: three groups','bigger than pivot / equal to pivot / smaller than pivot','sky'],
+           [3,'The bigger group ranks first','if it has 3 numbers, they are the 1st to 3rd largest','sky'],
+           [4,'Count sizes to find the answer group','go into that one; throw the other two away whole','mint'],
+           [5,'Quicksort sorts both sides; quickselect follows one','that is why it is faster','amber']]),
+  say:[
+  'A pivot is a number you pick as the divider. A partition is one pass that splits numbers into bigger than it, equal to it, and smaller than it. Quickselect partitions, then goes only into the group that holds the answer.',
+  'The question for this scene: the heap still costs big O of n log k. Can we cut once like quicksort, and care about only one side?',
+  'First the cut: pick a pivot, make one pass, and split into bigger, equal, and smaller groups. Nothing inside a group gets sorted.',
+  'Here is the key: everything in the bigger group beats every other number, so those numbers rank first. If the bigger group has 3 numbers, they are the 1st to 3rd largest.',
+  'So just count each group, and you know which group the kth largest falls in, which is the side that holds index n minus k. Go into that group and throw the other two away.',
+  'Quicksort keeps sorting both sides after a cut. Quickselect follows only one side, and that is why it is faster.'
+]});
+
+/* ===== 8 walk through: one cut ===== */
+add({ch:8, title:'Walk through: <em>one cut</em>', vis:
+  gloss(0,[['amber frame','the pivot for this round'],['mint','the group that holds the answer; we keep going there'],['dimmed','a group thrown away whole']])
+  + duo(KL_rows([[2,[['array · k = 2',['3','2','1','5','6','4^']]],'random pivot: say we picked <b>4</b>'],
+                 [3,[['bigger than 4',['5','6']],['equal to 4',['4']],['smaller than 4',['3','2','1']]],'one pass, three groups'],
+                 [4,[['bigger than 4',['5+','6+']],['equal to 4',['4~']],['smaller than 4',['3~','2~','1~']]],'k = 2 ≤ 2 in bigger: answer is there, drop the rest'],
+                 [5,[['next round · [5, 6], k = 2',['5^','6']],['bigger than 5',['6~']],['equal to 5',['5+']]],'bigger has 1, 1 &lt; 2 ≤ 1 + 1: the answer is <em>5</em>']]),
+    q(1,'[3, 2, 1, 5, 6, 4], k = 2. After one cut, which way do we go?')
+    + cards([[6,'Round 1 reads 6 numbers, round 2 reads only 2','the other 4 were gone after one cut','mint']])),
+  say:[
+  'The amber frame is this round\'s pivot. Mint is the group that holds the answer, where we keep going. Dimmed numbers are groups thrown away whole.',
+  'The question for this scene: 3, 2, 1, 5, 6, 4 with k equal to 2. After one cut, which way do we go?',
+  'Pick a random pivot. Say this time we picked 4.',
+  'One pass, three groups: bigger than 4 is 5 and 6. Equal to 4 is just 4. Smaller than 4 is 3, 2, 1.',
+  'The bigger group has 2 numbers, the 1st and 2nd largest. k is 2, at most 2, so the answer is in the bigger group. The equal and smaller groups are thrown away.',
+  'The next round sees only 5 and 6, and k is still 2. Say we pick 5. Only 6 is bigger, so 1 number. k is 2, more than 1 but not more than 1 plus 1, so the 2nd largest is in the equal group: the pivot, 5.',
+  'Round 1 read 6 numbers, round 2 read only 2. The other 4 were gone after a single cut.'
+]});
+
+/* ===== 9 quickselect code ===== */
+add({ch:9, title:'Quickselect: <em>three groups, three exits</em>', vis:
+  gloss(0,[['random.choice','pick one item from a list at random'],['k − len(big) − len(equal)','going into the smaller group, subtract the positions the first two groups already took']])
+  + term('solution_quickselect.py',[
+    [2,'o','import random'],
+    [2,'o','def findKthLargest(nums, k):'],
+    [2,'hl','    pivot = random.choice(nums)              # random pivot'],
+    [2,'o','    big   = [x for x in nums if x > pivot]'],
+    [2,'o','    equal = [x for x in nums if x == pivot]'],
+    [2,'o','    small = [x for x in nums if x < pivot]'],
+    [3,'o','    if k <= len(big):                        # answer is in big'],
+    [3,'o','        return findKthLargest(big, k)'],
+    [4,'o','    if k <= len(big) + len(equal):           # answer is the pivot'],
+    [4,'o','        return pivot'],
+    [5,'hl','    return findKthLargest(small, k - len(big) - len(equal))']])
+  + q(1,'Where does each group lead? When does k change?')
+  + cards([[6,'[3, 2, 3, 1, 2, 4, 5, 5, 6], k = 4 → 4','pick 4: big is 5, 5, 6, so 3; 3 &lt; 4 ≤ 3 + 1','mint']]),
+  say:[
+  'random.choice picks one item from a list at random. k minus the size of big minus the size of equal means: when we go into the smaller group, we subtract the positions the first two groups already took.',
+  'The question for this scene: where does each group lead? When does k change?',
+  'Pick a random pivot, then use three lines to split the numbers into big, equal, and small.',
+  'First exit: if k is at most the size of big, the answer is in big. Big\'s positions already start at 1, so k stays the same.',
+  'Second exit: if k is past big but not past big plus equal, the answer is the pivot itself.',
+  'Third exit: otherwise, go into small. The first two groups already took those positions, so k drops by the sizes of big and equal.',
+  'Check the second example: k is 4, and say we pick 4. Big is 5, 5, 6, so 3. 4 is more than 3 but not more than 3 plus 1, so the answer is 4. I also checked this code against sorting on twenty thousand random arrays, and every answer matched.'
+]});
+
+/* ===== 10 complexity and pitfalls ===== */
+add({ch:10, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['average','the time averaged over random pivots'],['worst case','the time when luck is bad every single round']])
+  + q(1,'How fast is each approach? Where does quickselect go wrong most?')
+  + tbl(['Approach','Time','Extra space'],[[2,'sort, take n − k','O(n log n)','O(n)'],[2,'min-heap of size k','O(n log k)','O(k)'],[3,'quickselect','average O(n), worst O(n²)','O(n)']])
+  + cards([[3,'Average O(n): each round drops about half','n + n/2 + n/4 + … ≈ 2n','sky'],
+           [4,'Worst O(n²): always picking the smallest','each round drops just 1; so pick the pivot at random','coral'],
+           [5,'Keep a separate equal group','if every number is the same, otherwise it spins in place','coral'],
+           [5,'Shrink k for the small group','subtract the sizes of big and equal','coral']]),
+  say:[
+  'Average means the time averaged over random pivots. Worst case means the time when luck is bad every single round.',
+  'The question for this scene: how fast is each approach? Where does quickselect go wrong most?',
+  'Sorting is big O of n log n. The min-heap of size k is big O of n log k, with big O of k extra space.',
+  'Quickselect averages big O of n, because a random pivot drops about half each round: n, plus half of n, plus a quarter of n, and so on, which stays under 2 n.',
+  'The worst case is big O of n squared: always picking the smallest, each round drops just one number. Always taking the first number does this on a sorted array, so pick at random.',
+  'Two more pitfalls. Keep a separate equal group, or when every number is the same, no round drops anything and it spins in place. And going into the small group, subtract the sizes of the first two groups from k.'
+]});
+
+/* ===== 11 interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['idea first','explain the approach out loud; write code after the interviewer nods']])
+  + q(1,'The interviewer asks: "Besides sorting, what faster ways do you have?"')
+  + flow([[2,'First idea','sort, take n − k'],[3,'Min-heap','keep k, O(n log k)'],[4,'Quickselect','cut once, one side'],[5,'Random pivot','average O(n)']])
+  + chips(5,['kth largest','min-heap of size k','heapq','quickselect','partition','random pivot']),
+  say:[
+  'The interview habit is idea first: explain the approach out loud, and write code after the interviewer nods.',
+  'The question for this scene: the interviewer asks, besides sorting, what faster ways do you have?',
+  'Start with the first idea: sort and take index n minus k. Big O of n log n. It passes, but it ranks every number, which is extra work.',
+  'Then the first improvement: the kth largest is the smallest of the k largest. I keep a min-heap of size k, pop the top when it grows too big, and the final top is the answer. Big O of n log k time, big O of k space.',
+  'Then quickselect: pick a random pivot, split into bigger, equal, and smaller, and count sizes to decide which one group to enter. Average big O of n, worst big O of n squared, and randomness makes the worst case very unlikely.',
+  'The key phrases are min-heap of size k and quickselect.'
+]});
+
+/* ===== 12 wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'Sort','take n − k'],[0,'Min-heap','keep k'],[0,'Heap top','kth largest'],[0,'Quickselect','one side only']])
+  + cards([[1,'① kth largest = the smallest of the k largest','duplicates count too','amber'],
+           [2,'② Min-heap of size k: pop when too many; the top is the answer','O(n log k), space O(k)','sky'],
+           [3,'③ Quickselect: random pivot, three groups, enter only the answer group','average O(n), worst O(n²)','mint']]),
+  say:[
+  'The main line again: sorting and taking n minus k passes. Keeping only the k largest in a min-heap puts the answer on top. And for more speed, cut once and follow one side.',
+  'One: the kth largest is the smallest of the k largest, and duplicates count too.',
+  'Two: a min-heap of size k. Push, pop the top when there are too many, and the final top is the answer. Big O of n log k time, big O of k space.',
+  'Three: quickselect. Pick a random pivot, split into bigger, equal, and smaller, and enter only the group with the answer. Average big O of n, worst big O of n squared.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/d643d4d993ec.mp3", "0-1": "a/3ba689a65029.mp3", "0-2": "a/6564c96db57a.mp3", "0-3": "a/134b0c677efb.mp3", "1-0": "a/0928e85d0255.mp3", "1-1": "a/753c885c0017.mp3", "1-2": "a/747b6e6b5862.mp3", "1-3": "a/615f1eb2d901.mp3", "1-4": "a/6067774ac846.mp3", "2-0": "a/d7ca071d6b59.mp3", "2-1": "a/237af1d1d9bc.mp3", "2-2": "a/9f88b24ee491.mp3", "2-3": "a/c7b0f405139c.mp3", "2-4": "a/77763e1cb316.mp3", "2-5": "a/31c48e702287.mp3", "3-0": "a/132c0bff0d78.mp3", "3-1": "a/9d8b9cb5b085.mp3", "3-2": "a/d4b55eb23f74.mp3", "3-3": "a/854a9aa6836f.mp3", "3-4": "a/18ff102620b0.mp3", "3-5": "a/543e59071a45.mp3", "4-0": "a/4a1391aac15e.mp3", "4-1": "a/74d3dc75b143.mp3", "4-2": "a/fb6b48d75ccc.mp3", "4-3": "a/62d601e22bf0.mp3", "4-4": "a/f9a859eaed85.mp3", "4-5": "a/93e487477113.mp3", "5-0": "a/5f7b65fe9b7b.mp3", "5-1": "a/921ac392eed9.mp3", "5-2": "a/bfbaf6a9eded.mp3", "5-3": "a/6ade598cbe13.mp3", "5-4": "a/f46b5e9706d2.mp3", "5-5": "a/de6ed3a88f90.mp3", "5-6": "a/52f5cec699ea.mp3", "5-7": "a/1adc8d5cce44.mp3", "5-8": "a/6583e9de1b1b.mp3", "6-0": "a/810d7ed9d4eb.mp3", "6-1": "a/6f2062ccb355.mp3", "6-2": "a/0f0c0e9a6c80.mp3", "6-3": "a/e10402d807a9.mp3", "6-4": "a/ae3ea3b52197.mp3", "6-5": "a/eabc913de7fd.mp3", "7-0": "a/60ea523f4081.mp3", "7-1": "a/0c2b2a91f240.mp3", "7-2": "a/2522d77ae482.mp3", "7-3": "a/f5b18c45c198.mp3", "7-4": "a/2d4d2418df6b.mp3", "7-5": "a/08e5011b6728.mp3", "8-0": "a/cb8753d2182e.mp3", "8-1": "a/e57b4e6e9009.mp3", "8-2": "a/4c7572eb1d6c.mp3", "8-3": "a/ff7002a41a5a.mp3", "8-4": "a/03519ff6987c.mp3", "8-5": "a/7f1dfeb7eb70.mp3", "8-6": "a/ae18c4fa7562.mp3", "9-0": "a/0811daa0dc3a.mp3", "9-1": "a/80486c91ea40.mp3", "9-2": "a/bf8bc081676b.mp3", "9-3": "a/3e1089e7bf09.mp3", "9-4": "a/283b953c81ae.mp3", "9-5": "a/058dba955cea.mp3", "9-6": "a/e4721e318c33.mp3", "10-0": "a/704a0a2f975d.mp3", "10-1": "a/e327c5afd397.mp3", "10-2": "a/857015da442c.mp3", "10-3": "a/3fc3e64d916e.mp3", "10-4": "a/b65f49e2aaea.mp3", "10-5": "a/fd50447403d0.mp3", "11-0": "a/08a5f490c081.mp3", "11-1": "a/cc5fe4dc6ca1.mp3", "11-2": "a/2e74327f7477.mp3", "11-3": "a/7e42569be64d.mp3", "11-4": "a/509ccf26a844.mp3", "11-5": "a/aebd9944abcb.mp3", "12-0": "a/cbd01f0ef556.mp3", "12-1": "a/9548a401e004.mp3", "12-2": "a/241424f0103b.mp3", "12-3": "a/0a6dfccd3748.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>

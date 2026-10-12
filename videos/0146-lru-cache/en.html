@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>The Small Shelf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one "TV screen" stage (blueprint of an office building run by the kernel), subtitles under it, controls, then the chapter map. Single deliberate dark look. */
+:root{
+  --ink:#101a33;        /* page ground: night blueprint */
+  --stage:#16244a;      /* the screen */
+  --term:#0a1124;       /* terminal windows */
+  --paper:#eef1fb;      /* main text */
+  --dim:#9aa6c8;        /* secondary text */
+  --line:#2c3d70;       /* hairlines */
+  --amber:#ffb84d;      /* accent: the building's lights */
+  --mint:#62e0b4;       /* ok / SIGTERM / success */
+  --coral:#ff7a6b;      /* danger / SIGKILL / errors */
+  --sky:#7fb4ff;        /* info */
+  --f-display:"ZCOOL KuaiLe","Noto Sans SC","PingFang SC",system-ui,sans-serif;
+  --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html,body{background:var(--ink);color:var(--paper)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.6;padding-inline:16px;padding-block:14px 40px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px}
+.brand{font-family:var(--f-display);font-size:1.5rem;letter-spacing:.02em;color:var(--amber);margin:0}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--dim);margin-left:8px;letter-spacing:0}
+.stats{display:flex;gap:14px;font-size:.85rem;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--paper);font-weight:600}
+
+/* stage */
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:14px;overflow:hidden;container-type:inline-size;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:32px 32px;background-position:-1px -1px}
+.stage::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(22,36,74,.55),var(--stage) 75%);pointer-events:none}
+.screen{position:relative;min-height:min(560px,62cqw);padding:clamp(16px,3.2cqw,34px);display:flex;flex-direction:column;gap:clamp(10px,1.6cqw,18px);font-size:clamp(14px,1.75cqw,19px)}
+.tag{display:flex;flex-wrap:wrap;gap:2px 10px;align-items:center;font-size:.72em;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.tag .ch{color:var(--amber)}
+.tag span{min-width:0;overflow-wrap:anywhere}
+.screen h2{font-family:var(--f-display);font-weight:400;font-size:2.05em;line-height:1.2;margin:0;text-wrap:balance}
+.screen h2 em{font-style:normal;color:var(--amber)}
+.vis{display:flex;flex-direction:column;gap:clamp(8px,1.3cqw,14px);min-width:0}
+.fadein{animation:sceneIn .45s ease-out}
+@keyframes sceneIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* reveal steps */
+.s{opacity:.12;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .45s ease,border-color .45s}
+.s.on{opacity:1;transform:none}
+.s.now{box-shadow:0 0 0 2px var(--amber),0 0 22px rgba(255,184,77,.25)}
+.s.now.bare{box-shadow:none;text-shadow:0 0 18px rgba(255,184,77,.45)}
+
+/* building blocks */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13em),1fr));gap:clamp(8px,1.2cqw,12px)}
+.grid.two{grid-template-columns:repeat(auto-fit,minmax(min(100%,18em),1fr))}
+.card{background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.7em .85em;min-width:0}
+.card h3{margin:0 0 .25em;font-size:1em;font-weight:700;display:flex;gap:.5em;align-items:baseline;flex-wrap:wrap}
+.card p{margin:0;color:var(--dim);font-size:.9em}
+.card p b,.card p strong{color:var(--paper)}
+.card.amber h3{color:var(--amber)} .card.mint h3{color:var(--mint)} .card.coral h3{color:var(--coral)} .card.sky h3{color:var(--sky)}
+.card.coral{border-color:rgba(255,122,107,.45)} .card.mint{border-color:rgba(98,224,180,.4)}
+code{font-family:var(--f-mono);font-size:.88em;background:rgba(127,180,255,.12);color:#d9e6ff;padding:.05em .35em;border-radius:4px;word-break:break-word}
+.k{font-family:var(--f-mono);font-size:.78em;padding:.1em .5em;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+
+.term{background:var(--term);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
+.term .bar{display:flex;gap:6px;align-items:center;padding:.45em .8em;border-bottom:1px solid var(--line);font-size:.7em;color:var(--dim);font-family:var(--f-mono)}
+.term .bar i{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block}
+.term pre{margin:0;padding:.7em .9em;font-family:var(--f-mono);font-size:.82em;line-height:1.65;overflow-x:auto;white-space:pre}
+.term pre span{display:block}
+.term .c::before{content:"$ ";color:var(--mint)}
+.term .c{color:var(--paper)}
+.term .o{color:#aab6d6}
+.term .e{color:var(--coral)}
+.term .n{color:var(--amber)}
+.term .hl{color:var(--amber);font-weight:600}
+
+.flow{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.flow .node{flex:1 1 9em;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;min-width:0}
+.flow .node b{display:block;color:var(--amber);font-size:.95em}
+.flow .node span{color:var(--dim);font-size:.85em}
+.flow .node b,.flow .node span,.card h3,.card p{overflow-wrap:anywhere}
+.flow .arrow{align-self:center;color:var(--amber);font-family:var(--f-mono)}
+
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:rgba(10,17,36,.72)}
+.tbl table{border-collapse:collapse;width:100%;font-size:.86em}
+.tbl th,.tbl td{text-align:left;padding:.45em .7em;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl th{color:var(--dim);font-weight:500;font-size:.85em;letter-spacing:.04em}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td:first-child{color:var(--amber);font-weight:600;white-space:nowrap}
+
+.big{font-family:var(--f-display);font-size:2.6em;line-height:1.15;text-align:center;margin:.2em 0}
+.big .a{color:var(--amber)} .big .m{color:var(--mint)} .big .r{color:var(--coral)}
+.sub{text-align:center;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.82em}
+.chips .lbl{color:var(--dim);margin-right:2px}
+.chips span.k{color:var(--sky)}
+.todo{border:1px dashed var(--amber);border-radius:10px;padding:.55em .8em;color:var(--amber);font-size:.88em}
+.todo::before{content:"To confirm · ";font-weight:700}
+
+.gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16em),1fr));gap:6px;border:1px solid rgba(127,180,255,.35);background:rgba(127,180,255,.07);border-radius:10px;padding:.5em .75em}
+.gloss .g{font-size:.86em;color:var(--dim);min-width:0}
+.gloss .g b{color:var(--sky);font-weight:700;margin-right:.35em}
+.gloss .g b::after{content:":"}
+/* permissions bits */
+.bits{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.bit{flex:1 1 8em;max-width:13em;text-align:center;background:rgba(10,17,36,.72);border:1px solid var(--line);border-radius:10px;padding:.6em}
+.bit .who{color:var(--dim);font-size:.85em}
+.bit .rwx{font-family:var(--f-mono);font-size:1.6em;letter-spacing:.15em;color:var(--paper)}
+.bit .num{font-family:var(--f-display);font-size:2em;color:var(--amber);line-height:1}
+/* fd wiring */
+.wire{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:10px}
+.wire .card .row{display:flex;align-items:center;gap:8px;margin-top:.35em;font-size:.92em;flex-wrap:wrap}
+.fd{font-family:var(--f-mono);font-weight:600;width:1.8em;height:1.8em;display:inline-grid;place-items:center;border-radius:50%;background:var(--sky);color:var(--term)}
+.fd.err{background:var(--coral)}
+.dst{font-family:var(--f-mono);padding:.1em .5em;border-radius:6px;border:1px solid var(--line)}
+.dst.bad{color:var(--coral);border-color:var(--coral)}
+.dst.good{color:var(--mint);border-color:var(--mint)}
+
+/* quiz */
+.opts{display:grid;gap:8px}
+.opt{text-align:left;background:rgba(10,17,36,.8);border:1px solid var(--line);border-radius:10px;padding:.65em .9em;cursor:pointer;font-size:1em;display:flex;gap:.7em;align-items:baseline;transition:border-color .2s,background .2s}
+.opt:hover{border-color:var(--amber)}
+.opt .l{font-family:var(--f-mono);color:var(--amber)}
+.opt.right{border-color:var(--mint);background:rgba(98,224,180,.12)}
+.opt.wrong{border-color:var(--coral);background:rgba(255,122,107,.12)}
+.opt[disabled]{cursor:default}
+.why{border-left:3px solid var(--mint);padding:.4em .8em;color:var(--paper);background:rgba(98,224,180,.08);border-radius:0 8px 8px 0}
+.why.no{border-left-color:var(--coral);background:rgba(255,122,107,.08)}
+
+/* subtitle + controls */
+.subtitle{min-height:3.4em;background:var(--term);border:1px solid var(--line);border-radius:10px;padding:.6em 1em;font-size:1.02rem;line-height:1.55;display:flex;align-items:center}
+.subtitle span{max-width:70ch}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--stage);border:1px solid var(--line);border-radius:9px;padding:.45em .8em;cursor:pointer;font-size:.9rem}
+.btn:hover{border-color:var(--amber)}
+.btn.primary{background:var(--amber);color:var(--term);border-color:var(--amber);font-weight:700}
+.btn svg{width:16px;height:16px;fill:currentColor}
+.btn[aria-pressed="false"]{color:var(--dim)}
+.spacer{flex:1}
+.prog{height:6px;background:var(--line);border-radius:99px;overflow:hidden;cursor:pointer}
+.prog i{display:block;height:100%;background:var(--amber);width:0;transition:width .4s}
+.hint{font-size:.78rem;color:var(--dim)}
+
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes textarea{width:100%;box-sizing:border-box;background:var(--term);border:1px solid var(--line);border-radius:10px;color:var(--paper);font:inherit;padding:.5em .7em;resize:vertical}
+.notes .row{display:flex;gap:8px;align-items:center}
+.think{border:1px dashed var(--amber);color:var(--amber)}
+/* chapter map */
+.chapters{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15em),1fr));gap:8px}
+.chap{text-align:left;background:var(--stage);border:1px solid var(--line);border-radius:10px;padding:.55em .75em;cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.chap:hover{border-color:var(--amber)}
+.chap .n{font-size:.72rem;color:var(--dim);letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.chap .t{font-weight:600;font-size:.92rem}
+.chap.cur{border-color:var(--amber);background:rgba(255,184,77,.1)}
+.chap.done .n::after{content:" · watched";color:var(--mint)}
+.sec-h{font-family:var(--f-display);font-weight:400;font-size:1.2rem;margin:8px 0 0;color:var(--paper)}
+
+/* cover */
+.cover{flex:1;display:flex;flex-direction:column;justify-content:center;gap:1em}
+.cover .play{align-self:flex-start;font-size:1.05em;padding:.7em 1.3em}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--mint);color:var(--term);font-weight:700;padding:.5em 1em;border-radius:99px;opacity:0;transition:.3s;pointer-events:none;font-family:var(--f-display);font-size:1.1rem}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+@media (prefers-reduced-motion:reduce){
+  .s,.fadein,.prog i,.toast{transition:none;animation:none}
+  .s{transform:none}
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand" id="brand"></h1>
+    <div class="stats"><span>Scene <b id="sNum">1</b> / <b id="sTot">1</b></span><span>XP <b id="xp">0</b></span><span>Correct <b id="ok">0</b> / <b id="qa">0</b></span></div>
+  </header>
+
+  <section class="stage" aria-label="Animation">
+    <div class="screen" id="screen" aria-live="polite"></div>
+  </section>
+
+  <div class="prog" id="prog" title="Click to jump"><i id="progBar"></i></div>
+  <div class="subtitle" id="subtitle"><span>Press ▶ to start. Each scene is 20–60 seconds; pause or jump to any chapter anytime.</span></div>
+
+  <div class="notes"><label for="note" class="hint">Notes for this scene (saved only in this browser)</label><textarea id="note" rows="2" placeholder="Type whatever comes to mind…"></textarea><div class="row"><button class="btn" id="bCopy">Copy all notes</button><span class="hint" id="copyMsg"></span></div></div>
+  <div class="controls">
+    <button class="btn" id="bPrev" title="Previous scene (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>Prev</button>
+    <button class="btn primary" id="bPlay" title="Play / pause (Space)"><svg viewBox="0 0 24 24" id="playIcon"><path d="M7 5v14l12-7z"/></svg><span id="playTxt">Play</span></button>
+    <button class="btn" id="bStep" title="Next line only (↓)">Next line</button>
+    <button class="btn" id="bNext" title="Next scene (→)">Next<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <span class="spacer"></span>
+    <button class="btn" id="bVoice" aria-pressed="true" title="Voice on/off">Voice on</button>
+    <button class="btn" id="bSpeed" title="Speed">Speed 1.0×</button>
+  </div>
+  <div class="hint">Shortcuts: Space play/pause · ← → change scene · ↓ next line. Clicking the screen also advances one line. Progress is saved in this browser.</div>
+
+  <h2 class="sec-h">Chapters</h2>
+  <nav class="chapters" id="chapters" aria-label="Chapters"></nav>
+</div>
+<div class="toast" id="toast">+10 XP</div>
+
+<script>
+/* ---------- helpers that build scene visuals ---------- */
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const c = s => `<code>${esc(s)}</code>`;
+const S = n => `class="s" data-s="${n}"`;
+function term(title, rows){
+  return `<div class="term"><div class="bar"><i></i><i></i><i></i>&nbsp;${esc(title)}</div><pre>${
+    rows.map(([s,k,t])=>`<span class="s bare ${k}" data-s="${s}">${esc(t)}</span>`).join('')}</pre></div>`;
+}
+function cards(list, cls='grid'){
+  return `<div class="${cls}">${list.map(([s,h,p,tone])=>`<div class="card s ${tone||''}" data-s="${s}"><h3>${h}</h3>${p?`<p>${p}</p>`:''}</div>`).join('')}</div>`;
+}
+function tbl(head, rows){
+  return `<div class="tbl"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(([s,...cells])=>`<tr class="s" data-s="${s}">${cells.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function flow(list){
+  return `<div class="flow">${list.map(([s,b,sp],i)=>(i?`<span class="arrow s" data-s="${s}">→</span>`:'')+`<div class="node s" data-s="${s}"><b>${b}</b>${sp?`<span>${sp}</span>`:''}</div>`).join('')}</div>`;
+}
+const chips = (s, arr) => `<div class="chips s" data-s="${s}"><span class="lbl">Keywords</span>${arr.map(x=>`<span class="k">${esc(x)}</span>`).join('')}</div>`;
+const big = (s, html, sub) => `<div class="s bare" data-s="${s}"><div class="big">${html}</div>${sub?`<div class="sub">${sub}</div>`:''}</div>`;
+const gloss = (s, pairs) => `<div class="gloss s" data-s="${s}">${pairs.map(([w,d])=>`<div class="g"><b>${w}</b>${d}</div>`).join('')}</div>`;
+const todo = (s, t) => `<div class="todo s" data-s="${s}">${t}</div>`;
+
+const META = {title:'The Small Shelf', template:'prep', lang:'en', sub:'LeetCode 146 LRU Cache · animated walkthrough', key:'lc146envid', doc:'LeetCode 146', blurb:'Start from a shelf that holds only two things: whatever you touch moves to the front, and when it is full the item at the back falls off; a dict finds the node in one step and a doubly linked list moves it in one step, so get and put are both O(1).'};
+/* ---------- chapters ---------- */
+const CH = ['Intro: a small shelf','The problem: what falls off','Just a dict','Add a list','Key idea: dict + doubly linked list','Sentinels: no special cases','Walk through: first four steps','Walk through: last five steps','Write the code','Complexity and pitfalls','Shortcut: OrderedDict','How to explain it in an interview','Wrap-up: three things to remember'];
+const SC = [];
+const add = o => SC.push(o);
+const q = (s, t) => `<div class="card s think" data-s="${s}"><h3>The question</h3><p style="color:var(--paper)">${t}</p></div>`;
+const duo = (a, b) => `<div class="duo"><div>${a}</div><div class="vis">${b}</div></div>`;
+
+/* ---------- a row of nodes: each state shows only at its own step (the last one stays); amber ring = just touched, red = falls off ---------- */
+const LR_CSS = `<style>
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19em),1fr));gap:clamp(10px,1.6cqw,18px);align-items:center}
+.lrv{display:grid;margin:0 auto;max-width:380px}
+.lrv>.st{grid-area:1/1;transform:none;box-shadow:none!important}
+.lrv>.st.s:not(.now){opacity:0!important}
+.lrv>.st.s.last.on{opacity:1!important}
+.lr-op{font-family:var(--f-mono);font-size:.85em;text-align:center;color:var(--paper);margin-bottom:.5em;min-height:1.4em}
+.lr-op b{color:var(--amber);font-weight:400} .lr-op em{font-style:normal;color:var(--mint)} .lr-op i{font-style:normal;color:var(--coral)}
+.lr-row{display:flex;align-items:center;justify-content:center;gap:4px;min-height:3.2em;flex-wrap:nowrap}
+.lr-n{display:grid;place-items:center;min-width:2.9em;height:2.5em;padding:0 .35em;border-radius:8px;border:1px solid var(--sky);background:rgba(10,17,36,.85);font-family:var(--f-mono);font-size:.9em;color:var(--paper);white-space:nowrap}
+.lr-n.dum{border-style:dashed;border-color:var(--line);color:var(--dim);font-size:.72em}
+.lr-n.hot{box-shadow:0 0 0 3px var(--amber)}
+.lr-n.out{border-color:var(--coral);color:var(--coral);text-decoration:line-through;margin-left:8px}
+.lrv>.st.now .lr-n.out,.lrv>.st.last.on .lr-n.out{animation:lrdrop .9s ease .3s forwards}
+@keyframes lrdrop{to{transform:translateY(16px) rotate(14deg);opacity:.55}}
+.lr-a{color:var(--dim);font-size:.8em}
+.lr-empty{color:var(--dim);font-size:.8em}
+.lr-ends{display:flex;justify-content:space-between;font-size:.72em;color:var(--dim);margin:.35em .3em 0}
+.lr-dict{font-family:var(--f-mono);font-size:.8em;text-align:center;color:var(--sky);margin-top:.5em;min-height:1.3em}
+</style>`;
+// states: [step|null, opHtml, items[], hotIdx, outLabel|null, dictText|null]; o: {dum, ends:[left,right], sep, empty}
+function LR_v(states, o={}){
+  const sep = o.dum ? '<span class="lr-a">⇄</span>' : (o.sep||'');
+  const row = (items, hot, out) => {
+    const body = items.length ? items.map((t,i)=>`<span class="lr-n ${i===hot?'hot':''}">${t}</span>`).join(sep) : (o.dum?'':`<span class="lr-empty">${o.empty||''}</span>`);
+    const inner = o.dum ? `<span class="lr-n dum">head</span>${sep}${body}${items.length?sep:''}<span class="lr-n dum">tail</span>` : body;
+    return `<div class="lr-row">${inner}${out?`<span class="lr-n out">${out}</span>`:''}</div>`;
+  };
+  const last = Math.max(...states.map(x=>x[0]==null?-1:x[0]));
+  let h = LR_CSS + `<div class="lrv">`;
+  states.forEach(([st,op,items,hot,out,dict])=>{
+    const cls = st==null ? 'st' : `st s${st===last?' last':''}`;
+    h += `<div class="${cls}"${st==null?'':` data-s="${st}"`}><div class="lr-op">${op||''}</div>${row(items,hot,out)}${o.ends?`<div class="lr-ends"><span>${o.ends[0]}</span><span>${o.ends[1]}</span></div>`:''}${dict!=null?`<div class="lr-dict">${dict}</div>`:''}</div>`;
+  });
+  return h + `</div>`;
+}
+const LR_ENDS = ['← most recent','least recent →'];
+
+/* ===== 0 Intro ===== */
+add({ch:0, cover:true, title:'The Small Shelf<br><em>LeetCode 146</em>', vis:
+  gloss(0,[['cache','A small, close-at-hand place where things are quick to grab'],['LRU','Least Recently Used: the item nobody has touched for the longest time'],['O(1)','However much is stored, each operation takes a fixed few steps']])
+  + flow([[1,'Real life','a small shelf'],[1,'Instinct','dict / list'],[2,'Stuck','oldest / moving'],[2,'Key idea','dict + doubly linked list'],[3,'Animation','capacity = 2'],[3,'Code','Node + two helpers']]),
+  say:[
+  'This lesson is LeetCode 146, LRU Cache. Three words first. A cache is a small, close-at-hand place where things are quick to grab. LRU means least recently used, the item nobody has touched for the longest time. Big O of 1 means that however much is stored, each operation takes a fixed few steps.',
+  'We start from a real-life picture: a small shelf that holds only two things. Then we try two natural ideas: just a dict, or a dict plus a list.',
+  'They get stuck on "who is the oldest" and on "moving things is slow". The fix is a dict plus a doubly linked list.',
+  'Finally we animate it step by step with capacity 2, write the code, and look at the Python shortcut, OrderedDict.'
+]});
+
+/* ===== 1 The problem: a small shelf ===== */
+add({ch:1, title:'The problem: <em>what falls off</em>', vis:
+  gloss(0,[['capacity','The most things the shelf can hold'],['touch','Use it or put it on the shelf: both count as "recently used"']])
+  + duo(LR_v([
+      [2,'put the <b>book</b>',['book'],0,null,null],
+      [3,'put the <b>mug</b>',['mug','book'],0,null,null],
+      [4,'use the <b>book</b>',['book','mug'],0,null,null],
+      [5,'put the <b>keys</b>: full',['keys','book'],0,'mug',null]],{ends:['← front','back →'],sep:'<span class="lr-a">·</span>'}),
+    q(1,'The shelf holds 2 things. Put a book, put a mug, use the book, then put the keys. What falls off?'))
+  + cards([[6,'Touched → moves to the front','When full, the back one falls off; the back one = touched longest ago','sky'],
+           [7,'That is an LRU cache','Using is get, putting is put; both must be O(1)','mint']]),
+  say:[
+  'Capacity is the most things the shelf can hold. A touch means you use something or put it on the shelf; both count as recently used.',
+  'The question for this scene: the shelf holds only two things. Put a book, put a mug, use the book, then put the keys. What falls off?',
+  'First, put the book. It is the only thing on the shelf, so it is at the front.',
+  'Then put the mug. The new item goes to the front, and the book is pushed back. The shelf is full.',
+  'Use the book. Whatever you touch moves back to the front, so now the mug is at the back.',
+  'Put the keys. The shelf holds only two, so the mug at the back falls off. Notice it is the mug, not the book, because the book was just used.',
+  'So there are just two rules: whatever you touch moves to the front, and when the shelf is full, the item at the back falls off. The back item is always the one touched longest ago.',
+  'That is an LRU cache. In the problem, using something is called get, and putting something is called put. Both operations must be big O of 1.'
+]});
+
+/* ===== 2 Just a dict ===== */
+add({ch:2, title:'Idea one: <em>just a dict</em>', vis:
+  gloss(0,[['get(key)','Return the value if the key is there, otherwise -1'],['put(key, value)','Store it; if the key already exists, update the value'],['dict','A dictionary: finds a value by key in one step']])
+  + q(1,'With only a dict, get and put are O(1). But when it is full and someone must go, who?')
+  + cards([[2,'Look up, store: one step','A dict does get and put in O(1)','mint'],
+           [3,'After put(1,1) put(2,2) get(1)','The dict is {1: 1, 2: 2}: insertion order puts 1 first, but 2 should go','coral'],
+           [4,'Store a "last used" time per key?','Evicting means scanning every key for the oldest → O(n)','coral'],
+           [5,'What is missing is an order','Sorted by recent use, and updated the moment you touch','sky']]),
+  say:[
+  'get of key returns its value if the key is there, otherwise minus 1. put of key and value stores it, and if the key already exists, updates the value. Both count as a touch. A dict is a dictionary that finds a value by key in one step.',
+  'The question for this scene: with only a dict, get and put are big O of 1. But when it is full and someone has to go, who?',
+  'The good part first: looking up a key and storing a key both take one step in a dict, big O of 1.',
+  'Try a tiny example: capacity 2, put 1, put 2, get 1. The dict holds 1 to 1 and 2 to 2. It only stores values, not who was touched last. A Python dict remembers insertion order, so 1 comes first, yet the one to evict is 2.',
+  'What if each key also stores the time it was last used? That works, but evicting means scanning every key to find the oldest, which is big O of n, not big O of 1.',
+  'So what is missing is an order: sorted by recent use, and updated the moment you touch something.'
+]});
+
+/* ===== 3 Add a list ===== */
+add({ch:3, title:'Idea two: <em>add a list</em>', vis:
+  gloss(0,[['list','Items in a row by position, stored side by side'],['O(n)','With n items, the worst case takes n steps']])
+  + duo(LR_v([
+      [2,'get(<b>7</b>): scan from the start',['5','9','2','7','1'],3,null,null],
+      [3,'take 7 out: shift the rest left',['5','9','2','1'],-1,null,null],
+      [4,'insert at front: shift all right',['7','5','9','2','1'],0,null,null]],{ends:LR_ENDS}),
+    q(1,'Keep the order in a list too, front = most recent. How many steps does one get take?'))
+  + cards([[2,'Find it: O(n)','Compare one by one from the start','coral'],
+           [3,'Take it out of the middle: O(n)','Everything after it shifts left','coral'],
+           [4,'Insert at the front: O(n)','Everything shifts right','coral'],
+           [5,'All three must be O(1)','find (the dict can) · take out · put in front','mint']]),
+  say:[
+  'A list is items in a row by position, stored side by side. Big O of n means that with n items, the worst case takes n steps.',
+  'The question for this scene: keep the order in a list too, with the most recently used at the front. How many steps does one get take?',
+  'Say the list is 5, 9, 2, 7, 1, and we get 7. Step one, find where 7 is: we can only compare one by one from the start, big O of n.',
+  'Step two, take 7 out of the middle. A list is stored side by side, so everything after 7 shifts left by one, big O of n again.',
+  'Step three, insert 7 at the front. Every item shifts right by one, still big O of n.',
+  'So we need all three things in big O of 1: find it, which the dict already does; take it out of the middle; and put it at the front. A list cannot do the last two.'
+]});
+
+/* ===== 4 Key idea ===== */
+add({ch:4, title:'Key idea: <em>dict + doubly linked list</em>', vis:
+  gloss(0,[['node','One cell of a linked list: holds key, value and two pointers'],['prev / next','Point to the previous / next node'],['doubly linked list','Every node knows both its previous and its next']])
+  + q(1,'How do we make find, take out, put in front, and evict the last all O(1)?')
+  + `<div class="s bare" data-s="2">${LR_v([[null,'',['1:1','2:2'],-1,null,'dict: 1→node, 2→node']],{dum:true,ends:LR_ENDS})}</div>`
+  + cards([[2,'dict: key → node','Finds its cell in the list in one step','sky'],
+           [3,'Take a node out: touch only its neighbors','The previous links straight to the next; nobody else moves','amber'],
+           [4,'Why doubly linked','We must change the previous node\'s next; singly linked means searching from the start → O(n)','coral'],
+           [5,'Put in front / evict the last','Link right after head; the one before tail is least recent','mint']]),
+  say:[
+  'A node is one cell of a linked list. It holds a key, a value, and two pointers: prev points to the previous node, and next points to the next one. A doubly linked list means every node knows both its previous and its next.',
+  'The question for this scene: how do we make find, take out, put in front, and evict the last all big O of 1?',
+  'Use two things together. The dict no longer stores the value directly; it maps each key to its node. Give it a key, and in one step you know which cell of the list it lives in.',
+  'The list is ordered by recent use: the head side is most recent, the tail side is least recent. To take a node out of the middle, just link its previous node straight to its next node. No other node moves.',
+  'Why doubly linked? Taking a node out means changing the next pointer of the node before it. A singly linked list only knows the next node, so finding the previous one means walking from the start, big O of n again. With prev, it is one step.',
+  'Putting in front means linking right after head. Evicting means removing the node just before tail. The node must also store its key, so that when we evict it, we know which key to delete from the dict.'
+]});
+
+/* ===== 5 Sentinels ===== */
+add({ch:5, title:'Sentinels: <em>no special cases at the ends</em>', vis:
+  gloss(0,[['sentinel (dummy)','A fake node with no data, always guarding the ends'],['head / tail','The front sentinel and the back sentinel']])
+  + q(1,'Empty list, removing the first node, removing the last: do we need special if checks?')
+  + term('two helpers',[
+    [3,'o','def _remove(self, node):'],
+    [3,'hl','    node.prev.next = node.next'],
+    [3,'hl','    node.next.prev = node.prev'],
+    [4,'o','def _add_front(self, node):'],
+    [4,'o','    node.prev, node.next = self.head, self.head.next'],
+    [4,'hl','    self.head.next.prev = node'],
+    [4,'hl','    self.head.next = node']])
+  + cards([[2,'head and tail are two fake nodes','Real nodes always sit between them: both sides have a neighbor','sky'],
+           [5,'Not a single if','In an empty list head.next is tail, and it still works','mint']]),
+  say:[
+  'A sentinel, also called a dummy, is a fake node with no data that always guards one end of the list. The one at the front is head, the one at the back is tail.',
+  'The question for this scene: for an empty list, removing the first node, or removing the last node, do we need special if checks?',
+  'Start with two sentinels, head and tail. Real nodes always sit between them, so every real node has a node before it and a node after it.',
+  'The remove helper takes a node out in just two lines: the previous node\'s next points to the next node, and the next node\'s prev points to the previous node.',
+  'The add front helper puts a node at the front by setting four pointers: the node\'s prev points to head and its next to the old first node; the old first node\'s prev points back to the node; and head\'s next points to the node.',
+  'There is not a single if. Even when the list is empty, head\'s next is tail, and these lines still work. That is what sentinels are for.'
+]});
+
+/* ===== 6 Walk through: first four ===== */
+add({ch:6, title:'Walk through: <em>first four steps</em>', vis:
+  gloss(0,[['1:1','A node with key 1 and value 1'],['amber ring','The node just touched and moved to the front'],['red','The node being evicted']])
+  + duo(LR_v([
+      [2,'capacity = 2, starts empty',[],-1,null,'dict: empty'],
+      [3,'put(1, 1)',['1:1'],0,null,'dict: 1→node'],
+      [4,'put(2, 2)',['2:2','1:1'],0,null,'dict: 1→node, 2→node'],
+      [5,'get(1) → <em>1</em>',['1:1','2:2'],0,null,'dict: 1→node, 2→node'],
+      [6,'put(3, 3): over capacity, evict <i>2</i>',['3:3','1:1'],0,'2:2','dict: 1→node, 3→node']],{dum:true,ends:LR_ENDS}),
+    q(1,'capacity = 2: put(1, 1), put(2, 2), get(1), put(3, 3). How do the list and the dict change?')
+    + cards([[6,'Evict 2, not 1','get(1) just touched 1, so 2 is least recent','coral']])),
+  say:[
+  '1 colon 1 means a node with key 1 and value 1. The amber ring marks the node just touched and moved to the front. Red marks the node being evicted.',
+  'The question for this scene: with capacity 2, we put 1, put 2, get 1, then put 3. How do the list and the dict change at each step?',
+  'At the start it is empty: the list has only the two sentinels, head and tail, and the dict is empty too.',
+  'put 1 comma 1: create a node, link it right after head, and record in the dict that key 1 points to it.',
+  'put 2 comma 2: the new node goes right after head, and 1 is pushed toward the tail side. Now there are two, so it is full.',
+  'get 1: the dict finds node 1 in one step, and we return 1. It was just touched, so we take it out and link it back right after head. Now 2 is at the back.',
+  'put 3 comma 3: the new node goes to the front, and the count becomes 3, over capacity. The node before tail is 2, so we take it out of the list and use its key to delete it from the dict. We evict 2, not 1, because 1 was just read by get.'
+]});
+
+/* ===== 7 Walk through: last five ===== */
+add({ch:7, title:'Walk through: <em>last five steps</em>', vis:
+  gloss(0,[['-1','If the key is not in the dict, get returns -1']])
+  + duo(LR_v([
+      [2,'get(2) → <i>-1</i>',['3:3','1:1'],-1,null,'dict: 1→node, 3→node'],
+      [3,'put(4, 4): over capacity, evict <i>1</i>',['4:4','3:3'],0,'1:1','dict: 3→node, 4→node'],
+      [4,'get(1) → <i>-1</i>',['4:4','3:3'],-1,null,'dict: 3→node, 4→node'],
+      [5,'get(3) → <em>3</em>',['3:3','4:4'],0,null,'dict: 3→node, 4→node'],
+      [6,'get(4) → <em>4</em>',['4:4','3:3'],0,null,'dict: 3→node, 4→node']],{dum:true,ends:LR_ENDS}),
+    q(1,'Keep going: get(2), put(4, 4), get(1), get(3), get(4). What does each return?')
+    + cards([[6,'5 gets: 1, -1, -1, 3, 4','Exactly the expected output','mint']])),
+  say:[
+  'Minus 1 means the key is not in the dict, so get returns minus 1.',
+  'The question for this scene: keep going with get 2, put 4, get 1, get 3, and get 4. What does each one return?',
+  'get 2: 2 was just evicted, so it is not in the dict, and we return minus 1. Nothing was found, so the list does not change.',
+  'put 4 comma 4: it goes to the front, and we are over capacity. The node before tail is now 1, untouched for the longest time, so we evict it.',
+  'get 1: 1 was evicted too, so we return minus 1.',
+  'get 3: found, return 3. Node 3 moves to the front, and 4 goes to the back.',
+  'get 4: found, return 4, and 4 moves back to the front. The five gets returned 1, minus 1, minus 1, 3, and 4, exactly the expected answer.'
+]});
+
+/* ===== 8 Write the code ===== */
+add({ch:8, title:'Code: <em>Node + two helpers</em>', vis:
+  gloss(0,[['self.map','The dict: key → node'],['self.cap','The capacity']])
+  + q(1,'How do we turn the dict, the doubly linked list and the two sentinels into code?')
+  + term('solution.py',[
+    [2,'o','class Node:'],
+    [2,'o','    def __init__(self, key=0, val=0):'],
+    [2,'hl','        self.key, self.val = key, val     # keep key: needed to evict'],
+    [2,'o','        self.prev = self.next = None'],
+    [3,'o','class LRUCache:'],
+    [3,'o','    def __init__(self, capacity: int):'],
+    [3,'o','        self.cap = capacity'],
+    [3,'o','        self.map = {}                     # key -> Node'],
+    [3,'o','        self.head, self.tail = Node(), Node()   # two sentinels'],
+    [3,'o','        self.head.next = self.tail'],
+    [3,'o','        self.tail.prev = self.head'],
+    [4,'o','    def _remove(self, node):'],
+    [4,'o','        node.prev.next = node.next'],
+    [4,'o','        node.next.prev = node.prev'],
+    [4,'o','    def _add_front(self, node):'],
+    [4,'o','        node.prev, node.next = self.head, self.head.next'],
+    [4,'o','        self.head.next.prev = node'],
+    [4,'o','        self.head.next = node'],
+    [5,'o','    def get(self, key: int) -> int:'],
+    [5,'o','        if key not in self.map:'],
+    [5,'o','            return -1'],
+    [5,'o','        node = self.map[key]'],
+    [5,'hl','        self._remove(node)                # touch: move to front'],
+    [5,'hl','        self._add_front(node)'],
+    [5,'o','        return node.val'],
+    [6,'o','    def put(self, key: int, value: int) -> None:'],
+    [6,'o','        if key in self.map:'],
+    [6,'hl','            self._remove(self.map[key])   # take out the old node first'],
+    [6,'o','        node = Node(key, value)'],
+    [6,'o','        self.map[key] = node'],
+    [6,'o','        self._add_front(node)'],
+    [6,'o','        if len(self.map) > self.cap:'],
+    [6,'hl','            lru = self.tail.prev          # least recently used'],
+    [6,'o','            self._remove(lru)'],
+    [6,'o','            del self.map[lru.key]']]),
+  say:[
+  'self dot map is the dict from key to node. self dot cap is the capacity.',
+  'The question for this scene: how do we turn the dict, the doubly linked list and the two sentinels into code?',
+  'First the Node class: it stores the key and the value, plus two pointers, prev and next. We keep the key so that eviction can delete it from the dict.',
+  'In the constructor: remember the capacity, create an empty dict, then create the two sentinels, head and tail, and point them at each other.',
+  'Next come the two helpers from the last scene: remove takes a node out, and add front links it at the front.',
+  'get: if the key is not in the dict, return minus 1. Otherwise take the node out, link it at the front, and return its value.',
+  'put: if the key already exists, take the old node out first. Then create a new node, record it in the dict, and link it at the front. If the dict is now bigger than the capacity, the node before tail is the least recently used: take it out of the list, then delete its key from the dict.'
+]});
+
+/* ===== 9 Complexity and pitfalls ===== */
+add({ch:9, title:'Complexity, and <em>three pitfalls</em>', vis:
+  gloss(0,[['O(capacity)','Memory grows in proportion to the capacity']])
+  + q(1,'What are the time and space costs? Where do people slip?')
+  + cards([[2,'get and put are O(1); space O(capacity)','The dict finds it in one step; only a fixed few pointer changes','sky'],
+           [3,'Pitfall 1: the node does not store its key','At eviction you hold a node but do not know which dict key to delete','coral'],
+           [4,'Pitfall 2: put on an existing key without removing the old node','The list ends up with two nodes for one key','coral'],
+           [5,'Pitfall 3: add first, then compare with >','Writing >= evicts one too many before you are over capacity','coral']]),
+  say:[
+  'Big O of capacity means memory grows in proportion to the capacity.',
+  'The question for this scene: what are the time and space costs, and where do people slip?',
+  'get and put are both big O of 1: the dict finds the node in one step, and taking out or linking in changes only a fixed few pointers. Space is big O of capacity: the dict and the list each hold at most capacity nodes, plus the two sentinels.',
+  'Pitfall one: the node does not store its key. At eviction all you hold is the node before tail; without its key, you do not know what to delete from the dict.',
+  'Pitfall two: putting a key that already exists without first taking out the old node. The list ends up with two nodes for the same key, and the count goes wrong too.',
+  'Pitfall three: we add first and compare afterwards, so the check is greater than. If you write greater than or equal, you evict one extra item before you are actually over capacity.'
+]});
+
+/* ===== 10 Shortcut: OrderedDict ===== */
+add({ch:10, title:'Shortcut: <em>OrderedDict</em>', vis:
+  gloss(0,[['OrderedDict','A built-in Python dict that remembers order; inside, it is a dict + a doubly linked list'],['move_to_end(key)','Move this key to the very end'],['popitem(last=False)','Remove the one at the very front']])
+  + q(1,'Does Python have a ready-made tool? Can you just use it in an interview?')
+  + term('lru_od.py',[
+    [2,'o','from collections import OrderedDict'],
+    [2,'o','class LRUCache:'],
+    [2,'o','    def __init__(self, capacity: int):'],
+    [2,'o','        self.cap = capacity'],
+    [2,'o','        self.d = OrderedDict()'],
+    [2,'o','    def get(self, key: int) -> int:'],
+    [2,'o','        if key not in self.d:'],
+    [2,'o','            return -1'],
+    [2,'hl','        self.d.move_to_end(key)       # end = most recent'],
+    [2,'o','        return self.d[key]'],
+    [3,'o','    def put(self, key: int, value: int) -> None:'],
+    [3,'o','        if key in self.d:'],
+    [3,'hl','            self.d.move_to_end(key)'],
+    [3,'o','        self.d[key] = value'],
+    [3,'o','        if len(self.d) > self.cap:'],
+    [3,'hl','            self.d.popitem(last=False)  # evict front = least recent']])
+  + cards([[4,'You can, but ask first','"May I use OrderedDict?" Some interviewers want the hand-written list','amber']]),
+  say:[
+  'OrderedDict is a built-in Python dict that remembers order; inside, it is exactly a dict plus a doubly linked list. move to end moves a key to the very end, and popitem with last equal to False removes the one at the very front.',
+  'The question for this scene: does Python have a ready-made tool, and can you just use it in an interview?',
+  'get: if the key is missing, return minus 1; otherwise call move to end. Note the direction is the opposite of our list: here the end is the most recently used.',
+  'put: if the key exists, move it to the end first, then write the value. If we are over capacity, call popitem with last equal to False to evict the front, which is the least recently used.',
+  'That is about fifteen lines. But in an interview, ask first: may I use OrderedDict? Some interviewers want to see the hand-written linked list, so know both.'
+]});
+
+/* ===== 11 Interview ===== */
+add({ch:11, title:'In the interview, <em>say it like this</em>', vis:
+  gloss(0,[['approach first','Explain the method out loud; write code once the interviewer agrees']])
+  + q(1,'The interviewer asks: "Why a doubly linked list? Would a singly linked one work?"')
+  + flow([[2,'dict','key → node'],[2,'list','head recent, tail oldest'],[3,'touch','take out + link at front'],[3,'full','evict tail.prev'],[4,'complexity','both O(1)']])
+  + chips(4,['LRU cache','hash map','doubly linked list','sentinel node','O(1) get and put','OrderedDict','460 LFU Cache']),
+  say:[
+  'The habit in an interview is approach first: explain the method out loud, and write code once the interviewer agrees.',
+  'The question for this scene: the interviewer asks, why a doubly linked list, and would a singly linked one work?',
+  'Start with the method: I use a dict from key to node, and a doubly linked list ordered by recent use, with the most recent at the head side and the least recent at the tail side, and a sentinel at each end.',
+  'On every get or put, I take the node out and link it at the front; when over capacity, I evict the node before tail. Then answer the follow-up: taking a node out changes the pointer of the node before it, and finding that node in a singly linked list means walking from the start, big O of n. A doubly linked list has prev, so it is one step.',
+  'Both operations are big O of 1. The key English terms are hash map plus doubly linked list. The harder follow-up is problem 460, LFU Cache, which evicts by how often each key is used.'
+]});
+
+/* ===== 12 Wrap-up ===== */
+add({ch:12, title:'Three things <em>to remember</em>', vis:
+  flow([[0,'dict','key → node'],[0,'doubly linked list','ordered by recent use'],[0,'sentinels','no ifs'],[0,'evict','tail.prev']])
+  + cards([[1,'① Touched moves to the front; when full, the back is evicted','The back = least recently used = LRU','amber'],
+           [2,'② The dict finds the node; the doubly linked list moves it','Taking out needs prev, so it must be doubly linked','sky'],
+           [3,'③ Sentinels at both ends; the node stores its key','No special cases; eviction can delete from the dict','mint']]),
+  say:[
+  'One more pass through the main line: the dict maps key to node, the doubly linked list is ordered by recent use, there is a sentinel at each end, and when full we evict the node before tail.',
+  'Number one: whatever you touch moves to the front, and when full, the back is evicted. The back item is the least recently used.',
+  'Number two: the dict finds the node in one step, and the doubly linked list takes it out and puts it back in one step. Taking out needs to know the previous node, so the list must be doubly linked.',
+  'Number three: sentinels at both ends mean the pointer code needs no special cases, and the node stores its key so eviction can delete it from the dict.'
+]});
+
+/* ---------- player ---------- */
+const $ = id => document.getElementById(id);
+const screen = $('screen'), subtitle = $('subtitle');
+let cur = 0, step = -1, playing = false, token = 0;
+let voiceOn = true, speeds = [0.8,1,1.2,1.4,1.6], spIdx = 1;
+let xp = 0, okN = 0, qaN = 0, seen = new Set(), answered = {};
+let answerResolve = null;
+
+const store = {
+  get(k,d){ try{ const v = localStorage.getItem(META.key+'.'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(META.key+'.'+k, JSON.stringify(v)); }catch(e){} }
+};
+cur = Math.min(store.get('cur',0), SC.length-1);
+xp = store.get('xp',0); okN = store.get('ok',0); qaN = store.get('qa',0);
+seen = new Set(store.get('seen',[])); answered = store.get('ans',{});
+voiceOn = store.get('voice',true); spIdx = store.get('sp',1);
+
+const tts = 'speechSynthesis' in window ? window.speechSynthesis : null;
+let zhVoice = null;
+function pickVoice(){
+  if(!tts) return;
+  const vs = tts.getVoices();
+  zhVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang) && /Tingting|Xiaoxiao|Yunxi|Google/i.test(v.name))
+         || vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
+}
+if(tts){ pickVoice(); tts.onvoiceschanged = pickVoice; }
+
+const wait = ms => new Promise(r=>setTimeout(r,ms));
+const est = t => Math.max(1800, t.replace(/\s/g,'').length / (5.2*speeds[spIdx]) * 1000);
+
+const AUDIO_MAP = {"0-0": "a/f4d94cccbf7d.mp3", "0-1": "a/51e244ab0c6f.mp3", "0-2": "a/32dde0635aeb.mp3", "0-3": "a/7d74c414630b.mp3", "1-0": "a/8c1f466122ce.mp3", "1-1": "a/810a29274307.mp3", "1-2": "a/253482e1ffa7.mp3", "1-3": "a/3df2cf995a1a.mp3", "1-4": "a/f3cb94078a57.mp3", "1-5": "a/951181b4b9e8.mp3", "1-6": "a/1fc486898c3f.mp3", "1-7": "a/950a090ad731.mp3", "2-0": "a/83cbea3e3f85.mp3", "2-1": "a/239c32c339f9.mp3", "2-2": "a/4195588a3c5b.mp3", "2-3": "a/61d3cd98819b.mp3", "2-4": "a/d291f5810841.mp3", "2-5": "a/540b1ca1cd48.mp3", "3-0": "a/209e14294ffb.mp3", "3-1": "a/70e13dd1d45f.mp3", "3-2": "a/e9b7268258f2.mp3", "3-3": "a/024ec49693eb.mp3", "3-4": "a/21aeb382933a.mp3", "3-5": "a/218da27d044c.mp3", "4-0": "a/51fd0ede88c0.mp3", "4-1": "a/e97e7b7e9d9b.mp3", "4-2": "a/ffd1c7067a09.mp3", "4-3": "a/cfd1e6553b9d.mp3", "4-4": "a/70ad95dafba0.mp3", "4-5": "a/46612b64629c.mp3", "5-0": "a/3ecf8724c91d.mp3", "5-1": "a/e9abb08462b9.mp3", "5-2": "a/7379b5466160.mp3", "5-3": "a/78396dc82449.mp3", "5-4": "a/1acaa0c0eb97.mp3", "5-5": "a/a665d8c4dde9.mp3", "6-0": "a/e2d4dd629bbd.mp3", "6-1": "a/0dfe6018fae9.mp3", "6-2": "a/eaa17c6f702e.mp3", "6-3": "a/2dc2b64a29bf.mp3", "6-4": "a/68eca57a3ed2.mp3", "6-5": "a/08652d8b8e61.mp3", "6-6": "a/d0a8fa6457fd.mp3", "7-0": "a/922ec4f46be6.mp3", "7-1": "a/6065f0032e49.mp3", "7-2": "a/43db3cbc6980.mp3", "7-3": "a/a0301a048d02.mp3", "7-4": "a/a1a11a5e0be0.mp3", "7-5": "a/bf8e95796e38.mp3", "7-6": "a/6bae07f9118e.mp3", "8-0": "a/2d455d619ca3.mp3", "8-1": "a/6e483b0e9351.mp3", "8-2": "a/1fc2658897d1.mp3", "8-3": "a/feac9cdd43b6.mp3", "8-4": "a/922cfb3cdd21.mp3", "8-5": "a/8c3c2f896e51.mp3", "8-6": "a/6650cf33b807.mp3", "9-0": "a/e4fe9aa4a10c.mp3", "9-1": "a/0c033b283455.mp3", "9-2": "a/c6d1ffff6af5.mp3", "9-3": "a/dfa055f73d84.mp3", "9-4": "a/d29c2adcf432.mp3", "9-5": "a/08caf9645237.mp3", "10-0": "a/af804ac1cb55.mp3", "10-1": "a/7b771f2f3ded.mp3", "10-2": "a/3146814f538e.mp3", "10-3": "a/33a19e335789.mp3", "10-4": "a/63ac1ca871b3.mp3", "11-0": "a/4b2ac432bc4a.mp3", "11-1": "a/4010483e6226.mp3", "11-2": "a/4aabe0b5cff0.mp3", "11-3": "a/3bbcb8036cfd.mp3", "11-4": "a/dc7a956780af.mp3", "12-0": "a/5159e4496db8.mp3", "12-1": "a/58b0a066a1e8.mp3", "12-2": "a/14d650f2fa04.mp3", "12-3": "a/6b08e784da10.mp3"};
+let curAudio = null;
+function playClip(url, text, my){
+  return new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const dog=setTimeout(fin, est(text)*3+6000);
+    a.onended=fin; a.onerror=fin;
+    if(my!==token){ fin(); return; }
+    a.play().catch(fin);
+  });
+}
+const BUNDLE = /*__BUNDLE__*/null;   // {key: [chapterFile, startSec, endSec]}
+const blobCache = {};
+function getBlob(f){ if(!blobCache[f]) blobCache[f] = fetch(f).then(r=>{ if(!r.ok) throw new Error(r.status); return r.blob(); }).then(b=>URL.createObjectURL(b)); return blobCache[f]; }
+function prefetchCh(i){ if(!BUNDLE) return; const fs=new Set(); Object.keys(BUNDLE).forEach(k=>{ const n=+k.split('-')[0]; if(n>=i && n<=i+3) fs.add(BUNDLE[k][0]); }); fs.forEach(f=>getBlob(f).catch(()=>{})); }
+function playSeg(seg, text, my){
+  const [f,st,en]=seg;
+  return getBlob(f).then(url=>new Promise(res=>{
+    let done=false; const a=new Audio(url); curAudio=a; a.playbackRate=speeds[spIdx];
+    const fin=()=>{ if(!done){ done=true; clearTimeout(dog); try{a.pause();}catch(e){} res(); } };
+    const dog=setTimeout(fin, (en-st)*1000/speeds[spIdx]+8000);
+    const tick=()=>{ if(done) return; if(my!==token || a.currentTime>=en-0.03 || a.ended){ fin(); return; } requestAnimationFrame(tick); };
+    a.onerror=fin;
+    const go=()=>{ a.currentTime=st; a.play().then(()=>requestAnimationFrame(tick)).catch(fin); };
+    if(a.readyState>=1) go(); else a.addEventListener('loadedmetadata',go,{once:true});
+  })).catch(()=>wait(est(text)));
+}
+function say(text, my, key){
+  if(key && BUNDLE && BUNDLE[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playSeg(BUNDLE[key], text, my); }
+  if(key && AUDIO_MAP && AUDIO_MAP[key] && voiceOn){ subtitle.innerHTML = `<span>${esc(text)}</span>`; return playClip(AUDIO_MAP[key], text, my); }
+  subtitle.innerHTML = `<span>${esc(text)}</span>`;
+  if(!voiceOn || !tts) return wait(est(text));
+  return new Promise(res=>{
+    let done = false; const fin = ()=>{ if(!done){ done=true; clearTimeout(dog); res(); } };
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; if(zhVoice) u.voice = zhVoice; u.rate = 1.05*speeds[spIdx];
+    u.onend = fin; u.onerror = fin;
+    const dog = setTimeout(fin, est(text)*2.2 + 3000);  // watchdog if onend never fires
+    tts.cancel(); setTimeout(()=>{ if(my===token) tts.speak(u); else fin(); }, 60);
+  });
+}
+function stopVoice(){ if(tts) tts.cancel(); if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; } }
+
+function order(seed,n){ const a=[...Array(n).keys()]; let x=seed*9301+49297; for(let j=n-1;j>0;j--){ x=(x*9301+49297)%233280; const r=Math.floor(x/233280*(j+1)); [a[j],a[r]]=[a[r],a[j]]; } return a; }
+function build(sc, i){
+  const tag = `<div class="tag"><span class="ch">Chapter ${sc.ch}</span><span>${CH[sc.ch]}</span></div>`;
+  if(sc.quiz){
+    const prev = answered[i];
+    return `${tag}<h2>${sc.title}: <em>your turn</em></h2><div class="vis">
+      <p style="margin:0;font-size:1.1em;font-weight:700">${sc.q}</p>
+      <div class="opts">${order(i,sc.opts.length).map((k,pos)=>`<button class="opt" data-k="${k}"><span class="l">${'ABCD'[pos]}</span><span>${sc.opts[k]}</span></button>`).join('')}</div>
+      <div id="why"></div></div>`;
+  }
+  if(sc.cover){
+    return `${tag}<div class="cover"><h2 style="font-size:3em">${sc.title}</h2>
+      <p style="margin:0;color:var(--dim);max-width:46ch">${esc(META.doc)}: ${META.blurb} ${SC.length} scenes, about ${Math.round(SC.reduce((t,s)=>t+(s.say?s.say.join(' ').length:60),0)/850)} minutes.</p>
+      <div class="vis">${sc.vis}</div>
+      <button class="btn primary play" id="coverPlay">▶ Start</button></div>`;
+  }
+  return `${tag}<h2>${sc.title}</h2><div class="vis">${sc.vis}</div>`;
+}
+
+function render(i){
+  cur = i; step = -1;
+  screen.innerHTML = build(SC[i], i);
+  screen.classList.remove('fadein'); void screen.offsetWidth; screen.classList.add('fadein');
+  if(SC[i].quiz) wireQuiz(i);
+  const cp = $('coverPlay'); if(cp) cp.onclick = e=>{ e.stopPropagation(); play(); };
+  prefetchCh(i);
+  seen.add(i); store.set('seen',[...seen]); store.set('cur',i);
+  const nt=document.getElementById('note'); if(nt){ const all=store.get('notes',{}); nt.value=all[i]||''; nt.oninput=()=>{ const a=store.get('notes',{}); a[i]=nt.value; store.set('notes',a); }; }
+  $('sNum').textContent = i+1; $('sTot').textContent = SC.length;
+  $('progBar').style.width = ((i+1)/SC.length*100)+'%';
+  if(!SC[i].quiz) subtitle.innerHTML = `<span style="color:var(--dim)">${playing?'':'Press ▶ to play this scene, or click the screen to go line by line.'}</span>`;
+  drawChapters();
+  if(!SC[i].quiz && !playing){ if(SC[i].cover){ reveal(SC[i].say.length-1); step=-1; } else reveal(-1); }
+  fitWide();
+}
+
+/* Phone widths: a block wider than the scene (a fixed-column strip, a long grid) is zoomed down to fit instead of spilling off screen. */
+function fitWide(){
+  const vis = screen.querySelector('.vis'); if(!vis) return;
+  vis.querySelectorAll('[data-fit]').forEach(e=>{ e.style.zoom=''; e.removeAttribute('data-fit'); });
+  const box = vis.getBoundingClientRect(); if(!box.width) return;
+  const blocks = vis.querySelectorAll(':scope > *, .duo > div > *, .duo > .vis > *, .grid > *');
+  blocks.forEach(el=>{
+    if(el.closest('[data-fit]') || el.matches('style,.tbl,.term') ) return;
+    let lo = Infinity, hi = -Infinity;
+    [el, ...el.querySelectorAll('*')].forEach(d=>{
+      if(d.closest('.tbl,pre')) return;
+      const b = d.getBoundingClientRect(); if(!b.width) return;
+      lo = Math.min(lo, b.left); hi = Math.max(hi, b.right);
+    });
+    const need = hi - lo, room = box.width;
+    if(need > room + 1){ el.style.zoom = (room / need).toFixed(3); el.setAttribute('data-fit',''); }
+  });
+}
+window.addEventListener('resize', ()=>fitWide());
+
+function reveal(n){
+  step = n;
+  screen.querySelectorAll('.s').forEach(e=>{
+    const s = +e.dataset.s; e.classList.toggle('on', s<=n); e.classList.toggle('now', s===n);
+  });
+  if(n>=0){ const now = screen.querySelector('.s.now'); if(now && now.scrollIntoView && screen.scrollHeight>screen.clientHeight) now.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
+
+function wireQuiz(i){
+  const sc = SC[i];
+  screen.querySelectorAll('.opt').forEach(b=>b.onclick = e=>{
+    e.stopPropagation();
+    const k = +b.dataset.k, right = k===sc.a;
+    screen.querySelectorAll('.opt').forEach(x=>{ x.disabled = true; const kk=+x.dataset.k; if(kk===sc.a) x.classList.add('right'); else if(kk===k) x.classList.add('wrong'); });
+    $('why').innerHTML = `<div class="why ${right?'':'no'}">${right?'Correct! ':'Not quite. The answer is '+'ABCD'[order(i,sc.opts.length).indexOf(sc.a)]+'. '}${sc.why}</div>`;
+    if(!(i in answered)){
+      answered[i] = right; qaN++; if(right){ okN++; xp += 10; toast('+10 XP'); }
+      store.set('ans',answered); store.set('xp',xp); store.set('ok',okN); store.set('qa',qaN); stats();
+    }
+    if(answerResolve){ const r = answerResolve; answerResolve = null; r(right); }
+  });
+}
+
+async function runScene(my){
+  const sc = SC[cur];
+  if(sc.quiz){
+    await say('Quiz: '+sc.q, my, cur+'-q'); if(my!==token) return false;
+    if(!screen.querySelector('.opt[disabled]')){
+      subtitle.innerHTML = '<span style="color:var(--amber)">Your turn: pick an option.</span>';
+      const right = await new Promise(r=>{ answerResolve = r; });
+      if(my!==token) return false;
+      await say((right?'Correct! ':'Not quite. ')+sc.why, my, cur+'-w'+(right?1:0));
+    }
+    return my===token;
+  }
+  const lines = sc.say;
+  for(let n=step+1; n<lines.length; n++){
+    if(my!==token) return false;
+    reveal(n);
+    const L = lines[n];
+    if(typeof L==='object'){
+      await say('Think first: '+L.ask, my, cur+'-'+n); if(my!==token) return false;
+      for(let t=(L.wait||8); t>0; t--){
+        subtitle.innerHTML = `<span class="think" style="padding:.2em .6em;border-radius:8px">🤔 ${esc(L.ask)}  <b>${t}</b> s</span>`;
+        await wait(1000); if(my!==token) return false;
+      }
+    } else {
+      await say(L, my, cur+'-'+n);
+    }
+    if(my!==token) return false;
+    await wait(220);
+  }
+  return true;
+}
+
+async function play(){
+  if(playing) return;
+  playing = true; const my = ++token; setPlayUI();
+  // resume from the current line (replay it)
+  if(step>=0 && !SC[cur].quiz) step = step-1;
+  while(my===token){
+    const ok = await runScene(my);
+    if(!ok || my!==token) return;
+    if(cur>=SC.length-1){ pause(); subtitle.innerHTML='<span style="color:var(--mint)">All done. Click a chapter to rewatch.</span>'; return; }
+    await wait(650); if(my!==token) return;
+    render(cur+1);
+  }
+}
+function pause(){ playing = false; token++; stopVoice(); answerResolve = null; setPlayUI(); }
+function setPlayUI(){
+  $('playTxt').textContent = playing ? 'Pause' : 'Play';
+  $('playIcon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M7 5v14l12-7z"/>';
+}
+function go(i){
+  i = Math.max(0, Math.min(SC.length-1, i));
+  const was = playing; pause(); render(i); if(was) play();
+}
+function stepOnce(){
+  const sc = SC[cur]; if(sc.quiz) return;
+  if(playing) pause();
+  if(sc.say && step < sc.say.length-1){ reveal(step+1); const L=sc.say[step]; subtitle.innerHTML = `<span>${esc(typeof L==='object'?'🤔 Think first: '+L.ask:L)}</span>`; }
+  else if(cur < SC.length-1) render(cur+1);
+}
+function stats(){ $('xp').textContent = xp; $('ok').textContent = okN; $('qa').textContent = qaN; }
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1200); }
+
+function drawChapters(){
+  const firstOf = {}; SC.forEach((s,i)=>{ if(!(s.ch in firstOf)) firstOf[s.ch]=i; });
+  $('chapters').innerHTML = CH.map((t,ci)=>{
+    const idx = SC.map((s,i)=>s.ch===ci?i:-1).filter(i=>i>=0);
+    const done = idx.every(i=>seen.has(i));
+    return `<button class="chap ${SC[cur].ch===ci?'cur':''} ${done?'done':''}" data-i="${firstOf[ci]}"><span class="n">Chapter ${ci} · ${idx.length} scenes</span><span class="t">${t}</span></button>`;
+  }).join('');
+  $('chapters').querySelectorAll('.chap').forEach(b=>b.onclick=()=>go(+b.dataset.i));
+}
+
+$('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
+$('bPlay').onclick = ()=> playing ? pause() : play();
+$('bPrev').onclick = ()=> go(cur-1);
+$('bNext').onclick = ()=> go(cur+1);
+$('bStep').onclick = stepOnce;
+$('bVoice').onclick = ()=>{ voiceOn=!voiceOn; store.set('voice',voiceOn); voiceUI(); if(!voiceOn) stopVoice(); if(playing){ pause(); play(); } };
+$('bSpeed').onclick = ()=>{ spIdx=(spIdx+1)%speeds.length; store.set('sp',spIdx); speedUI(); if(playing){ pause(); play(); } };
+function voiceUI(){ const b=$('bVoice'); b.setAttribute('aria-pressed', voiceOn); b.textContent = (!tts && !AUDIO_MAP && !BUNDLE) ? 'Voice unavailable' : (voiceOn?'Voice on':'Voice off'); }
+function speedUI(){ $('bSpeed').textContent = 'Speed '+speeds[spIdx].toFixed(1)+'×'; }
+screen.onclick = e=>{ if(e.target.closest('button')) return; stepOnce(); };
+$('prog').onclick = e=>{ const r=e.currentTarget.getBoundingClientRect(); go(Math.floor((e.clientX-r.left)/r.width*SC.length)); };
+document.addEventListener('keydown', e=>{
+  if(e.target.closest('input,textarea')) return;
+  if(e.code==='Space'){ e.preventDefault(); playing?pause():play(); }
+  else if(e.key==='ArrowRight') go(cur+1);
+  else if(e.key==='ArrowLeft') go(cur-1);
+  else if(e.key==='ArrowDown'){ e.preventDefault(); stepOnce(); }
+});
+
+$('brand').innerHTML = `${esc(META.title)}<small>${esc(META.sub)}</small>`;
+voiceUI(); speedUI(); stats(); render(cur);
+</script>
+
+</body>
+</html>
