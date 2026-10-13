@@ -722,6 +722,12 @@ function drawChapters(){
 
 $('bCopy').onclick=async()=>{ const a=store.get('notes',{}); const txt=Object.keys(a).sort((x,y)=>x-y).filter(k=>a[k]).map(k=>`Scene ${+k+1} · ${SC[k].title.replace(/<[^>]+>/g,'')}\n${a[k]}`).join('\n\n')||'(no notes yet)'; try{ await navigator.clipboard.writeText(txt); $('copyMsg').textContent='Copied'; }catch(e){ const ta=$('note'); ta.value=txt; ta.select(); $('copyMsg').textContent='Selected; press Cmd+C to copy'; } };
 $('bPlay').onclick = ()=> playing ? pause() : play();
+/* 关掉、切走或收起视频时停声：页面卸载、隐藏，或者所在的框被收起（尺寸变成 0）都会暂停 */
+function haltAll(){ if(playing) pause(); else stopVoice(); }
+['pagehide','beforeunload','unload','freeze'].forEach(e=>window.addEventListener(e, haltAll));
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) haltAll(); });
+window.addEventListener('resize', ()=>{ if(window.innerWidth===0 || window.innerHeight===0) haltAll(); });
+
 $('bPrev').onclick = ()=> go(cur-1);
 $('bNext').onclick = ()=> go(cur+1);
 $('bStep').onclick = stepOnce;
